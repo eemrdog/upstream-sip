@@ -1,0 +1,93 @@
+{{- $globals := fromJson (include "eric-sec-sip-tls-crd.global" .) -}}
+
+{{ if or (.Values.waitForCustomResourcesPublished) (eq (.Values.waitForCustomResourcesPublished | toString) "<nil>" ) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "eric-sec-sip-tls-crd.name" . }}
+  labels:
+    {{- include "eric-sec-sip-tls-crd.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls-crd.annotations" . | indent 4 }}
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  {{- if .Values.podPriority.priorityClassName }}
+  priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "eric-sec-sip-tls-crd.labels" . | nindent 8 }}
+      annotations:
+        {{- include "eric-sec-sip-tls-crd.annotations" . | indent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- if .Values.persistence }}
+        {{- if .Values.persistence.type }}
+          {{- if eq .Values.persistence.type "pvc" }}
+      securityContext:
+        fsGroup: {{ include "eric-sec-sip-tls-crd.fsGroup.coordinated" . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+      - name: crdjob
+        image: {{ template "eric-sec-sip-tls-crd.crdjobPath" . }}
+        imagePullPolicy: {{ template "eric-sec-sip-tls-crd.imagePullPolicy" . }}
+        command: ["./crd-scripts/check_crds.bash"]
+        {{- include "eric-sec-sip-tls-crd.securityContext" . | nindent 8 }}
+        {{- include "eric-sec-sip-tls-crd.crdjob.resources" . | nindent 8 }}
+        env:
+          - name: SERVICE_NAME
+            value: {{ template "eric-sec-sip-tls-crd.name" . }}
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: MY_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: CONTAINER_NAME
+            value: "crdjob"
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+          - name: TZ
+            value: {{ template "eric-sec-sip-tls-crd.timezone" . }}
+        volumeMounts:
+          - name: sip-tls-crdjob-tmp
+            mountPath: /tmp
+          - name: scripts
+            mountPath: /crd-scripts
+      serviceAccountName: {{ template "eric-sec-sip-tls-crd.name" . }}-service-account
+      volumes:
+        - name: sip-tls-crdjob-tmp
+          emptyDir:
+            sizeLimit: "10Mi"
+            medium: "Memory"
+        - name: scripts
+          configMap:
+            name: {{ template "eric-sec-sip-tls-crd.name" . }}-config
+            defaultMode: 0777
+      {{- if include "eric-sec-sip-tls-crd.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-sec-sip-tls-crd.pullSecrets" . }}
+      {{- end }}
+      {{- if (or .Values.nodeSelector $globals.nodeSelector) }}
+      nodeSelector: {{- include "eric-sec-sip-tls-crd.nodeSelector" . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
