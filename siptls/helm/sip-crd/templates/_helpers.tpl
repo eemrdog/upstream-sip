@@ -6,7 +6,7 @@ This hides defaults from values file.
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret" "") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "internalIPFamily" "") -}}
