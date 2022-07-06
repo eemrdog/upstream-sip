@@ -1,60 +1,32 @@
-## Default values for eric-sec-certm-crd.
-## This is a YAML-formatted file.
-## Declare variables to be passed into your templates.
-
-# Global parameters shall be defined in the top level values.yaml
-# They are kept here for indicating which are supported and their default values.
-#
-#global:
-#  security:
-#    policyBinding:
-#      create: false
-#    policyReferenceMap:
-#      default-restricted-security-policy: default-restricted-security-policy
-#  nodeSelector:
-#  pullSecret:
-#  registry:
-#    imagePullPolicy: IfNotPresent
-#    url: armdocker.rnd.ericsson.se
-#  timezone: UTC
-
 annotations: {}
-
-labels: {}
-
+image: 451278531435.dkr.ecr.us-east-1.amazonaws.com/proj-adp-certificate-management-released/eric-sec-certm/eric-sec-certm-crd:3.11.0-81
 imageCredentials:
-  pullSecret:
+  pullSecret: null
   registry:
-    imagePullPolicy:
-    url:
-  repoPath:
-
+    imagePullPolicy: null
+    url: null
+  repoPath: null
+labels: {}
 resources:
   crdjob:
-    requests:
-      memory: "50Mi"
-      cpu: "50m"
-      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions.
     limits:
-      memory: "100Mi"
-      cpu: "100m"
-      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions.
-
+      cpu: 100m
+      ephemeral-storage: null
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      ephemeral-storage: null
+      memory: 50Mi
 terminationGracePeriodSeconds:
   eric-sec-certm-crd: 30
-
 tolerations:
   eric-sec-certm-crd:
-  - key: node.kubernetes.io/not-ready
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
     operator: Exists
-    effect: NoExecute
     tolerationSeconds: 0
-  - key: node.kubernetes.io/unreachable
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
     operator: Exists
-    effect: NoExecute
     tolerationSeconds: 0
-
 waitForCustomResourcesPublished: true
-
-# Node selector
-#nodeSelector: {}
