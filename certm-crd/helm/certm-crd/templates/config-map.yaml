@@ -1,0 +1,15 @@
+{{ if or (.Values.waitForCustomResourcesPublished) (eq (.Values.waitForCustomResourcesPublished | toString) "<nil>" ) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-sec-certm-crd.name" . }}-config
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+data:
+  check_crds.bash: |
+    {{- tpl (.Files.Get "files/check_crds.bash") . | nindent 4 }}
+  crds.bash: |
+    {{- tpl (.Files.Get "files/crds.bash") . | nindent 4 }}
+{{- end }}
