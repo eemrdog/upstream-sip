@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eric-lm-combined-server.lsc-service-address" . }}
+  labels:
+    {{- include "eric-lm-combined-server.lsc-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  type: {{ include "eric-lm-combined-server.lsc-service-type" . }}
+{{- if .Values.global }}
+    {{- if .Values.global.internalIPFamily }}
+  ipFamilies: [{{ .Values.global.internalIPFamily | quote }}]
+    {{- end }}
+{{- end }}
+  ports:
+    - port: {{ include "eric-lm-combined-server.lsc-livenessProbePort" . }}
+      targetPort: liveness-port
+      protocol: TCP
+      name: liveness
+  selector:
+    {{- include "eric-lm-combined-server.lsc-selector-labels" . | nindent 4 }}

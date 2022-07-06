@@ -1,0 +1,21 @@
+{{- if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "eric-fh-alarm-handler.name" . }}-pbd
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+{{- if eq (int .Values.replicaCount ) 1 }}
+  minAvailable: 0
+{{- else }}
+  minAvailable: {{ index .Values "podDisruptionBudget" "minAvailable" }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "eric-fh-alarm-handler.name" . }}

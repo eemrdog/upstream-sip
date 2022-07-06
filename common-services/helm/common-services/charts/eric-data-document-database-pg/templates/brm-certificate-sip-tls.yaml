@@ -1,0 +1,25 @@
+{{- if and .Values.brAgent.enabled (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+ name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-brm-cert
+ annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+ labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+spec:
+ kubernetes:
+  generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-brm-cert
+  certificateName: brm-cert.pem
+  privateKeyName: brm-privkey.pem
+ certificate:
+  subject:
+   cn: {{ template "eric-data-document-database-pg.secretBaseName" . }}-brm-cert
+  subjectAlternativeName:
+   dns:
+      - {{ template "eric-data-document-database-pg.name" . }}-bragent
+      - {{ template "eric-data-document-database-pg.name" . }}-bragent.{{.Release.Namespace}}
+      - {{ template "eric-data-document-database-pg.name" . }}-bragent.{{.Release.Namespace}}.svc
+      - {{ template "eric-data-document-database-pg.name" . }}-bragent.{{.Release.Namespace}}.svc.{{.Values.k8sClusterInfo.clusterDomain}}
+  extendedKeyUsage:
+   tlsClientAuth: true
+   tlsServerAuth: true
+{{- end }}

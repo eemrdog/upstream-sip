@@ -1,0 +1,74 @@
+{{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
+[sssd]
+config_file_version = 2
+services = nss, pam, ssh
+domains = la.adp.ericsson,ca.adp.ericsson
+
+[nss]
+filter_users = root
+filter_groups = root
+reconnection_retries = 3
+#debug_level = 9
+memcache_timeout = 5
+
+[pam]
+reconnection_retries = 3
+#debug_level = 9
+
+[domain/la.adp.ericsson]
+{{- if .Values.userConfig.ldap.useIPv6DNSFirst }}
+lookup_family_order = ipv6_first
+{{- end }}
+id_provider = ldap
+auth_provider = ldap
+access_provider = ldap
+ldap_access_order = filter
+ldap_access_filter = (&(objectClass=posixAccount)(!(ericssonAccountLockedTime=*))(!(ericssonAccountOperLockedTime=*)))
+ldap_schema = rfc2307bis
+enumerate = false
+cache_credentials = false
+ldap_uri = {{ .Values.userConfig.ldap.uri }}
+ldap_search_base = {{ .Values.userConfig.ldap.searchBase }}
+override_gid = 10000
+#debug_level = 9
+{{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+ldap_id_use_start_tls = True
+ldap_tls_cacert = /run/secrets/cacert/cacertbundle.pem
+ldap_tls_cert = /run/secrets/ldap-client-cert/clicert.pem
+ldap_tls_key = /run/secrets/ldap-client-cert/cliprivkey.pem
+ldap_sasl_mech = EXTERNAL
+{{- else }}
+ldap_auth_disable_tls_never_use_in_production = true
+ldap_default_authtok = @@AA_CLIENT_PASSWORD@@
+ldap_default_bind_dn = cn=eric-aa-client,dc=la,dc=adp,dc=ericsson
+ldap_tls_reqcert = never
+{{- end }}
+
+[domain/ca.adp.ericsson]
+{{- if .Values.userConfig.ldap.useIPv6DNSFirst }}
+lookup_family_order = ipv6_first
+{{- end }}
+id_provider = ldap
+auth_provider = ldap
+access_provider = ldap
+ldap_access_order = filter
+ldap_access_filter = (&(objectClass=posixAccount)(!(ericssonAccountLockedTime=*))(!(ericssonAccountOperLockedTime=*)))
+ldap_schema = rfc2307bis
+enumerate = false
+cache_credentials = false
+ldap_uri = {{ .Values.userConfig.ldap.uri }}
+ldap_search_base = ou=people,dc=ca,dc=adp,dc=ericsson
+override_gid = 10000
+#debug_level = 9
+{{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+ldap_id_use_start_tls = True
+ldap_tls_cacert = /run/secrets/cacert/cacertbundle.pem
+ldap_tls_cert = /run/secrets/ldap-client-cert/clicert.pem
+ldap_tls_key = /run/secrets/ldap-client-cert/cliprivkey.pem
+ldap_sasl_mech = EXTERNAL
+{{- else }}
+ldap_auth_disable_tls_never_use_in_production = true
+ldap_default_authtok = @@AA_CLIENT_PASSWORD@@
+ldap_default_bind_dn = cn=eric-aa-client,dc=la,dc=adp,dc=ericsson
+ldap_tls_reqcert = never
+{{- end }}

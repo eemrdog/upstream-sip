@@ -1,0 +1,30 @@
+{{ if .Values.metrics.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . }}-metrics-exporter-cfg
+  labels:
+    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+data:
+  application.properties: |
+    logstash.port= 9600
+    logstash.metricsPort= 9114
+  log4j2.properties: |
+    status={{ .Values.logLevel | default "info" | lower }}
+    name=PropertiesConfig
+    appenders=console
+    appender.console.type=Console
+    appender.console.name=STDOUT
+    appender.console.layout.type=PatternLayout
+    appender.console.layout.pattern={"version":"1.0.0", \
+                                     "severity":"%level{WARN=warning,lowerCase=true}", \
+                                     "timestamp":"%d{YYYY-MM-dd'T'HH:mm:ss.sssXXX}", \
+                                     "service_id":{{ include "eric-log-transformer.fullname" . | quote }}, \
+                                     "message":"%m", \
+                                     "metadata": {"container_name":"metrics"}}%n
+    rootLogger.level={{ .Values.logLevel | default "info" | lower }}
+    rootLogger.appenderRefs=stdout
+    rootLogger.appenderRef.stdout.ref=STDOUT
+{{ end }}

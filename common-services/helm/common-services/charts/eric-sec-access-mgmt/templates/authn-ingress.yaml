@@ -1,0 +1,37 @@
+{{ if and .Values.authenticationProxy.enabled .Values.authenticationProxy.ingress.enabled }}
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+# Ingress for redirections to authentication proxy from IAM/KC and
+# for authentication proxy Logout endpoint.
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-authn
+  annotations:
+    {{- $ingressAnnotations := (.Values.authenticationProxy.ingress.annotations) -}}
+    {{- $annotations := dict -}}
+    {{- if .Values.authenticationProxy.ingress.ingressClass }}
+      {{- $_ := set $annotations "kubernetes.io/ingress.class" (.Values.authenticationProxy.ingress.ingressClass) -}}
+    {{- end }}
+    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $annotations $ingressAnnotations $common)) | trim | nindent 4 }}
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+spec:
+  virtualhost:
+    fqdn: {{ .Values.authenticationProxy.ingress.hostname | quote }}
+{{ if .Values.authenticationProxy.ingress.tls.enabled }}
+    tls:
+      secretName: {{ template "eric-sec-access-mgmt.authnIngressTLSSecret" . }}
+{{- end }}
+  routes:
+    - conditions:
+      - prefix: /adp-iam-auth-proxy
+      services:
+      - name: {{ template "eric-sec-access-mgmt.name" . }}-authn
+        port: 8080
+{{- if $global.security.tls.enabled }}
+        protocol: tls
+        validation:
+          caSecret: eric-sec-sip-tls-trusted-root-cert
+          subjectName: {{ template "eric-sec-access-mgmt.name" . }}-authn
+{{- end }}
+{{ end }}

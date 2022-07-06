@@ -1,0 +1,22 @@
+{{- $port := 8443 -}}
+{{- if index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
+{{- $port:= index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ index .Values "eric-sec-access-mgmt" "ingress" "hostname" }}
+  labels:
+    {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 443
+      targetPort: {{ $port }}
+      protocol: TCP
+  selector:
+    app: eric-sec-access-mgmt
+    release: {{ .Release.Name | quote }}

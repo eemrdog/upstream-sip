@@ -1,0 +1,22 @@
+{{- $g := fromJson (include "eric-log-transformer.global" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . }}-rb
+  annotations:
+    {{- $securityPolicy := dict -}}
+    {{- $_ := set $securityPolicy "ericsson.com/security-policy.capabilities" "" -}}
+    {{- $_ := set $securityPolicy "ericsson.com/security-policy.type" "restricted/default" -}}
+    {{- $defaultAnn := fromYaml (include "eric-log-transformer.annotations" .) -}}
+    {{- include "eric-log-transformer.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicy $defaultAnn)) | trim | nindent 4 }}
+  labels:
+    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-log-transformer.fullname" . }}-sa
+{{- end -}}

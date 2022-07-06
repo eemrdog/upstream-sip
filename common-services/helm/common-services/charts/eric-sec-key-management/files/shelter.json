@@ -1,0 +1,68 @@
+{{- $etcdSvcPort := .Values.persistence.etcd.servicePort | default "2379" | toString -}}
+{{- $etcdSvc := (printf "https://%s:%s" .Values.persistence.etcd.serviceName $etcdSvcPort) -}}
+{
+  "disable_mlock": true,
+  "listener":[
+    {
+      "tcp": {
+        "address": "[::]:8210",
+        "cluster_address": "[::]:8211",
+        {{- if .Values.service.tls.enabled }}
+        "tls_cert_file": "/run/secrets/tls-int-srv-cert/srvcert.pem",
+        "tls_key_file": "/run/secrets/tls-int-srv-cert/srvprivkey.pem",
+        "tls_min_version": "tls12"
+        {{- else }}
+        "tls_disable": true
+        {{- end }}
+      }
+    },
+    {
+      "tcp": {
+        "address":"127.0.0.1:8212",
+        "tls_disable": true,
+        "telemetry": {
+          "unauthenticated_metrics_access": true
+        }
+      }
+    }
+  ],
+  "telemetry": {
+    "prometheus_retention_time": "24h",
+    "filter_default": false,
+    "prefix_filter": [
+      "+vault.core.handle_request",
+      "+vault.core.handle_login_request",
+      "+vault.etcd.put",
+      "+vault.etcd.get",
+      "+vault.etcd.delete",
+      "+vault.etcd.list",
+      "+vault.expire.renew",
+      "+vault.token.count.by_auth",
+      "+vault.token.count.by_ttl",
+      "+vault.token.create",
+      "+vault.token.createAccessor",
+      "+vault.token.creation"
+    ]
+  },
+  "storage": {
+    {{- if eq .Values.persistence.type "etcd" }}
+    "etcd": {
+        "address": {{ $etcdSvc | quote }},
+        "etcd_api": "v3",
+        "sync": "false",
+        "path": "/shelter/",
+        {{- if .Values.persistence.etcd.tls.enabled }}
+        "tls_ca_file": "/kms/run/cacertbundle.crt",
+        "tls_cert_file": "/run/secrets/tls-client-certs/clicert.pem",
+        "tls_key_file": "/run/secrets/tls-client-certs/cliprivkey.pem",
+        {{- end }}
+        "request_timeout": {{ .Values.persistence.etcd.requestTimeout | quote }},
+        "lock_timeout": "11s"
+    }
+    {{- else }}
+    "file": {
+      "path":"/kms/data/eric-shelter"
+    }
+    {{- end }}
+  }
+}

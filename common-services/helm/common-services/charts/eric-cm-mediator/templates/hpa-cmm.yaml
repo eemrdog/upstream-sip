@@ -1,0 +1,16 @@
+{{ if index .Values "autoScaling" "eric-cm-mediator" "enabled" }}
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}
+  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+spec:
+  minReplicas: {{ index .Values "autoScaling" "eric-cm-mediator" "minReplicas" }}
+  maxReplicas: {{ index .Values "autoScaling" "eric-cm-mediator" "maxReplicas" }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "eric-cm-mediator.name" . }}  # CMM deployment name
+  targetCPUUtilizationPercentage: 90                # Percentage of CPU resource request
+{{- end }}

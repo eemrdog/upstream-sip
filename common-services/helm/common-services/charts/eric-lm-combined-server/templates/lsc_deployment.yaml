@@ -1,0 +1,392 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "eric-lm-combined-server.name" . }}-license-server-client
+  labels:
+    {{- include "eric-lm-combined-server.lsc-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.licenseServerClient.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "eric-lm-combined-server.lsc-selector-labels" . | nindent 6 }}
+  strategy:
+    type: {{ .Values.licenseServerClient.updateStrategy.type }}
+    {{- if and (eq .Values.licenseServerClient.updateStrategy.type "RollingUpdate") .Values.licenseServerClient.updateStrategy.rollingUpdate }}
+    rollingUpdate:
+      {{- toYaml .Values.licenseServerClient.updateStrategy.rollingUpdate | nindent 6 }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "eric-lm-combined-server.lsc-labels" . | nindent 8 }}
+      annotations:
+        {{- $podTempAnn := dict -}}
+        {{- if index .Values "bandwidth" "eric-lm-license-server-client" "maxEgressRate" }}
+          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (index .Values "bandwidth" "eric-lm-license-server-client" "maxEgressRate") -}}
+        {{- end }}
+        {{- $commonAnn := include "eric-lm-combined-server.annotations" . | fromYaml -}}
+        {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "eric-lm-combined-server.name" . }}
+      {{- if include "eric-lm-combined-server.pullSecrets" . }}
+      terminationGracePeriodSeconds: {{ index .Values.terminationGracePeriodSeconds "eric-lm-combined-server-license-server-client"  }}
+      imagePullSecrets:
+      {{- include "eric-lm-combined-server.pullSecrets" . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-conf-volume
+          configMap:
+            name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-conf-configmap
+            items:
+              - key: lch.conf
+                path: lch.conf
+        - name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-sql-volume
+          configMap:
+            name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-sql-configmap
+        {{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" }}
+        - name: {{ include "eric-lm-combined-server.name" . }}-db-cert-volume
+          secret:
+            secretName: {{ include "eric-lm-combined-server.db.client-certificate-name" . }}
+        - name: {{ include "eric-lm-combined-server.name" . }}-db-admin-volume
+          secret:
+            secretName: {{ include "eric-lm-combined-server.db.admin-certificate-name" . }}
+        - name: {{ include "eric-lm-combined-server.name" . }}-tmp-volume
+          emptyDir:
+            medium: Memory
+        {{- end }}
+        {{- if eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true" }}
+        - name: {{ include "eric-lm-combined-server.name" . }}-asih-cert-volume
+          secret:
+            secretName: {{ include "eric-lm-combined-server.asih.client-certificate-name" . }}
+        {{- end }}
+        {{- if or (eq (include "eric-lm-combined-server.db.tls.enabled" .) "true") (eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true") }}
+        - name: {{ include "eric-lm-combined-server.name" . }}-sip-tls-root-volume
+          secret:
+            secretName: eric-sec-sip-tls-trusted-root-cert
+        {{- end }}
+        {{- $g := fromJson (include "eric-lm-combined-server.global" .) }}
+        {{- if has "applicationLevel" $g.log.outputs }}
+        {{- include "eric-lm-combined-server.logshipper-volume" . | nindent 8 }}
+        {{- end }}
+      initContainers:
+        - name: eric-lm-database-migration
+          image: {{ include "eric-lm-combined-server.migration-image-ref" . }}
+          imagePullPolicy: {{ include "eric-lm-combined-server.migration-image-pullPolicy" . }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+          volumeMounts:
+            - name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-conf-volume
+              mountPath: "/opt/flyway/conf"
+            - name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-sql-volume
+              mountPath: "/opt/flyway/sql"
+            {{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" }}
+            - name: {{ include "eric-lm-combined-server.name" . }}-db-cert-volume
+              mountPath: "/opt/DatabaseMigration/certs"
+              readOnly: true
+            - name: {{ include "eric-lm-combined-server.name" . }}-db-admin-volume
+              mountPath: "/opt/DatabaseMigration/adminCerts"
+              readOnly: true
+            - name: {{ include "eric-lm-combined-server.name" . }}-sip-tls-root-volume
+              mountPath: "/opt/flyway/sipTlsRootCerts"
+              readOnly: true
+            - name: {{ include "eric-lm-combined-server.name" . }}-tmp-volume
+              mountPath: "/tmp"
+            {{- end }}
+            {{- if has "applicationLevel" $g.log.outputs }}
+            {{- include "eric-lm-combined-server.logshipper-storage-path" . | nindent 12 }}
+            {{- end }}
+          env:
+            {{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" }}
+            - name: DATABASE_USER
+              value: {{ .Values.database.userName | quote }}
+            - name: DATABASE_URL
+              value: {{ include "eric-lm-combined-server.database-url" . | quote }}
+            - name: DATABASE_CERTIFICATE_FROM_SIP
+              value: "true"
+            - name: DATABASE_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DATABASE_PSQL_URL
+              value: {{ include "eric-lm-combined-server.tls.database-psql-url" . | quote }}
+            - name: FLYWAY_URL
+              value: {{ include "eric-lm-combined-server.db-migration.tls.database-jdbc-url" . | quote }}
+            {{- else }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.credentials.secretName | quote }}
+                  key: {{ .Values.database.credentials.userKey | quote }}
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.credentials.secretName | quote }}
+                  key: {{ .Values.database.credentials.passwordKey | quote }}
+            - name: DATABASE_URL
+              value: {{ include "eric-lm-combined-server.database-url" . | quote }}
+            - name: FLYWAY_URL
+              value: {{ include "eric-lm-combined-server.database-jdbc-url" . | quote }}
+            {{- end }}
+            - name: FLYWAY_CONFIG_FILES
+              value: "/opt/flyway/conf/lch.conf"
+            - name: MIN_SCHEMA_VERSION
+              value: {{ include "eric-lm-combined-server.database.lchMigrationVersion" . | quote }}
+            - name: TZ
+              value: {{ include "eric-lm-combined-server.timezone" . | quote }}
+            - name: LOG_OUTPUT
+            {{- if has "applicationLevel" $g.log.outputs }}
+              value: "all"
+            {{- else }}
+              value: "stdout"
+            {{- end }}
+          {{- if (index .Values "resources" "eric-lm-database-migration") }}
+          resources:
+            limits:
+            {{- if (index .Values "resources" "eric-lm-database-migration" "limits" "cpu") }}
+              cpu: {{ (index .Values "resources" "eric-lm-database-migration" "limits" "cpu") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-database-migration" "limits" "memory") }}
+              memory: {{ (index .Values "resources" "eric-lm-database-migration" "limits" "memory") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-database-migration" "limits" "ephemeral-storage") }}
+              ephemeral-storage: {{ (index .Values "resources" "eric-lm-database-migration" "limits" "ephemeral-storage") | quote }}
+            {{- end }}
+            requests:
+            {{- if (index .Values "resources" "eric-lm-database-migration" "requests" "cpu") }}
+              cpu: {{ (index .Values "resources" "eric-lm-database-migration" "requests" "cpu") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-database-migration" "requests" "memory") }}
+              memory: {{ (index .Values "resources" "eric-lm-database-migration" "requests" "memory") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-database-migration" "requests" "ephemeral-storage") }}
+              ephemeral-storage: {{ (index .Values "resources" "eric-lm-database-migration" "requests" "ephemeral-storage") | quote }}
+            {{- end }}
+          {{- end }}
+      {{- if .Values.licenseServerIpAddresses }}
+      {{- if or (not (empty .Values.licenseServerIpAddresses.ip1)) (not (empty .Values.licenseServerIpAddresses.ip2)) }}
+      hostAliases:
+          {{- if .Values.licenseServerIpAddresses.ip1 }}
+      - ip: {{ .Values.licenseServerIpAddresses.ip1 | quote }}
+        hostnames:
+        - {{ .Values.licenseServerClient.licenseServer.thrift.host | quote }}
+          {{- end }}
+          {{- if .Values.licenseServerIpAddresses.ip2 }}
+      - ip: {{ .Values.licenseServerIpAddresses.ip2 | quote }}
+        hostnames:
+        - {{ .Values.licenseServerClient.licenseServer.thrift.host | quote }}
+          {{- end }}
+      {{- end }}
+      {{- end }}
+      containers:
+        {{- if has "applicationLevel" $g.log.outputs }}
+        {{- include "eric-lm-combined-server.logshipper-container" . | nindent 8 }}
+        {{- end }}
+        - name: eric-lm-license-server-client
+          image: {{ include "eric-lm-combined-server.lsc-image-ref" . }}
+          imagePullPolicy: {{ include "eric-lm-combined-server.lsc-image-pullPolicy" . }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+          volumeMounts:
+            {{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" }}
+            - name: {{ include "eric-lm-combined-server.name" . }}-db-cert-volume
+              mountPath: "/opt/LicenseServerClient/database/certs"
+              readOnly: true
+            - name: {{ include "eric-lm-combined-server.name" . }}-tmp-volume
+              mountPath: "/tmp"
+            {{- end }}
+            {{- if eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true" }}
+            - name: {{ include "eric-lm-combined-server.name" . }}-asih-cert-volume
+              mountPath: "/opt/LicenseServerClient/asih/certs"
+              readOnly: true
+            {{- end }}
+            {{- if or (eq (include "eric-lm-combined-server.db.tls.enabled" .) "true") (eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true") }}
+            - name: {{ include "eric-lm-combined-server.name" . }}-sip-tls-root-volume
+              mountPath: "/opt/LicenseServerClient/sipTlsRootCerts"
+              readOnly: true
+            {{- end }}
+            {{- if has "applicationLevel" $g.log.outputs }}
+            {{- include "eric-lm-combined-server.logshipper-storage-path" . | nindent 12 }}
+            {{- end }}
+          env:
+            {{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" }}
+            - name: DATABASE_URL
+              value: {{ include "eric-lm-combined-server.lsc.tls.database-jdbc-url" . | quote }}
+            - name: DATABASE_USER
+              value: {{ .Values.database.userName | quote }}
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ include "eric-lm-combined-server.database-jdbc-url" . | quote }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.credentials.secretName | quote }}
+                  key: {{ .Values.database.credentials.userKey | quote }}
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.credentials.secretName | quote }}
+                  key: {{ .Values.database.credentials.passwordKey | quote }}
+            {{- end }}
+            - name: DATABASE_DRIVER
+              value: {{ include "eric-lm-combined-server.database-driver" . | quote }}
+            - name: DATABASE_DRIVER_PATH
+              value: {{ .Values.database.driverPath | quote }}
+            - name: DATABASE_DIALECT
+              value: {{ include "eric-lm-combined-server.database-dialect" . | quote }}
+            - name: LICENSE_SERVER_CLIENT_ID
+              value: {{ .Values.licenseServerClient.licenseServer.clientId | quote }}
+            - name: LICENSE_SERVER_HOST
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.host | quote }}
+            - name: LICENSE_SERVER_PORT
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.port | quote }}
+            - name: LICENSE_SERVER_THRIFT_CONNECTION_TIMEOUT
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.connectionTimeout | quote }}
+            - name: DELAY_AFTER_FAILED_CONNECT
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.delayAfterFailedConnect | quote }}
+            - name: DELAY_AFTER_LICENSE_SERVER_DOWN
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDown | quote }}
+            - name: DELAY_AFTER_LICENSE_SERVER_DOWN_MAX_RANDOM_VALUE
+              value: {{ .Values.licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDownMaxRandomValue | quote }}
+            - name: ASIH_SERVER_HOST
+              value: {{ .Values.licenseServerClient.asih.host | quote  }}
+            - name: ASIH_SERVER_PORT
+              value: {{ .Values.licenseServerClient.asih.port | quote }}
+            {{- if eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true" }}
+            - name: ASIH_CLIENT_CACERT_PATH
+              value: {{ printf "%s" "/opt/LicenseServerClient/sipTlsRootCerts/cacertbundle.pem" | quote }}
+            - name: ASIH_CLIENT_CERT_PATH
+              value: {{ printf "%s/%s" "/opt/LicenseServerClient/asih/certs" (include "eric-lm-combined-server.asih.client-cert.cert-file" .) | quote }}
+            - name: ASIH_CLIENT_KEY_PATH
+              value: {{ printf "%s/%s" "/opt/LicenseServerClient/asih/certs" (include "eric-lm-combined-server.asih.client-cert.key-file" .) | quote }}
+            {{- end }}
+            - name: APPLICATION_ID_FALURE_RETRY_INTERVAL_MILLIS
+              value: {{ include "eric-lm-combined-server.asih.failureRetryInterval" . | quote }}
+            - name: AGGREGATE_PEAK_REPORT_INTERVAL
+              value: {{ .Values.licenseServerClient.timer.peakUsageReportAggregationPeriod | quote }}
+            - name: AGGREGATE_CUMULATIVE_REPORT_INTERVAL
+              value: {{ .Values.licenseServerClient.timer.cumulativeUsageReportAggregationPeriod | quote }}
+            - name: AGGREGATE_REQUEST_INTERVAL
+              value: {{ .Values.licenseServerClient.timer.licenseRequestAggregationPeriod | quote }}
+            - name: LICENSE_REMOVAL_GRACE_PERIOD
+              value: {{ .Values.licenseServerClient.timer.licenseRemovalGracePeriod | quote }}
+            - name: LICENSE_DOMAINS
+              value: {{ include "eric-lm-combined-server.lsc-license-domains" . | quote }}
+            - name: LIVENESS_PORT
+              value: {{ include "eric-lm-combined-server.lsc-livenessProbePort" . | quote }}
+            - name: LIVENESS_INTERVAL
+              value: {{ index .Values "probes" "eric-lm-license-server-client" "livenessProbe" "periodSeconds" | quote }}
+            - name: READINESS_PORT
+              value: {{ include "eric-lm-combined-server.lsc-readinessProbePort" . | quote }}
+            - name: READINESS_INTERVAL
+              value: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "periodSeconds" | quote }}
+            - name: TZ
+              value: {{ include "eric-lm-combined-server.timezone" . | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.licenseServerClient.logLevel | quote }}
+            - name: LOG_OUTPUT
+            {{- if and (has "k8sLevel" $g.log.outputs) (has "applicationLevel" $g.log.outputs) }}
+              value: "all"
+            {{- else if has "applicationLevel" $g.log.outputs }}
+              value: "file"
+            {{- else }}
+              value: "stdout"
+            {{- end }}
+          ports:
+            - name: liveness-port
+              containerPort: {{ include "eric-lm-combined-server.lsc-livenessProbePort" . }}
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: liveness-port
+            initialDelaySeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "initialDelaySeconds" }}
+            periodSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "periodSeconds" }}
+            failureThreshold: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "failureThreshold" }}
+            timeoutSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "timeoutSeconds" }}
+          livenessProbe:
+            tcpSocket:
+              port: liveness-port
+            initialDelaySeconds: {{ index .Values "probes" "eric-lm-license-server-client" "livenessProbe" "initialDelaySeconds" }}
+            periodSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "livenessProbe" "periodSeconds" }}
+            failureThreshold: {{ index .Values "probes" "eric-lm-license-server-client" "livenessProbe" "failureThreshold" }}
+            timeoutSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "livenessProbe" "timeoutSeconds" }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ include "eric-lm-combined-server.lsc-readinessProbePort" . }}
+            initialDelaySeconds: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "initialDelaySeconds" }}
+            periodSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "periodSeconds" }}
+            successThreshold: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "successThreshold" }}
+            failureThreshold: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "failureThreshold" }}
+            timeoutSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "readinessProbe" "timeoutSeconds" }}
+          {{- if (index .Values "resources" "eric-lm-license-server-client") }}
+          resources:
+            limits:
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "limits" "cpu") }}
+              cpu: {{ (index .Values "resources" "eric-lm-license-server-client" "limits" "cpu") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "limits" "memory") }}
+              memory: {{ (index .Values "resources" "eric-lm-license-server-client" "limits" "memory") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "limits" "ephemeral-storage") }}
+              ephemeral-storage: {{ (index .Values "resources" "eric-lm-license-server-client" "limits" "ephemeral-storage") | quote }}
+            {{- end }}
+            requests:
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "requests" "cpu") }}
+              cpu: {{ (index .Values "resources" "eric-lm-license-server-client" "requests" "cpu") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "requests" "memory") }}
+              memory: {{ (index .Values "resources" "eric-lm-license-server-client" "requests" "memory") | quote }}
+            {{- end }}
+            {{- if (index .Values "resources" "eric-lm-license-server-client" "requests" "ephemeral-storage") }}
+              ephemeral-storage: {{ (index .Values "resources" "eric-lm-license-server-client" "requests" "ephemeral-storage") | quote }}
+            {{- end }}
+          {{- end }}
+      {{- if include "eric-lm-combined-server.nodeSelector.licenseServerClient" . }}
+      nodeSelector:
+        {{- include "eric-lm-combined-server.nodeSelector.licenseServerClient" . | nindent 8}}
+      {{- end }}
+      affinity:
+      {{- with .Values.licenseServerClient.affinity }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: eric.lm.component/name
+                    operator: In
+                    values:
+                      - license-server-client
+              topologyKey: "kubernetes.io/hostname"
+      {{- else if eq .Values.affinity.podAntiAffinity  "soft" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: eric.lm.component/name
+                      operator: In
+                      values:
+                        - license-server-client
+                topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      {{- if .Values.tolerations.licenseServerClient }}
+      tolerations:
+        {{- toYaml .Values.tolerations.licenseServerClient | nindent 8 }}
+      {{- end }}
+      {{- if (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") }}
+      priorityClassName: {{ (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") | quote }}
+      {{- end }}

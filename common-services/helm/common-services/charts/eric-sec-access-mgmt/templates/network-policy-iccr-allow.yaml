@@ -1,0 +1,33 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if .Values.networkPolicy -}}
+{{- if and $global.networkPolicy.enabled .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-iccr-allow
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-sec-access-mgmt.name" . }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.ingress.iccrServiceName }}
+    ports:
+    - port: {{ template "eric-sec-access-mgmt.httpPort" . }}
+      protocol: TCP
+    - port: {{ template "eric-sec-access-mgmt.httpsPort" . }}
+      protocol: TCP
+    - port: {{ template "eric-sec-access-mgmt.adminPortHttps" . }}
+      protocol: TCP
+    - port: {{ template "eric-sec-access-mgmt.adminPortHttp" . }}
+      protocol: TCP
+    - port: {{ template "eric-sec-access-mgmt.authProxyPort" . }}
+    - protocol: TCP
+{{- end }}
+{{- end }}

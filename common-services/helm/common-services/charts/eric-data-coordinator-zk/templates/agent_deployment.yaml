@@ -1,0 +1,140 @@
+{{- if .Values.brAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-data-coordinator-zk.agentName" . }}
+  annotations:
+    {{- $backupType := include "eric-data-coordinator-zk.agent_deployment.annotations.backupType" . | fromYaml -}}
+    {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
+    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $backupType $default)) | trim | nindent 4 }}
+  labels: {{- include "eric-data-coordinator-zk.agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+{{- include "eric-data-coordinator-zk.agent.selectorLabels" . | indent 8 }}
+  replicas: {{ template "eric-data-coordinator-zk.brAgent.replicas" . }}
+  template:
+    metadata:
+      labels: {{- include "eric-data-coordinator-zk.agent.labels" . | nindent 8 }}
+      annotations:
+       {{- $checksum := dict "checksum/config" (print $.Template.BasePath "/agentproperties-configmap.yaml" . | sha256sum) -}}
+       {{- $bandwidthAnn := include "eric-data-coordinator-zk.bandwidth-annotations" . | fromYaml }}
+       {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
+       {{- $brAgentAppArmorAnn := include "eric-data-coordinator-zk.brAgent.appArmorAnnotations" . | fromYaml -}}
+       {{- $logShipperAppArmorAnn := include "eric-data-coordinator-zk.logshipper.appArmorAnnotations" . | fromYaml -}}
+       {{- $apparmorAnn := dict -}}
+       {{- $apparmorAnn = merge $apparmorAnn $brAgentAppArmorAnn }}
+       {{- if has "stream" .Values.log.outputs }}
+       {{- $apparmorAnn = merge $apparmorAnn $logShipperAppArmorAnn }}
+       {{- end }}
+       {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $checksum $bandwidthAnn $default $apparmorAnn)) | trim | nindent 8 }}
+    spec:
+      {{- include "eric-data-coordinator-zk-agent.podPriority" . }}
+      serviceAccountName: {{ template "eric-data-coordinator-zk.fullname" . }}-sa
+      {{ template "eric-data-coordinator-zk.serviceAccount" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.brAgent }}
+      securityContext:
+        fsGroup: {{ include "eric-data-coordinator-zk.fsGroup.coordinated" . }}
+{{- if .Values.seccompProfile }}
+{{- if .Values.seccompProfile.type }}
+{{- $profiledefault := .Values.seccompProfile }}
+{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profiledefault) | indent 8 }}
+{{- end }}
+{{- end }}
+      {{- if include "eric-data-coordinator-zk.pullSecret" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-data-coordinator-zk.pullSecret" . }}
+      {{- end }}
+      {{- if or (.Values.nodeSelector.brAgent) ((.Values.global).nodeSelector) }}
+      nodeSelector: {{- include "eric-data-coordinator-zk.brAgentNodeSelector" . | nindent 8 -}}
+      {{- end }}
+      containers:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-container" . | indent 6 }}
+{{- end }}
+      - name:  {{ .Chart.Name }}-agent
+        imagePullPolicy: {{ template "eric-data-coordinator-zk.brAgent.imagePullPolicy" . }}
+        image: {{ template "eric-data-coordinator-zk.imagePath" (merge (dict "imageName" "brAgent") .) }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.brAgent.requests.memory | quote }}
+            cpu: {{ .Values.resources.brAgent.requests.cpu | quote }}
+            {{- if index .Values.resources.brAgent.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.brAgent.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            memory: {{ .Values.resources.brAgent.limits.memory | quote }}
+            cpu: {{ .Values.resources.brAgent.limits.cpu | quote }}
+            {{- if index .Values.resources.brAgent.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.brAgent.limits "ephemeral-storage" | quote }}
+            {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+{{- if .Values.seccompProfile }}
+{{- if .Values.seccompProfile.brAgent }}
+{{- include "eric-data-coordinator-zk.brAgent.seccompProfile" . | indent 10 }}
+{{- end }}
+{{- end }}
+          capabilities:
+            drop:
+              - all
+        env:
+        - name: TZ
+          value: {{ template "eric-data-coordinator-zk.timezone" . }}
+        - name: LOG_LEVEL
+          value: {{ .Values.brAgent.logLevel | quote }}
+        - name: SERVICE_ID
+          value: {{ template "eric-data-coordinator-zk.broServiceName" . }}
+      {{- if has "stream" .Values.log.outputs }}
+        - name: LOG_OUTPUT
+            {{- if has "stdout" .Values.log.outputs }}
+          value: "all"
+            {{- else }}
+          value: "stream"
+            {{- end }}
+      {{- else }}
+        - name: LOG_OUTPUT
+          value: "stdout"
+      {{- end }}
+        - name: DCZK_BRAGENT_TLS
+            {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+          value: "true"
+            {{- else }}
+          value: "false"
+            {{- end }}
+        - name: AGENT_DATA_CHANNEL_TIMEOUT_SECS
+          value: {{ .Values.brAgent.grpc.backup.dataChannelTimeoutSecs | quote }}
+        - name: AGENT_FRAGMENT_CHUNK_SIZE
+          value: {{ .Values.brAgent.grpc.backup.fragmentChunkSize | quote }}
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "exec pgrep -fl java"
+          {{ include "eric-data-coordinator-zk.readinessProbeConfig" (merge (dict "imageName" "brAgent") .) | indent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "exec pgrep -fl java"
+          {{ include "eric-data-coordinator-zk.livenessProbeConfig" (merge (dict "imageName" "brAgent") .) | indent 10 }}
+        volumeMounts:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-storage-path" . | indent 8 }}
+{{- end}}
+{{ include "eric-data-coordinator-zk.agent.volumeMounts" . | indent 8 }}
+      volumes:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-volume" . | indent 6 }}
+{{- end}}
+{{ include "eric-data-coordinator-zk.agent.volumes" . | indent 6 }}
+      tolerations:
+      {{- if .Values.tolerations.brAgent }}
+        {{- toYaml .Values.tolerations.brAgent | nindent 6 }}
+      {{- end }}
+{{ end }}

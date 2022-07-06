@@ -1,0 +1,19 @@
+{{- $g := fromJson (include "eric-data-distributed-coordinator-ed.globalMap" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "eric-data-distributed-coordinator-ed.name" . }}-rb
+  annotations:
+    {{- include "eric-data-distributed-coordinator-ed.productinfo" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+    ericsson.com/security-policy.type: "restricted/default"
+  labels: {{ include "eric-data-distributed-coordinator-ed.labels" . | indent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-data-distributed-coordinator-ed.name" . }}-sa
+{{- end -}}

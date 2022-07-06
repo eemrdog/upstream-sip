@@ -1,0 +1,30 @@
+{{- if gt (.Values.licenseConsumerHandler.replicaCount | int) 1 -}}
+{{/*
+The apiVersion check can be removed when only k8s >=1.25 is supported
+*/}}
+{{- if .Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "eric-lm-combined-server.name" . }}-lch-pod-disruption-budget
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  {{- if and .Values.licenseConsumerHandler.podDisruptionBudget.minAvailable .Values.licenseConsumerHandler.podDisruptionBudget.maxUnavailable }}
+  {{- fail "licenseConsumerHandler.podDisruptionBudget.minAvailable and licenseConsumerHandler.podDisruptionBudget.maxUnavailable are mutually exclusive!" }}
+  {{- end }}
+  {{- if .Values.licenseConsumerHandler.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.licenseConsumerHandler.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.licenseConsumerHandler.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.licenseConsumerHandler.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "eric-lm-combined-server.lch-selector-labels" . | nindent 6 }}
+{{- end -}}

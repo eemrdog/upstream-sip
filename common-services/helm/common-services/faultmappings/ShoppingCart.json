@@ -1,0 +1,62 @@
+[
+	{
+		"faultName": "ServiceUnavailableError",
+		"vendor": 193,
+		"code": 10879087,
+		"defaultSeverity": "Critical",
+		"category": "CommunicationsAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to communicate with external service"
+	},
+	{
+		"faultName": "LoginError",
+		"vendor": 193,
+		"code": 10879088,
+		"defaultSeverity": "Critical",
+		"category": "CommunicationsAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unsuccessfull attempt to login"
+	},
+	{
+		"faultName": "InitializationError",
+		"vendor": 193,
+		"code": 10879089,
+		"defaultSeverity": "Critical",
+		"category": "Other",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to properly initialize component"
+	},
+	{
+		"faultName": "FailureResponseError",
+		"vendor": 193,
+		"code": 10879090,
+		"defaultSeverity": "Major",
+		"category": "ProcessingErrorAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Failure processing request"
+	},
+	{
+		"faultName": "CertificationError",
+		"vendor": 193,
+		"code": 10879091,
+		"defaultSeverity": "Major",
+		"category": "EnvironmentalAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Failure during certification check"
+	},
+	{
+		"faultName":"CertificateExpiresSoonWarning",
+		"vendor":193,
+		"code":10879092,
+		"defaultSeverity":"Major",
+		"category":"ProcessingErrorAlarm",
+		"probableCause":158,
+		"defaultExpiration":3600,
+		"defaultDescription":"Certificate Expires Soon"
+	}
+]

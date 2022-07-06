@@ -1,0 +1,152 @@
+# Default values for log.
+# This is a YAML-formatted file.
+
+#global:
+#  registry:
+#    imagePullPolicy: "IfNotPresent"
+#    url: "armdocker.rnd.ericsson.se"
+#  timezone: "UTC"
+#  nodeSelector: {}
+#  security:
+#    policyBinding:
+#      create: false
+#    policyReferenceMap:
+#      plc-29c4b823c87a16cad810082eb11106: "plc-29c4b823c87a16cad810082eb11106"
+#      plc-e393f1841dfc4cbcca713b5a97eb83: "plc-e393f1841dfc4cbcca713b5a97eb83"
+#    tls:
+#      enabled: true
+#  pullSecret:
+
+annotations: {}
+
+labels: {}
+
+tolerations: []
+
+bandwidth:
+  maxEgressRate: ""
+
+imageCredentials:
+  repoPath:  # see default in eric-product-info.yaml
+  registry: {}
+  pullSecret: # When set this overrides global pull secret
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 25%
+
+minReadySeconds: 0
+terminationGracePeriodSeconds: 30
+logLevel: "info"
+
+logshipper:
+  name: "eric-log-shipper"
+
+  # Set which service to send log data to.
+  # Default: logtransformer
+  # Values:  searchengine
+  #          logtransformer
+  output: logtransformer
+
+  privileged: false
+
+  autodiscover:
+    enabled: false
+    namespace:
+    logplane: "adp-app-logs"
+    json:
+      enabled: true
+      target: "json"
+    hints:
+      enabled: false
+      paths:
+        - /var/log/pods/${data.kubernetes.namespace}_${data.kubernetes.pod.name}_${data.kubernetes.pod.uid}/${data.kubernetes.container.name}/*.log
+    inclusions:
+    # - field: "kubernetes.annotations.collect"
+    #   value: "true"
+    exclusions:
+    # - field: "kubernetes.annotations.drop"
+    #   value: "true"
+    paths:
+      - /var/log/pods/${data.kubernetes.container.id}/*-json.log
+      - /var/log/pods/${data.kubernetes.namespace}_${data.kubernetes.pod.name}_${data.kubernetes.pod.uid}/${data.kubernetes.container.name}/*.log
+    templates: ""
+  cfgData: |
+    paths:
+      - /var/lib/docker/containers/**/*.log
+      - /var/log/pods/**/*.log
+    fields:
+      logplane: "adp-app-logs"
+  cfgDataInputType: log
+  harvester:
+    closeTimeout: "5m"
+    ignoreOlder: "0"
+
+searchengine:
+  host: eric-data-search-engine
+  port: 9200
+
+logtransformer:
+  host: eric-log-transformer
+  port: 5045
+
+probes:
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 300
+      timeoutSeconds: 15
+      periodSeconds: 30
+      failureThreshold: 3
+
+resources:
+  logshipper:
+    requests:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      memory: "500Mi"
+      cpu: "250m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+additionalVolumes: |
+  - name: docker-containers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: kubernetes-containers
+    hostPath:
+      path: /var/log/pods
+
+additionalVolumeMounts: |
+  - name: docker-containers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: kubernetes-containers
+    mountPath: /var/log/pods
+    readOnly: true
+
+rbac:
+  automountServiceAccountToken: false
+  createClusterRole: false
+  createClusterRoleBinding: false
+
+podPriority:
+  logshipper:
+    # Priority class name for the logshipper Pod. Priority classes are used to determine the priority of Pods when scheduling them on nodes.
+    priorityClassName:
+
+seccompProfile:
+  type: ""
+  localhostProfile:
+  logshipper:
+    type: ""
+    localhostProfile:
+
+# The setting applies to all container when the container name is omitted.
+appArmorProfile:
+  type:
+  localhostProfile:
+  # The setting could be applied to a specific container if specified.
+  logshipper:
+    type:
+    localhostProfile:

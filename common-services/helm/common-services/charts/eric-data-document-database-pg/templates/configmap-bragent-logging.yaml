@@ -1,0 +1,26 @@
+{{- if .Values.brAgent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ template "eric-data-document-database-pg.name" . }}-bragent-logging
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+data:
+  log4j2.xml: | 
+    <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration status="info" monitorInterval="5">
+        <Appenders>
+            <Console name="Console" target="SYSTEM_OUT">
+                <PatternLayout pattern="%d{YYYY-MM-dd'T'HH:mm:ss.sssXXX} %p %c{1}: %m%n"/>
+            </Console>
+        </Appenders>
+        <Loggers>
+            <Logger name="com.ericsson.adp.mgmt.pgagent" level="{{ .Values.brAgent.PGAgentLogLevel }}" additivity="false">
+                <AppenderRef ref="Console"/>
+            </Logger>
+            <Root level="{{ .Values.brAgent.RootLogLevel }}">
+                <AppenderRef ref="Console"/>
+            </Root>
+        </Loggers>
+    </Configuration>
+{{- end }}

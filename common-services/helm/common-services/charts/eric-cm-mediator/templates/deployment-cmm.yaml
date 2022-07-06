@@ -1,0 +1,367 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+  annotations: {{- include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+spec:
+  strategy:
+    type: {{ .Values.updateStrategy.type | quote }}
+{{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+{{- if or .Values.updateStrategy.rollingUpdate.maxUnavailable .Values.updateStrategy.rollingUpdate.maxSurge }}
+    rollingUpdate:
+{{- end }}
+{{- if .Values.updateStrategy.rollingUpdate.maxUnavailable }}
+      maxUnavailable: {{ .Values.updateStrategy.rollingUpdate.maxUnavailable | quote }}
+{{- end }}
+{{- if .Values.updateStrategy.rollingUpdate.maxSurge }}
+      maxSurge: {{ .Values.updateStrategy.rollingUpdate.maxSurge | quote }}
+{{- end }}
+{{- end }}
+{{- if not (index .Values "autoScaling" "eric-cm-mediator" "enabled") }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "eric-cm-mediator.name" . }}
+  template:
+    metadata:
+      labels:
+        {{- include "eric-cm-mediator.pod.labels" . | nindent 8 }}
+      annotations:
+        {{- include "eric-cm-mediator.pod.annotations" . | nindent 8 }}
+    spec:
+      securityContext: {{- include "eric-cm-mediator.seccomp" (dict "pod" "eric-cm-mediator" "Values" .Values ) | nindent 8 }}
+      serviceAccountName: {{ template "eric-cm-mediator.name" . }}-sa
+      automountServiceAccountToken: false
+      {{- if include "eric-cm-mediator.pullSecret" . }}
+      imagePullSecrets:
+      - name: {{ template "eric-cm-mediator.pullSecret" . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ index .Values.terminationGracePeriodSeconds "eric-cm-mediator"  }}
+{{- if (index .Values "tolerations" "eric-cm-mediator") }}
+      tolerations:
+{{ toYaml (index .Values "tolerations" "eric-cm-mediator") | indent 6 }}
+{{- end }}
+{{- if (.Values.topologySpreadConstraints) }}
+      topologySpreadConstraints:
+{{ toYaml (.Values.topologySpreadConstraints) | indent 6 }}
+{{- end }}
+      initContainers:
+      - name: "eric-cm-mediator-init-container"
+        image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-mediator-init-container" "files" .Files) }}
+        imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
+        env:
+        - name: TZ
+          value: {{ template "eric-cm-mediator.timezone" . }}
+        - name: CM_LOG_LEVEL
+          value: {{ .Values.cmm.logLevel | title | quote }}
+        - name: CM_LOG_FORMAT
+          value: {{ .Values.cmm.logFormat | quote }}
+        - name: CM_LOG_SERVICE_TAG
+          value: {{ .Chart.Name | quote }}
+        - name: CM_LOG_OUTPUT
+          value: {{ template "eric-cm-mediator.logOutput" . }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+        - name: CM_LOG_SERVER
+          value: {{ template "eric-cm-mediator.logtransformer" . }}
+{{- end }}
+        - name: ENDPOINT
+{{- if .Values.exilis.cm.enabled }}
+          value: {{ template "eric-cm-mediator.exilis.cmbackend" . }}
+{{- else }}
+          value: {{ .Values.backend.hostname }}:{{ .Values.backend.port }}
+{{- end }}
+{{- if not (.Values.exilis.cm.enabled) }}
+        - name: INIT_DB_ENDPOINT
+          value: "true"
+{{- if not (eq (include "eric-cm-mediator.tls" .) "true") }}
+        - name: CM_BACKEND_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "credentials.kubernetesSecretName must be set if TLS is disabled." .Values.credentials.kubernetesSecretName | quote }}
+              key: {{ .Values.credentials.keyForUserId | quote }}
+        - name: CM_BACKEND_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "credentials.kubernetesSecretName must be set if TLS is disabled." .Values.credentials.kubernetesSecretName | quote }}
+              key: {{ .Values.credentials.keyForUserPw | quote }}
+{{- else }}
+        - name: CM_BACKEND_USERNAME
+          value: {{ required "backend.dbuser must be set if TLS is enabled." .Values.backend.dbuser | quote }}
+        - name: CM_SERVER_USE_TLS
+          value: "true"
+{{- end }}
+        - name: CM_BACKEND_SERVER
+          value: {{ template "eric-cm-mediator.dbbackend" . }}
+{{- end }}
+        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+{{ if index .Values "resources" "eric-cm-mediator-init-container" }}
+        resources:
+{{ toYaml (index .Values "resources" "eric-cm-mediator-init-container") | indent 10 }}
+{{ end }}
+        volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+{{- if (not .Values.exilis.cm.enabled) }}
+          - name: tls-document-db-admin-cert-volumemount
+            mountPath: /etc/sip-tls-document-db-admin
+            readOnly: true
+{{- end }}
+{{- if or (not .Values.exilis.cm.enabled) (has "stream" .Values.cmm.logOutput) }}
+          - name: tls-trusted-ca-cert-volumemount
+            mountPath: /etc/sip-tls-ca
+            readOnly: true
+{{- end }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+          - name: tls-log-transformer-client-cert-volumemount
+            mountPath: /etc/sip-tls-logtransformer-client
+            readOnly: true
+{{- end }}
+{{- end }}
+      containers:
+      - name: "eric-cm-mediator"
+        env:
+        - name: TZ
+          value: {{ template "eric-cm-mediator.timezone" . }}
+        - name: CM_POD_ROLE
+          value: "cmserver"
+{{- if .Values.cmm.debug }}
+        - name: DEBUG
+          value: {{ .Values.cmm.debug | quote }}
+{{- end }}
+        - name: CM_CONFIGURATION_RELOAD_TIMER
+          value: {{ .Values.cmm.configReloadTimer | quote }}
+        - name: CM_LOG_LEVEL
+          value: {{ .Values.cmm.logLevel | title | quote }}
+        - name: CM_LOG_FORMAT
+          value: {{ .Values.cmm.logFormat | quote }}
+        - name: CM_LOG_MAX_MSG_SIZE
+          value: {{ .Values.cmm.logMaxMsgSize | mul 1024 | quote }}
+        - name: CM_LOG_OUTPUT
+          value: {{ template "eric-cm-mediator.logOutput" . }}
+        - name: CM_WORKER_QUEUE_LIMIT
+          value: {{ .Values.cmm.restWorkerQueueLimit | quote }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+{{- if not (eq .Values.cmm.logFormat "adpjson") }}
+{{- fail "cmm.logFormat must be adpjson if stream cmm.logOutput is used" }}
+{{- end }}
+        - name: CM_LOG_SERVER
+          value: {{ template "eric-cm-mediator.logtransformer" . }}
+{{- end }}
+{{- if not (.Values.exilis.cm.enabled) }}
+        - name: CM_DB_BR_ENABLED
+          value: {{ .Values.dbbr.enabled | quote }}
+        - name: CM_WORKER_TIMEOUT
+          value: {{ .Values.cmm.restWorkerTimeout | quote }}
+{{- end }}
+{{- if .Values.exilis.cm.enabled }}
+        - name: CM_WORKER_TIMEOUT
+          value: "120"
+        - name: EXILIS_CM_BACKEND_SERVER
+          value: {{ template "eric-cm-mediator.exilis.cmbackend" . }}
+        - name: EXILIS_DATA_TRANSFORMER
+          value: {{ template "eric-cm-mediator.exilis.transformer" . }}
+        - name: EXILIS_YANG_PROVIDER
+          value: {{ template "eric-cm-mediator.exilis.yangprovider" . }}
+        - name: EXILIS_STATE_DATA_PROVIDER_API
+          value: {{ .Values.exilis.cm.transformer.stateDataProviderApiEnabled | quote }}
+        - name: EXILIS_DYNAMIC_VALIDATION_API
+          value: {{ .Values.exilis.cm.yangprovider.dynamicValidationApiEnabled | quote }}
+{{- end }}
+{{- if not (eq (include "eric-cm-mediator.tls" .) "true") }}
+        - name: CM_BACKEND_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "credentials.kubernetesSecretName must be set if TLS is disabled." .Values.credentials.kubernetesSecretName | quote }}
+              key: {{ .Values.credentials.keyForUserId | quote }}
+        - name: CM_BACKEND_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ required "credentials.kubernetesSecretName must be set if TLS is disabled." .Values.credentials.kubernetesSecretName | quote }}
+              key: {{ .Values.credentials.keyForUserPw | quote }}
+{{- else }}
+        - name: CM_BACKEND_USERNAME
+          value: {{ required "backend.dbuser must be set if TLS is enabled." .Values.backend.dbuser | quote }}
+{{- end }}
+        - name: CM_BACKEND_SERVER
+          value: {{ template "eric-cm-mediator.dbbackend" . }}
+        - name: CM_METRICS_ENABLED
+          value: "true"
+{{- if .Values.kafka.hostname }}
+        - name: CM_KAFKA_LOG_LEVEL
+          value: {{ .Values.cmm.kafkaLogLevel | title | quote }}
+        - name: KAFKA_SERVERS
+          value: {{ template "eric-cm-mediator.kafka" . }}
+        - name: CM_KAFKA_PRODUCER_CONFIG
+          value: {{ .Values.cmm.kafkaProducerConfig | quote }}
+{{- end }}
+{{- if .Values.redis.hostname }}
+        - name: CM_REDIS_LOG_LEVEL
+          value: {{ .Values.cmm.redisLogLevel | title | quote }}
+        - name: REDIS_SERVERS
+          value: {{ template "eric-cm-mediator.redis" . }}
+        - name: CM_REDIS_CONFIG
+          value: {{ .Values.cmm.redisConfig | quote }}
+{{- end }}
+        - name: CM_GUNICORN_LOG_LEVEL
+          value: {{ .Values.cmm.gunicornLogLevel | title | quote }}
+        - name: CM_GUNICORN_ACCESS_LOG_LEVEL
+          value: {{ .Values.cmm.gunicornAccessLogLevel | title | quote }}
+        - name: CM_ACCESS_LOGGING
+          value: {{ .Values.cmm.accessLogging | quote }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+{{- if (eq .Values.service.endpoints.restapi.tls.enforced "required") }}
+        - name: CM_SERVER_USE_TLS_ONLY
+          value: "true"
+{{- else }}
+        - name: CM_WORKERS
+          value: {{ .Values.cmm.restWorkers | quote }}
+{{- end }}
+        - name: CM_SERVER_USE_TLS
+          value: "true"
+        - name: CM_TLS_WORKERS
+          value: {{ .Values.cmm.restWorkers | quote }}
+        - name: CM_TLS_VERIFY_CLIENT_CERT
+          value: {{ .Values.service.endpoints.restapi.tls.verifyClientCertificate | quote }}
+        - name: CM_TLS_ENABLE_CLIENT_CERT
+          value: "true"
+{{- else }}
+        - name: CM_WORKERS
+          value: {{ .Values.cmm.restWorkers | quote }}
+{{- end }}
+        image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-mediator" "files" .Files) }}
+        imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
+        ports:
+        - containerPort: {{ template "eric-cm-mediator.metrics-port" . }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+          name: https-pm-tls
+{{- else }}
+          name: http-pm
+{{- end }}
+{{- if or (not (eq (include "eric-cm-mediator.tls" .) "true")) (eq .Values.service.endpoints.restapi.tls.enforced "optional") }}
+        - containerPort: 5003
+          name: http-rest
+{{- end }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+        - containerPort: 5004
+          name: https-rest
+{{- end }}
+        volumeMounts:
+          - name: service-volume
+            mountPath: /service
+          - name: tmp-volume
+            mountPath: /tmp
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+          - name: tls-server-cert-volumemount
+            mountPath: /etc/sip-tls
+            readOnly: true
+          - name: tls-trusted-ca-cert-volumemount
+            mountPath: /etc/sip-tls-ca
+            readOnly: true
+          - name: tls-client-ca-cert-volumemount
+            mountPath: /etc/sip-tls-client-ca
+            readOnly: true
+          - name: tls-client-cert-volumemount
+            mountPath: /etc/sip-tls-client
+            readOnly: true
+          - name: tls-document-db-client-cert-volumemount
+            mountPath: /etc/sip-tls-document-db-client
+            readOnly: true
+          - name: tls-pm-client-ca-cert-volumemount
+            mountPath: /etc/sip-tls-pm-client-ca
+            readOnly: true
+{{- if (has "stream" .Values.cmm.logOutput) }}
+          - name: tls-log-transformer-client-cert-volumemount
+            mountPath: /etc/sip-tls-logtransformer-client
+            readOnly: true
+{{- end }}
+{{- if .Values.exilis.cm.enabled }}
+          - name: tls-cm-backend-client-cert-volumemount
+            mountPath: /etc/sip-tls-cm-backend-client
+            readOnly: true
+          - name: tls-transformer-client-cert-volumemount
+            mountPath: /etc/sip-tls-transformer-client
+            readOnly: true
+          - name: tls-yangprovider-client-cert-volumemount
+            mountPath: /etc/sip-tls-yangprovider-client
+            readOnly: true
+{{- end }}
+{{- end }}
+        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - /usr/bin/cmm_probe.sh
+            - liveness
+{{ toYaml (index .Values "probes" "eric-cm-mediator" "livenessProbe") | indent 10 }}
+          successThreshold: 1
+        readinessProbe:
+          exec:
+            command:
+            - /usr/bin/cmm_probe.sh
+            - readiness
+{{ toYaml (index .Values "probes" "eric-cm-mediator" "readinessProbe") | indent 10 }}
+{{ if index .Values "resources" "eric-cm-mediator" }}
+        resources:
+{{ toYaml (index .Values "resources" "eric-cm-mediator") | indent 10 }}
+{{ end }}
+      {{- if include "eric-cm-mediator.nodeSelector.general" . }}
+      nodeSelector:
+        {{ template "eric-cm-mediator.nodeSelector.general" . }}
+      {{- else if include "eric-cm-mediator.nodeSelector" . }}
+      nodeSelector:
+        {{ template "eric-cm-mediator.nodeSelector" . }}
+      {{- end }}
+      affinity:
+        podAntiAffinity: {{ include "eric-cm-mediator.podAntiAffinity" . | nindent 10 }}
+{{- if index .Values.podPriority "eric-cm-mediator" "priorityClassName" }}
+      priorityClassName: {{ index .Values.podPriority "eric-cm-mediator" "priorityClassName" | quote }}
+{{- end }}
+      volumes:
+      - name: service-volume
+        emptyDir: {}
+      - name: tmp-volume
+        emptyDir:
+          medium: "Memory"
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+      - name: tls-server-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-tls-server-secret
+      - name: tls-trusted-ca-cert-volumemount
+        secret:
+          secretName: eric-sec-sip-tls-trusted-root-cert
+      - name: tls-client-ca-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-tls-client-ca-secret
+      - name: tls-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-tls-client-secret
+      - name: tls-document-db-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-document-db-tls-client-secret
+      - name: tls-document-db-admin-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-document-db-tls-admin-secret
+      - name: tls-pm-client-ca-cert-volumemount
+        secret:
+          secretName: {{ .Values.pmserver.hostname }}-ca
+          optional: true
+{{- if (has "stream" .Values.cmm.logOutput) }}
+      - name: tls-log-transformer-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-log-transformer-tls-client-secret
+{{- end }}
+{{- if .Values.exilis.cm.enabled }}
+      - name: tls-cm-backend-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-cm-backend-tls-client-secret
+      - name: tls-transformer-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-transformer-tls-client-secret
+      - name: tls-yangprovider-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-yangprovider-tls-client-secret
+{{- end }}
+{{- end }}

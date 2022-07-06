@@ -1,0 +1,25 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+
+{{- if $global.security.tls.enabled }}
+## These commands put the admin console on a separate port
+
+## The following will configure a listener for the admin console port
+/socket-binding-group=standard-sockets/socket-binding=https-admin/:add(port={{ template "eric-sec-access-mgmt.adminPortHttps" . }})
+
+/subsystem=undertow/server=default-server/https-listener=https-admin:add(socket-binding=https-admin, security-realm=ApplicationRealm, enable-http2=true)
+
+## The following sets the same certificate on https-admin listener as on https listener
+/subsystem=undertow/server=default-server/https-listener=https-admin:undefine-attribute(name=security-realm)
+/subsystem=undertow/server=default-server/https-listener=https-admin:write-attribute(name=ssl-context,value=httpsSSC)
+## Port restriction filter has been defined under portAccess
+{{- end }}
+
+{{- if or (eq .Values.service.endpoints.iam.tls.enforced "optional") (not $global.security.tls.enabled)  }}
+/socket-binding-group=standard-sockets/socket-binding=http-admin/:add(port={{ template "eric-sec-access-mgmt.adminPortHttp" . }})
+/subsystem=undertow/server=default-server/http-listener=http-admin:add(socket-binding=http-admin, enable-http2=true)
+## Port restriction filter has been defined under portAccess
+{{- end }}
+
+## The following will block the access to admin console if not coming through eric-sec-acceeric-sec-access-mgmt.adminPortHttp(s)
+/subsystem=undertow/configuration=filter/expression-filter=portAccess:add(,expression="path-prefix('/auth/admin') and not (equals(%p, {{ template "eric-sec-access-mgmt.adminPortHttps" . }}) or equals(%p, {{ template "eric-sec-access-mgmt.adminPortHttp" . }})) -> response-code(403)")
+/subsystem=undertow/server=default-server/host=default-host/filter-ref=portAccess:add()

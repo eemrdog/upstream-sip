@@ -1,0 +1,22 @@
+{{- if and (eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true") (eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true") }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-sip-tls.name" . }}-metrics-server-cert
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-sip-tls.metrics.server.certSecret" . }}
+  certificate:
+    subject:
+      cn: {{ template "eric-sec-sip-tls.name" . }}
+    extendedKeyUsage:
+      tlsClientAuth: false
+      tlsServerAuth: true
+    subjectAlternativeName:
+      dns:
+        - {{ template "eric-sec-sip-tls.metrics.client.subAltNameDN" . }}
+{{- end }}

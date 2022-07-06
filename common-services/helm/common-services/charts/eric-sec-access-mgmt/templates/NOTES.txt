@@ -1,0 +1,44 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+1. To check for a successful deployment of the Identity and Access Management Service, do the following:
+
+    * Get the status of the installed helm chart to ensure that its pods are running:
+
+    helm status {{ .Release.Name }}
+
+    Example output:
+
+    LAST DEPLOYED: Tue May 22 15:11:00 2018
+    NAMESPACE: test-deployment-namespace
+    STATUS: DEPLOYED
+    RESOURCES:
+    ...
+    ==> v1/Pod(related)
+    NAME                                             READY  STATUS   RESTARTS  AGE
+    eric-sec-access-mgmt-0                           1/1    Running  0         2m
+
+
+    * Verify that the IAM (Keycloak) REST API is available:
+{{- if $global.security.tls.enabled }}
+
+        kubectl exec eric-sec-access-mgmt-0 --namespace={{ .Release.Namespace }}  -- bash -c "curl -sSi -k https://localhost:8443/auth/realms/master"
+{{- else }}
+        kubectl exec eric-sec-access-mgmt-0 --namespace={{ .Release.Namespace }}  -- bash -c "curl -sSi http://localhost:8080/auth/realms/master"
+{{- end }}
+
+        An example output is shown below.
+
+        {"realm":"master","public_key":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArgHDmrlVCoCeYKqHizpg+
+        dGB3LRjQ3IURLUJp1tgsrWs/YKZgmPKtPmPwlNpEZvtQ84hZ/UA5nrNYezfNP30U1H7813TU3BegGZzn4dJK+01rt1MpFoMcf
+        dbfgWnMXXJh6N+k9CItaQVKe0ySO8uEwyVBSVajVllDjtEgAi6cAuRBTyTVqC8Xxw6G6XTfh+NxXMKrIOIl07DuzCKa1N+S/n
+        T0uJ0bxbl+AqcDtWbuycvkje4YVoYxIEAxUItaMlrxyht2jKRjPatSybtxl3DcF3mloE6lRGZ+Fvj3ho462w9wFEkcQ/4UJxd
+        h3OC3drSufvqJ9A7HJmGGkOrCzIZAQIDAQAB",
+        "token-service":"http://localhost:8080/auth/realms/master/protocol/openid-connect",
+        "account-service":"http://localhost:8080/auth/realms/master/account","tokens-not-before":0}
+
+2. Login and credentials:
+
+   The credentials can be retrieved from the administrator and is found in the secret '{{.Values.statefulset.adminSecret}}'
+
+3. Delete the IAM deployment:
+
+   helm delete {{ .Release.Name }}

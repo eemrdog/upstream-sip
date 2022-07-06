@@ -1,0 +1,45 @@
+{{/*
+This external certificate is supposed to be used for cluster external
+communication between an external part and an ingress/HTTPProxy, when used.
+*/}}
+{{ if .Values.ingress.enabled }}
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if and $g.security.tls.enabled (not .Values.ingress.certificates.secretName) -}}
+apiVersion: certm.sec.ericsson.com/v1beta1
+kind: ExternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-external-server-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  {{- /*
+  Mandatory; string
+  The Kubernetes Secret where the client certificate and key are stored.
+  Must be unique.
+  */}}
+  generated-secret-name: {{ template "eric-fh-alarm-handler.name" . }}-external-server-certificate-secret
+
+  {{- /*
+  Mandatory; string (tls or opaque)
+  The type of secret to be created. The tls type is required for
+  Ingress Controllers. Note that the tls type secret contains one
+  private key and one certificate which means it is only applicable
+  for asymmetric-key-certificate consumers.
+  */}}
+  generated-secret-type: tls
+
+  {{- /*
+  Name of the asymmetric-key-certificate instance according to
+  ietf-keystore configuration. The name must be prefixed with the
+  parent asymmetric-key name and forward slash as separator, for
+  example "netconf-key/netconf-certificate".
+  Use when asymmetric-key-certificate is referenced by name.
+  */}}
+  {{- if not .Values.ingress.certificates.asymmetricKeyCertificateName }}
+  {{- printf "ingress.certificates.asymmetricKeyCertificateName or ingress.certificates.secretName must be specified for eric-fh-alarm-handler when secured ingress is enabled (global.security.tls.enabled=true)" | fail -}}
+  {{- end }}
+  asymmetric-key-certificate-name: {{ .Values.ingress.certificates.asymmetricKeyCertificateName }}
+{{- end -}}
+{{- end -}}

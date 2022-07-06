@@ -1,0 +1,182 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- $sipoauth2 := eq (include "eric-sec-access-mgmt.sipoauth2.enabled" .) "true" -}}
+{{- if $sipoauth2 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2
+      release: {{ .Release.Name }}
+  strategy:
+    type: {{ .Values.updateStrategy.sipoauth2.type | quote }}
+{{- if eq .Values.updateStrategy.sipoauth2.type "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.updateStrategy.sipoauth2.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.updateStrategy.sipoauth2.rollingUpdate.maxSurge }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        {{- $static := dict -}}
+        {{- $_ := set $static "app" (printf "%s-sip-oauth2" (include "eric-sec-access-mgmt.name" .)) -}}
+        {{- $peerLabels := include "eric-sec-access-mgmt.peerServiceAccess.sipoauth2" . | fromYaml -}}
+        {{- $defaultLabels := include "eric-sec-access-mgmt.labels" . | fromYaml -}}
+        {{- $_ := unset $defaultLabels "app" -}}
+        {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $peerLabels $defaultLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 8 }}
+    spec:
+      containers:
+        - name: iam-sip-oauth2
+          image: {{ include "eric-sec-access-mgmt.imagePath" (dict "root" . "image" "sipoauth2") }}
+          imagePullPolicy: {{ template "eric-sec-access-mgmt.imagePullPolicy" . }}
+          resources: {{ include "eric-sec-access-mgmt.resourcesHelper" (dict "Values" .Values "resourceName" "sipoauth2") | nindent 12 }}
+          env:
+            - name: SERVICE_NAME
+              value: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2
+            - name: IAM_CRD_CLIENT_ID
+              value: "eric-sec-access-mgmt-sip-oauth2"
+            - name: IAM_SERVICE_NAME
+              value: {{ template "eric-sec-access-mgmt.name" . }}-http
+            {{- if $global.security.tls.enabled }}
+            - name: SIP_TLS_CA_CERT_MOUNT_PATH
+              value: "/run/secrets/sip-tls-ca-cert"
+{{- if .Values.logshipper.enabled  }}
+            - name: LOGSHIPPER_ENABLED
+              value: "true"
+            - name: REDIRECT
+              value: {{ .Values.logshipper.redirectTarget }}
+{{- end }}
+            - name: IAM_CRD_CLIENT_CERT_MOUNT_PATH
+              value: "/run/secrets/crd-client-cert"
+            {{- else }}
+            - name: SIP_OAUTH2_CLIENT_SECRET_PATH
+              value: {{ include "eric-sec-access-mgmt.sipOauth2ClientSecretPath" . | quote }}
+            {{- end}}
+            - name: TLS_ENABLED
+              value: {{ $global.security.tls.enabled | quote }}
+            {{- if .Values.ldap.enabled }}
+            - name: LDAP_FED_PATH
+              value: "/fed-conf"
+            {{- end }}
+            - name: RUNDIR_PATH
+              value: {{ include "eric-sec-access-mgmt.sipoauth2RunDirMountPath" . | quote }}
+          securityContext: {{- include "eric-sec-iam-server.containerSecurityContext" . | nindent 12 }}
+          {{- $startupProbe := semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) }}
+          livenessProbe:
+            exec:
+              command: ["/sip-oauth2/sip-oauth2-alive.sh"]
+            {{- if eq $startupProbe false }}
+            initialDelaySeconds: {{ .Values.probes.sipoauth2.livenessProbe.initialDelaySeconds }}
+            {{- end }}
+            periodSeconds: {{ .Values.probes.sipoauth2.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.sipoauth2.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.sipoauth2.livenessProbe.failureThreshold }}
+          {{- if $startupProbe }}
+          startupProbe:
+            exec:
+              command: ["/sip-oauth2/sip-oauth2-alive.sh"]
+            initialDelaySeconds: {{ .Values.probes.sipoauth2.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.sipoauth2.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.probes.sipoauth2.startupProbe.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.sipoauth2.startupProbe.timeoutSeconds }}
+          {{- end }}
+          volumeMounts:
+            - name: sip-oauth2-rundir
+              mountPath: {{ include "eric-sec-access-mgmt.sipoauth2RunDirMountPath" . | quote }}
+            - name: log-control-config
+              mountPath: /logcontrol
+            {{- if $global.security.tls.enabled }}
+            - name: trusted-ca
+              mountPath: "/run/secrets/sip-tls-ca-cert"
+              readOnly: true
+            - name: crd-client-cert
+              mountPath: "/run/secrets/crd-client-cert"
+              readOnly: true
+            {{- else }}
+            - name: sip-oauth2-client-secret
+              mountPath: {{ include "eric-sec-access-mgmt.sipOauth2ClientSecretPath" . | quote }}
+            {{- end}}
+            {{- if .Values.ldap.enabled }}
+            {{- end }}
+            {{- if .Values.logshipper.enabled }}
+              {{- include "eric-sec-access-mgmt.logshipper-storage-path" . | trim | nindent 12 }}
+            {{- end }}
+        # Logshipper container
+        {{- if .Values.logshipper.enabled }}
+          {{- include "eric-sec-access-mgmt.logshipper-container" . | trim | nindent 8 }}
+        {{- end }}
+        # End: Logshipper container
+      volumes:
+        - name: log-control-config
+          configMap:
+            name: "{{ template "eric-sec-access-mgmt.name" . }}-log-control-config"
+      {{- if .Values.logshipper.enabled }}
+        {{- include "eric-sec-access-mgmt.logshipper-volume" . | nindent 8 }}
+      {{- end }}
+      {{- if $global.security.tls.enabled }}
+        - name: trusted-ca
+          secret:
+            secretName: {{ .Values.tls.client.rootCaSecret }}
+        - name: crd-client-cert
+          secret:
+            secretName: {{ template "eric-sec-access-mgmt.name" . }}-iam-crd-client-cert
+      {{- end}}
+      {{- if .Values.ldap.enabled }}
+        - name: federation-configuration
+          configMap:
+            name: {{ .Values.ldap.configmap | quote }}
+      {{- end}}
+        - name: sip-oauth2-rundir
+          emptyDir: {}
+        - name: sip-oauth2-client-secret
+          secret:
+            secretName: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-client-secret
+            items:
+              - key: "client-secret"
+                path: client-secret
+    {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ template "eric-sec-access-mgmt.name" . }}
+            topologyKey: "kubernetes.io/hostname"
+    {{- else }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - {{ template "eric-sec-access-mgmt.name" . }}
+              topologyKey: "kubernetes.io/hostname"
+    {{- end }}
+      nodeSelector: {{- include "eric-sec-access-mgmt.nodeSelector.sipoauth2" . | trim | nindent 8 }}
+      {{- if .Values.podPriority.sipoauth2.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.sipoauth2.priorityClassName | quote}}
+      {{- end}}
+      tolerations: {{- toYaml .Values.tolerations.sipoauth2 | nindent 8 }}
+      #this is the time kubernetes waits for the IAM pod before it removes it (when kubectl delete or helm del).
+      terminationGracePeriodSeconds: {{ template "eric-sec-access-mgmt.terminationGracePeriodSeconds.sipoauth2" . }}
+      topologySpreadConstraints: {{- toYaml .Values.topologySpreadConstraints | nindent 8 }}
+      {{- if (include "eric-sec-access-mgmt.pullSecret" .) }}
+      imagePullSecrets:
+        - name: {{ template "eric-sec-access-mgmt.pullSecret" . }}
+      {{- end }}
+      serviceAccountName: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-sa
+{{ end }}

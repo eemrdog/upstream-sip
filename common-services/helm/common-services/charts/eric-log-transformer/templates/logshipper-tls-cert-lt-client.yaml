@@ -1,0 +1,3 @@
+{{- if has "stream" .Values.log.outputs }}
+  {{- include "eric-log-transformer.logshipper-tls-cert-lt-client" (mergeOverwrite . (fromJson (include "eric-log-transformer.logshipper-context" .))) }}
+{{- end }}

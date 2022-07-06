@@ -1,0 +1,22 @@
+{{/*
+This server certificate is supposed to be used for communication between the Ingress HTTPProxy
+and the Auth Proxy sidecar.
+*/}}
+{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
+{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
+{{- $global             := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
+{{- if $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-auth-proxy-server-cert
+  annotations:
+    {{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels)) | indent 4}}
+spec:
+{{ include "eric-fh-alarm-handler.authz-proxy-server-cert-spec" . | indent 2 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,31 @@
+productName: "eric-log-transformer"
+productNumber: "CXC 201 1068"
+images:
+  logtransformer:
+    productName: "Log Transformer Image"
+    productNumber: "CXU 101 0643"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-transformer"
+    tag: "8.2.0-17"
+  metrics:
+    productName: "Metrics Image"
+    productNumber: "CXU 101 0650"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-transformer-pm-metrics"
+    tag: "8.2.0-17"
+  tlsproxy:
+    productName: "TLS Proxy Image"
+    productNumber: "CXU 101 0220"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-transformer-tls-proxy"
+    tag: "8.2.0-17"
+  logshipper:
+    productName: "Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.2.0-13"

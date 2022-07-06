@@ -1,0 +1,34 @@
+productName: "Service Identity Provider TLS"
+productNumber: "CXC 174 2802"
+images:
+  sip:
+    productName: "SIP-TLS Main Image"
+    productNumber: "CXC 174 2799"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-common-assets-cd/security"
+    name: "eric-sec-sip-tls-main"
+    # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
+    tag: "4.2.0-32"
+  init:
+    productName: "SIP-TLS Init Image"
+    productNumber: "CXC 174 2801"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-common-assets-cd/security"
+    name: "eric-sec-sip-tls-init"
+    # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
+    tag: "4.2.0-32"
+  supervisor:
+    productName: "SIP-TLS Supervisor Image"
+    productNumber: "CXC 174 2797"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-common-assets-cd/security"
+    name: "eric-sec-sip-tls-supervisor"
+    # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
+    tag: "4.2.0-32"
+  logshipper:
+    productName: "ADP Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.3.0-24"

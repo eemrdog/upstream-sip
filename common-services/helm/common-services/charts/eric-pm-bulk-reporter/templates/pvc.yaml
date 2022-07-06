@@ -1,0 +1,20 @@
+{{- if and .Values.persistentVolumeClaim.enabled (not .Values.persistentVolumeClaim.existingClaim) (not .Values.objectStorage.enabled) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "eric-pm-bulk-reporter.name" . }}
+  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations:
+    {{- $persistentAnn := (.Values.persistentVolumeClaim.annotations) -}}
+    {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
+    {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $persistentAnn $defaultAnn)) | trim | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistentVolumeClaim.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolumeClaim.size | quote }}
+{{- if .Values.persistentVolumeClaim.storageClassName }}
+  storageClassName: {{ .Values.persistentVolumeClaim.storageClassName | quote }}
+{{- end }}
+{{- end }}

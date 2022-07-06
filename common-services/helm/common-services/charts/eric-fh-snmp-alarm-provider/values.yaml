@@ -1,0 +1,303 @@
+# Default values.
+# This is a YAML-formatted file.
+
+## Global registry
+# global:
+  # timezone: UTC
+  # nodeSelector: {}
+  # pullSecret:
+  # registry:
+  #   url: selndocker.mo.sw.ericsson.se
+  #   imagePullPolicy: IfNotPresent
+  # security:
+  #   tls:
+  #     enabled: true
+  #   policyBinding:
+  #     create: false
+  #   policyReferenceMap:
+  #     default-restricted-security-policy: "default-restricted-security-policy"
+  #     plc-03ad10577718e69c935814b4f30054: "plc-03ad10577718e69c935814b4f30054"
+
+### imageCredentials
+imageCredentials:
+  snmpAP:
+    # see default in eric-product-info.yaml, overrides global.registry.url
+    repoPath:
+    registry:
+      # see default in eric-product-info.yaml, overrides global.registry.url
+      url:
+      # overrides global.registry.imagePullPolicy, default is IfNotPresent
+      imagePullPolicy:
+  restartPolicy: Never
+  logshipper:
+    registry:
+      url:
+      imagePullPolicy:
+    repoPath: proj-adp-log-released
+  # Secret must be manually created in the namespace, no default value
+  pullSecret:
+
+# images:
+#   snmpAP:
+#     # SNMP Alarm Provider image name
+#     name: eric-fh-snmp-alarm-provider
+#     # SNMP Alarm Provider image tag
+#     tag: VERSION
+#   logshipper:
+#     name: "eric-log-shipper"
+#     tag: "5.7.0-12"
+
+service:
+  externalIPv4 :
+    enabled:
+    loadBalancerIP:
+    servicePort: 161
+    annotations:
+      cloudProviderLB: {}
+      sharedVIPLabel: ""
+      addressPoolName: ""
+    loadBalancerSourceRanges: []
+  externalIPv6 :
+    enabled:
+    loadBalancerIP:
+    servicePort: 10161
+    annotations:
+      cloudProviderLB: {}
+      sharedVIPLabel: ""
+      addressPoolName: ""
+    loadBalancerSourceRanges: []
+  # Internal cluster service IP
+  # clusterIP: ""
+  # External IP addresses
+  # externalIPs: []
+  # IP address to assign to load balancer (if supported)
+  loadBalancerIP:
+  # List of IP CIDRs allowed access to load balancer (if supported)
+  loadBalancerSourceRanges: []
+  # Service type
+  type: LoadBalancer
+  # Port to be used as the service NodePort (ignored if .service.type is not set to NodePort)
+  # nodePort: ""
+  # HTTP port used by readiness and liveness probes
+  httpPort: 5006
+  # SNMP Agent port
+  snmpAgentPort: 1161
+  # SNMP AP Service port
+  servicePort: 161
+  # Logging, enable or disable DEBUG log level
+  debug: false
+  replicas: 1
+  # The secret resource name to use for configuring the service
+  # secretName: ""
+  # support DR-HC-185
+  annotations:
+    cloudProviderLB: {}
+    sharedVIPLabel: ""
+    addressPoolName: ""
+
+annotations: {}
+
+#exposing configurable helm parameters for the probe. (DR-D1120-012 and DR-D1120-014)
+probes:
+  snmpAP:
+    livenessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      failureThreshold: 6
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 6
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      timeoutSeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+
+#SNMP protocol releted values - begin
+
+# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306.
+# Possible values are 0(Unknown), 1(IPV4), 2(IPV6)
+sourceIdentifierType: 1
+# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306.
+# Should be in IPv4 or IPv6 format, depends on SourceIdentifierType
+sourceIdentifier: 127.0.0.1
+
+#SNMP protocol releted values - end
+
+resources:
+  alarmprovider:
+    requests:
+      # SNMP Alarm Provider container memory requests
+      memory: "384Mi"
+      # SNMP Alarm Provider container CPU requests
+      cpu: "0.1"
+      # SNMP Alarm Provider ephemeral storage
+      ephemeral-storage: 2Gi
+    limits:
+      # SNMP Alarm Provider container memory limits
+      memory: "1.5Gi"
+      # SNMP Alarm Provider container CPU limits
+      cpu: "0.2"
+      # SNMP Alarm Provider ephemeral storage limits
+      ephemeral-storage: 4Gi
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+  vip:
+    requests:
+      memory: "30Mi"
+      cpu: "25m"
+      ephemeral-storage: 100Mi
+    limits:
+      memory: "50Mi"
+      cpu: "40m"
+      ephemeral-storage: 200Mi
+
+#Java virtual machine memory heap options
+jvm:
+  heapOptions:
+  minRAMPercentage: 50.0
+  maxRAMPercentage: 70.0
+  initialRAMPercentage: 50.0
+
+nodeSelector: {}
+
+# DR-D1121-068: allow additional labels to be attached
+labels: {}
+
+#service log settings
+log:
+  # Supported values ["stdout", "stream"]
+  outputs: ["stdout"]
+  eric-fh-snmp-alarm-provider:
+    level: info
+  logshipper:
+    level: "info"
+
+oamVIP:
+  enabled: false
+  # example: "10.210.167.174"
+  vip:
+  # example: "10.210.140.93 10.210.150.90 10.250.110.70"
+  destIp :
+  # Must be set to 'true' when deploying on an IPv6 cluster
+  ipv6Stack: false
+
+ah:
+  # ah client certificate secret name
+  clientCertSecret: eric-sec-snmp-ap-ah-cert
+  # AH certificate authority
+  caName: eric-fh-alarm-handler-ca
+
+messageBusKF:
+  # messageBusKF client certificate secret name
+  clientCertSecret: eric-sec-snmp-ap-message-bus-kf-cert
+  # messageBusKF certificate authority
+  caName: eric-data-message-bus-kf-client-client-ca
+
+logTransformer:
+  host: eric-log-transformer
+  portTls: 5024
+  port: 5025
+  # logtransformer client certificate secret name
+  clientCertSecret: eric-sec-snmp-ap-log-transformer-cert
+  # logtransformer certificate authority
+  caName: eric-log-transformer-input-ca-cert
+
+messageBusRd:
+  enabled: false
+  host: eric-data-key-value-database-rd-operand
+  portTls: 6380
+  port: 6379
+  # The mode could be one of these: cluster (for clusterServer mode), single (for single instance server mode)
+  mode: cluster
+  # MessageBusRedis client certificate secret name
+  clientCertSecret: eric-fh-snmp-ap-message-bus-rd-cert
+  # MessageBusRedis certificate authority
+  caName: eric-data-key-value-database-rd-operand-client-ca
+  #ACL support
+  acl:
+    enabled: true
+    user: default
+    userKey: "username"
+    passKey: "password"
+
+vpnGw:
+  verboseMode:
+  vpnGwAddress:
+  vlanId:
+  sendFromAddress:
+  sendToAddress: # only used for ipv6
+
+logshipper:
+  storagePath: "/logs"
+  storageAllocation: "500Mi"
+  logplane: "adp-app-logs"
+  harvester:
+    closeTimeout: "5m"
+    logData:
+      - subPaths:
+          - "/snmp-alarm-provider.log"
+        additionalFields:
+          project : "snmp-alarm-provider-log"
+        multiline:
+          pattern: '^{'
+          negate: true
+          match: after
+
+  logtransformer:
+    host: eric-log-transformer
+
+# DR-D1123-127
+appArmorProfile:
+  type: ""
+  localhostProfile: ""
+  snmpAP:
+    type: ""
+    localhostProfile: ""
+  vip:
+    type: ""
+    localhostProfile: ""
+
+# DR-D1123-128 The Seccomp profile will be present in security context on a container level
+seccompProfile:
+  type: ""
+  localhostProfile: ""
+  snmpAP:
+    type: ""
+    localhostProfile: ""
+  vip:
+    type: ""
+    localhostProfile: ""
+  logshipper:
+    type: ""
+    localhostProfile: ""
+
+tolerations:
+  snmpAP:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+
+#Upper limit of graceful termination execution time (DR-D1120-080 )
+terminationGracePeriodSeconds: 30
+
+# Pod priority configuration for deployments
+podPriority:
+  snmpAP:
+    priorityClassName : ""

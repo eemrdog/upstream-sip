@@ -1,0 +1,544 @@
+# Default values for eric-fh-alarm-handler.
+# This is a YAML-formatted file.
+
+replicaCount: 2
+
+##Global registry
+# global:
+#   pullSecret:
+#   registry:
+#     url:
+#     imagePullPolicy: IfNotPresent
+#   timezone: UTC
+#   nodeSelector:
+#   networkPolicy:
+#     enabled: false
+#   log:
+#     outputs:
+#       - k8sLevel
+#   security:
+#     tls:
+#       enabled: true
+#     policyBinding:
+#       create: false
+#     policyReferenceMap:
+#       default-restricted-security-policy: "default-restricted-security-policy"
+#   internalIPFamily:
+
+imageCredentials:
+  pullSecret: # optional pullsecret, overrides global.pullSecret
+
+  # Specific images
+  alarmhandler:
+    registry: {}
+      # url: # overrides global.registry.url
+      # imagePullPolicy: # overrides global.registry.imagePullPolicy
+    repoPath: # overrides repoPath from eric-product-info.yaml
+
+  topiccreator:
+    registry: {}
+      # url: # overrides global.registry.url
+      # imagePullPolicy: # overrides global.registry.imagePullPolicy
+    repoPath: # overrides repoPath from eric-product-info.yaml
+
+  logshipper:
+    registry: {}
+      # url: # overrides global.registry.url
+      # imagePullPolicy: # overrides global.registry.imagePullPolicy
+    repoPath: {} # overrides repoPath from eric-product-info.yaml
+
+  ericsecoauthproxy:
+    registry: {}
+      # url: # overrides global.registry.url
+      # imagePullPolicy: # overrides global.registry.imagePullPolicy
+    repoPath: # overrides repoPath from eric-product-info.yaml
+
+  ericsecoauthsap:
+    registry: {}
+      # url: # overrides global.registry.url
+      # imagePullPolicy: # overrides global.registry.imagePullPolicy
+    repoPath: # overrides repoPath from eric-product-info.yaml
+
+# All k8s probes parameters are optional.
+probes:
+  alarmHandler:
+    livenessProbe:
+      periodSeconds: 17
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      periodSeconds: 10
+      timeoutSeconds: 10
+      successThreshold: 1
+      failureThreshold: 5
+    startupProbe:
+      initialDelaySeconds: 10
+      failureThreshold: 30
+      periodSeconds: 5
+      timeoutSeconds: 5
+  logshipper:
+    livenessProbe:
+      timeoutSeconds: 10
+      periodSeconds: 10
+      failureThreshold: 3
+      initialDelaySeconds: 1
+  ericsecoauthproxy:
+    # The startupProbe values for ericsecoauthproxy have no effect on k8s version <1.18
+    startupProbe:
+      initialDelaySeconds: 1     # Default
+      failureThreshold: 25       # Default
+      periodSeconds: 5           # Default
+      timeoutSeconds: 5          # Default
+    livenessProbe:
+      # initialDelaySeconds: 1     # Default: 1 if k8s version >= 1.18 else default: 125
+      failureThreshold: 2        # Default
+      periodSeconds: 5           # Default
+      timeoutSeconds: 5          # Default
+    readinessProbe:
+      # initialDelaySeconds: 1     # Default: 1 if k8s version >= 1.18 else default: 125
+      failureThreshold: 1        # Default
+      periodSeconds: 5           # Default
+      timeoutSeconds: 5          # Default
+      successThreshold: 1        # Default
+
+# pm server
+pmServer:
+  serviceName: "eric-pm-server"
+  # PM Server certificate authority secret
+  caSecret: "eric-pm-server-ca"
+
+# siptls
+siptls:
+  rootCertSecret: "eric-sec-sip-tls-trusted-root-cert"
+
+service:
+  endpoints:
+    fiapi:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+    restapi:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+    metrics:
+      enabled: false
+      port: 8000
+      tls:
+        # - If 'optional': HTTP only
+        # - If 'required': HTTPS only
+        # For metrics we won't have both HTTP and HTTPS at same time
+        enforced: required
+        verifyClientCertificate: required
+    probes:
+      tls:
+        # - If 'optional': HTTP only
+        # - If 'required': HTTPS only
+        # For probes we won't have both HTTP and HTTPS at same time
+        enforced: required
+        # For probes endpoint is not recommended to verify client
+        # certificate due to k8s cluster migrations.
+        # verifyClientCertificate: required
+    authorizationProxy:
+      tls:
+        # - If 'optional': HTTP only
+        # - If 'required' or <not defined>: HTTPS only
+        # The AuthorizationProxy does not allow both HTTP and HTTPS at same time
+        # options: 'optional' or 'required'
+        enforced: required
+
+        # Enabled/Disable client certificate validation (mTLS) in
+        # Authorization proxy server endpoint.
+        # Effective only IF global.security.tls.enabled == true AND
+        # service.endpoints.authorizationProxy.tls.enforced != optional
+        # - If 'optional': Client certificate verification is not done (no mTLS towards ICCR)
+        # - If 'required': Client certificate verification is performed (mTLS towards ICCR)
+        verifyClientCertificate: optional
+
+alarmhandler:
+  rest:
+    fi:
+      api:
+        enabled: false
+  restWorkers: 2
+  debug: false
+  alarmExpirationTimer: 30
+  faultMapperReloadTimer: 60
+  configReloadTimer: 60
+  cmmNameSuffix: ""
+  timeRecorderConfig: ""
+  logLevel: "Info"
+  logRotationInterval: 300
+  logFormat: "syslog"
+  configmap:
+    faultmappings: "eric-fh-alarm-handler-faultmappings"
+  alarmHistorySize: "10"
+
+  fi:
+    consumerConfig: ""
+    topic:
+      partitions: 3
+      replicationFactor: 3
+      configCLIParams: "retention.ms=172800000"
+  asi:
+    writer: "kafka"
+    producerConfig: ""
+    topic:
+      partitions: 1
+      replicationFactor: 3
+      configCLIParams: "retention.ms=172800000"
+
+backend:
+  type: postgres
+  hostname: "eric-data-document-database-pg"
+  dbname: adp_gs_ah
+  dbuser: ah
+  port: 5432
+
+cmm:
+  hostname: eric-cm-mediator
+  port: 5003
+
+dataCoordinator:
+   hostname: "eric-data-coordinator-zk"
+   port: "2181"
+
+kafka:
+  serviceName: "eric-data-message-bus-kf"
+  hostname: "eric-data-message-bus-kf-client"
+  port: 9092
+  tlsport: 9093
+  # Timeout in seconds when waiting for Kafka availability in InitContainer
+  connectTimeout: 300
+  fiReaderEnabled: true
+
+redis:
+  hostname: "eric-data-key-value-database-rd-operand"
+  port: 6379
+  tlsport: 6380
+  clustermode: true
+  asi:
+    streamMaxLength: 300
+  acl:
+    enabled: true
+    user: default
+    userKey: "username"
+    passKey: "password"
+
+resources:
+  alarmhandler:
+    requests:
+      memory: "384Mi"
+      cpu: "500m"
+      ephemeral-storage: "2Gi"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
+      ephemeral-storage: "4Gi"
+  topiccreator:
+    requests:
+      memory: "384Mi"
+      cpu: "500m"
+      ephemeral-storage: "1Gi"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
+      ephemeral-storage: "2Gi"
+  logshipper:
+    requests:
+      cpu: "20m"
+      memory: "50Mi"
+    limits:
+      cpu: "50m"
+      memory: "100Mi"
+    disableProbes: false
+  ericsecoauthproxy:
+    requests:
+      memory: 30Mi
+      cpu: 10m
+      ephemeral-storage: ""
+    limits:
+      memory: 150Mi
+      cpu: 50m
+      ephemeral-storage: ""
+  ericsecoauthsap:
+    requests:
+      memory: 30Mi
+      cpu: 10m
+      ephemeral-storage: ""
+    limits:
+      memory: 150Mi
+      cpu: 50m
+      ephemeral-storage: ""
+
+nodeSelector: {}
+
+## Tolerations to influence scheduling decisions made by Kubernetes scheduler
+## If deployed as a single replica, it is recommended to use the following tolerations
+tolerations: []
+  #- key: node.kubernetes.io/not-ready
+  #  operator: Exists
+  #  effect: NoExecute
+  #  tolerationSeconds: 0
+  #- key: node.kubernetes.io/unreachable
+  #  operator: Exists
+  #  effect: NoExecute
+  #  tolerationSeconds: 0
+terminationGracePeriodSeconds: 30
+
+topologySpreadConstraints: []
+
+networkPolicy:
+  enabled: true
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 50%
+    maxSurge: 50%
+
+credentials:
+  kubernetesSecretName: "eric-data-document-database-pg"
+  keyForUserId: custom-user
+  keyForUserPw: custom-pwd
+  keyForSuperPw: super-pwd
+
+readinessProbe:
+  logshipper:
+    timeoutSeconds: 15
+    periodSeconds: 30
+    successThreshold: 1
+    failureThreshold: 3
+
+logshipper:
+  # logplane: "adp-app-logs"
+  # runAndExit: false
+  # shutdownDelay: 10
+  # storageMedium:
+  # excludeFiles:
+  # includeLines:
+  # excludeLines:
+  storagePath: "/logs"
+  storageAllocation: "500Mi"
+  harvester:
+    closeTimeout: "5m"
+    logData:
+      - subPaths:
+          - "/alarm-handler.log"
+        # logplane:
+        # excludeFiles:
+        # includeLines:
+        # excludeLines:
+        additionalFields:
+          project: "alarm-handler-log"
+        multiline:
+          pattern: '^{'
+          negate: true
+          match: after
+      - subPaths:
+          - "/topic-creator.log"
+        # logplane:
+        # excludeFiles:
+        # includeLines:
+        # excludeLines:
+        additionalFields:
+          project: "topic-creator-log"
+        multiline:
+          pattern: '^\['
+          negate: true
+          match: after
+  logTransformer:
+    host: eric-log-transformer
+
+log:
+  # Supported values ["stdout", "stream"]
+  outputs:
+    - "stdout"
+  logshipper:
+    level: info
+
+labels: {}
+
+annotations: {}
+
+podDisruptionBudget:
+  minAvailable: 50%
+
+affinity:
+  # Pod Anti Affinity - "soft" or "hard"
+  podAntiAffinity: "hard"
+
+appArmorProfile:
+  type: ""
+  localhostProfile: ""
+  alarmHandler:
+    type: ""
+    localhostProfile: ""
+  topiccreator:
+    type: ""
+    localhostProfile: ""
+  logshipper:
+    type: ""
+    localhostProfile: ""
+  # ericsecoauthsap:
+  #   type:
+  #   localhostProfile:
+  # ericsecoauthproxy:
+  #   type:
+  #   localhostProfile:
+
+# DR-D1123-128
+seccompProfile:
+  type: ""
+  localhostProfile: ""
+  alarmHandler:
+    type: ""
+    localhostProfile: ""
+  topiccreator:
+    type: ""
+    localhostProfile: ""
+  logshipper:
+    type: ""
+    localhostProfile: ""
+  # ericsecoauthsap:
+  #   type:
+  #   localhostProfile:
+  # ericsecoauthproxy:
+  #   type:
+  #   localhostProfile:
+
+
+ingress:
+  enabled: false
+  # If true, a Contour HTTPProxy will be used as ingress (required for authorization)
+  # If false, a Kubernetes nginx ingress will be used.
+  useHttpProxy: true
+  # Mandatory, if ingress.enabled=true
+  hostname: ""
+  ingressClass:
+  tls:
+    # Optional
+    # If true, TLS connection will be terminated at Alarm Handler pod
+    # instead of ingress controller.
+    passthrough: false
+    # Optional
+    # If true, ingress will require external client to provide client certificate
+    # which will be verified agains the CA provided in ingress.certificates.trustedCertificateListName,
+    # or ingress.certificates.caSecret if provided.
+    verifyClientCertificate: true
+
+  certificates:
+    # External certificate, should be on format <keyName>/<certName>
+    asymmetricKeyCertificateName: "fh-alarm-http-server/fh-alarm-http-server"
+    # Name of the certificates list instance according to ietf-truststore configuration.
+    trustedCertificateListName: "fh-alarm-http-server"
+    # Name of secret, holding the cert/key used instead of asymmetricKeyCertificateName
+    secretName: ""
+    # Name of secret, holding the ca.crt file with all trusted certificates used instead of trustedCertificateListName
+    caSecret: ""
+
+  # Optional
+  # Additional annotation to add to HTTPProxy/Ingress resource
+  annotations: {}
+
+  # The path to match from the external request
+  path: /
+
+# ----------------------------------------------------------------------
+# The rest of authorization proxy parameters are enclosed inside
+# 'authorizationProxy:' struct
+# ----------------------------------------------------------------------
+authorizationProxy:
+
+  # Optional.
+  # Is Authorization Proxy enabled or not
+  enabled: true
+
+  # Conditional, if ADP IAM Server is installed with non-default chart name
+  # The name of the ADP IAM Server service (chart)
+  adpIamServiceName: eric-sec-access-mgmt # Default value
+
+  ## Conditional, if ADP ICCR Ingress is installed with non-default chart name
+  ## The name of the ADP ICCR Ingress service (chart)
+  adpIccrServiceName: eric-tm-ingress-controller-cr # Default value
+
+  # Conditional, if ADP ICCR is deployed with Envoy client certificates enabled
+  # and Envoy client certificate CA(s) is stored in non-default k8s secret.
+  # If this parameter is set then authorizationProxy.adpIccrServiceName is obsolete.
+  #
+  # The name of the k8s secret which contains ADP ICCR Envoy client certificate CAs
+  # adpIccrCaSecret: "" # Default value
+
+  # Conditional, if ADP IAM Server cluster internal service port has a
+  # non-default value. In IAM server this implies the following parameters:
+  # .values.service.tls.port and .values.service.port
+  # (IAM server has different port numbers depending on if TLS is enabled/disabled)
+  # adpIamServicePort: 443 # Example value.
+  adpIamServicePort: ""  # Default value.
+
+  # Alternative ADP IAM kubernetes service port when IAM server Admin console is blocked
+  adpIamAdminConsolePort: 8444
+
+  # Conditional, if ADP IAM Server uses different realm name for Admin User Management.
+  # The name of the IAM server realm used by authorization proxy:
+  adpIamRealm: oam # Default value
+
+  # Optional
+  # The container port number for authorization proxy sidecar
+  port: 8888 # Default value
+
+  # Optional
+  # The suffix part of the service provider specific Authorization Proxy k8s service name.
+  # The service name format is <service-provider-chart-name> + "-" + suffixOverride
+  suffixOverride: authproxy # Default value
+
+  # Optional
+  # The name of k8s secret providing IAM client credentials. Relevant only
+  # when TLS is disabled (TLS shouldn't be disabled in production, only in
+  # customer demos and similar).
+  # Must have the same value as authenticationProxy.clientCredentialSecret
+  # in IAM server.
+  adpIamClientCredentialSecret: "eric-sec-access-mgmt-aapxy-creds" # Default value
+
+  # Optional
+  # The name of k8s secret providing IAM Server Admin credentials.
+  # Must have the same value as statefulset.adminSecret
+  # in IAM server.
+  adpIamAdminSecret: "eric-sec-access-mgmt-aapxy-creds" # Default value
+
+  # Optional
+  # Timeout for HTTP request which is forwarded to the Service Provider.
+  # Authorization proxy waits for reply spRequestTimeout seconds after
+  # which it replies with 503 code to downstream.
+  spRequestTimeout: 8
+
+  # Optional
+  # Timeout for authorization interrogation which is sent to IAM server.
+  # Authorization proxy waits for reply iamRequestTimeout seconds after
+  # which it replies with 503 code to downstream.
+  iamRequestTimeout: 8
+
+  authzLog:
+    # Conditional, if 'applicationLevel' logging is used, for example: global.log.outputs="applicationLevel"
+    # Log Transformer host i.e Kubernetes Service name of the Log Transformer
+    logtransformer:
+      host: "eric-log-transformer"
+
+  # sipoauth2:
+  #    # Optional
+  #    # Enables or disables authorization proxy to use IAM sip-oauth2 api
+  #    # to get identity when communicating with IAM.
+  #    # Deprecated
+  #    enabled: false
+
+  # Optional
+  # If false, metrics will not be scraped
+  metrics:
+    enabled: false
+
+# DR-D1126-030
+# Pod priority configuration for deployment
+podPriority:
+  alarmHandler:
+    priorityClassName: "" # No priority set

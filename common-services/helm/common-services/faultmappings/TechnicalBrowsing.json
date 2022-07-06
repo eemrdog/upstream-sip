@@ -1,0 +1,52 @@
+[
+	{
+		"faultName": "ServiceUnavailableError",
+		"vendor": 193,
+		"code": 6096268,
+		"defaultSeverity": "Critical",
+		"category": "CommunicationsAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to communicate with external service"
+	},
+	{
+		"faultName": "LoginError",
+		"vendor": 193,
+		"code": 6096269,
+		"defaultSeverity": "Critical",
+		"category": "CommunicationsAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unsuccessfull attempt to login"
+	},
+	{
+		"faultName": "InitializationError",
+		"vendor": 193,
+		"code": 6096270,
+		"defaultSeverity": "Critical",
+		"category": "Other",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to properly initialize component"
+	},
+	{
+		"faultName": "FailureResponseError",
+		"vendor": 193,
+		"code": 6096271,
+		"defaultSeverity": "Major",
+		"category": "ProcessingErrorAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Failure processing request"
+	},
+	{
+		"faultName": "CertificationError",
+		"vendor": 193,
+		"code": 6096272,
+		"defaultSeverity": "Major",
+		"category": "EnvironmentalAlarm",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Failure during certification check"
+	}
+]

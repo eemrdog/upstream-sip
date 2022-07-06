@@ -1,0 +1,298 @@
+# Default values for log.
+# This is a YAML-formatted file.
+affinity:
+  podAntiAffinity: "soft"
+
+replicaCount: 1
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 25% # Kubernetes default value
+    maxSurge: 25% # Kubernetes default value
+
+tolerations: []
+topologySpreadConstraints: []
+terminationGracePeriodSeconds: 30
+
+#global:
+#  registry:
+#    imagePullPolicy: "IfNotPresent"
+#    url: "armdocker.rnd.ericsson.se"
+#  timezone: "UTC"
+#  nodeSelector: {}
+#  pullSecret:
+#  internalIPFamily:
+#  security:
+#    tls:
+#      enabled: true
+#    policyBinding:
+#      create: false
+#    policyReferenceMap:
+#      default-restricted-security-policy: "default-restricted-security-policy"
+
+annotations: {}
+
+bandwidth:
+  maxEgressRate: ""
+
+labels: {}
+
+imageCredentials:
+  registry: {}
+  pullSecret: # When set this overrides global pull secret
+
+service:
+  endpoints:
+    syslogIn:
+      tls:
+        enforced: "required"
+    filebeat:
+      tls:
+        enforced: "required"
+    jsonIn:
+      tls:
+        enforced: "required"
+    httpIn:
+      tls:
+        enforced: "required"
+
+networkPolicy:
+  enabled: true
+
+probes:
+  logtransformer:
+    livenessProbe:
+      initialDelaySeconds: 600
+      timeoutSeconds: 15
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 80
+      timeoutSeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+  metrics:
+    livenessProbe:
+      initialDelaySeconds: 600
+      timeoutSeconds: 15
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 80
+      timeoutSeconds: 15
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 3
+  tlsproxy:
+    livenessProbe:
+      initialDelaySeconds: 5
+      timeoutSeconds: 15
+      periodSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 80
+      timeoutSeconds: 15
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 3
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      timeoutSeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+
+searchengine:
+  host: eric-data-search-engine
+  logplaneConfig:
+  - field: "[extra_data][asi][log_plane]"
+    value: "alarm"
+    newLogplane: "adp-app-asi-logs"
+  - field: "[facility]"
+    value: "log audit"
+    newLogplane: "adp-app-audit-logs"
+  - field: "[metadata][category]"
+    contains: "-privacy-"
+    newLogplane: "adp-app-audit-logs"
+  exclusion:
+  - logplane:
+    rules:
+      - field:
+        value:
+
+log:
+  # Supported values ["stdout", "stream"]
+  outputs: ["stdout"]
+  logshipper:
+    level: info
+  logplane:
+    default: "adp-app-logs"
+    logtransformer: ""
+    metrics: ""
+    tlsproxy: ""
+
+jvmHeap: 4096m
+
+resources:
+  logtransformer:
+    requests:
+      cpu: 250m
+      memory: 6Gi
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      cpu: 1000m
+      memory: 6Gi
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  metrics:
+    limits:
+      cpu: "100m"
+      memory: "256Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  tlsproxy:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+
+networkPolicy:
+  egress:
+  #  - cidr: 172.17.0.0/32
+  #    ports:
+  #    - protocol: TCP
+  #      port: 1234
+  #    - protocol: UDP
+  #      port: 2345
+
+json:
+  logplane: "adp-app-logs"
+
+syslog:
+ syslogLogplane: adp-app-logs
+
+http:
+  logplane: "adp-app-logs"
+
+egress:
+  lumberjack:
+    enabled: false
+    remoteHosts: []
+    certificates:
+      asymmetricKeyCertificateName: log-lumberjack-client
+      trustedCertificateListName:
+  syslog:
+    enabled: false
+    defaultFacility: 1
+    defaultSeverity: 6
+    tls:
+      enabled: true
+    certificates:
+      asymmetricKeyCertificateName: log-syslog-client
+      trustedCertificateListName: log-syslog-client
+      useCertmOnboarding: true
+    remoteHosts: []
+    inclusions: []
+    exclusions: []
+    filter: ""
+
+logLevel: "info"
+
+config:
+  adpJson:
+    validation:
+      enabled: true
+    transformation:
+      enabled: true
+    # Do not add quotes around the field name
+    decodedAdpJsonField: json
+  filebeat:
+    input:
+      filter: #|
+  fileOutput: false
+  filter: #|
+  input: #|
+  output:
+  #  - name: "remote_elastic"
+  #    output: |
+  #      elasticsearch {
+  #        hosts => ["${ELASTICSEARCH_REMOTE_HOSTS}"]
+  #        index => "%{logplane}-%{+YYYY.MM.dd}"
+  #      }
+  #    filter: |
+  #      if( [field] != "value" ) {
+  #        drop{}
+  #      }
+
+metrics:
+  enabled: true
+  pmServer: "eric-pm-server"
+
+logshipper:
+  hostname: "eric-log-shipper"
+
+clusterDomain: "cluster.local"
+
+podDisruptionBudget:
+  maxUnavailable: 1
+
+queue:
+  sizePerPipeline: 1024
+
+podPriority:
+  logtransformer:
+    # Priority class name for the logtransformer Pod. Priority classes are used to determine the priority of Pods when scheduling them on nodes.
+    priorityClassName:
+
+appArmorProfile:
+  type:
+  localhostProfile:
+  logtransformer:
+    type:
+    localhostProfile:
+  metrics:
+    type:
+    localhostProfile:
+  tlsproxy:
+    type:
+    localhostProfile:
+  logshipper:
+    type:
+    localhostProfile:
+
+seccompProfile:
+  type: ""
+  localhostProfile:
+  logtransformer:
+    type: ""
+    localhostProfile:
+  logshipper:
+    type: ""
+    localhostProfile:
+  metrics:
+    type: ""
+    localhostProfile:
+  tlsproxy:
+    type: ""
+    localhostProfile:

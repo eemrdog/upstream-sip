@@ -1,0 +1,72 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-ro-role"
+  labels:
+  {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+  {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
+rules:
+  - apiGroups:
+    - ""
+    - "extensions"
+    - "apps"
+    - "batch"
+    - "policy"
+    resources:
+    - "configmaps"
+    - "endpoints"
+    - "events"
+    - "persistentvolumeclaims"
+    - "pods"
+    - "pods/log"
+    - "podtemplates"
+    - "services"
+    - "daemonsets"
+    - "deployments"
+    - "replicasets"
+    - "statefulsets"
+    - "cronjobs"
+    - "jobs"
+    - "events"
+    - "daemonsets"
+    - "deployments"
+    - "ingresses"
+    - "poddisruptionbudgets"
+    verbs:
+    - "get"
+    - "list"
+    - "watch"
+  - apiGroups:
+    - ""
+    - "com.ericsson.sec.tls"
+    - "extensions"
+    - "apps"
+    resources:
+      - "secrets"
+      - "serviceaccounts"
+      - "certificateauthorities.com.ericsson.sec.tls"
+      - "clientcertificates.com.ericsson.sec.tls"
+      - "servercertificates.com.ericsson.sec.tls"
+      - "rolebindings.rbac.authorization.k8s.io"
+      - "roles.rbac.authorization.k8s.io"
+    verbs:
+      - "list"
+      - "watch"
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-ro-rolebinding"
+  labels:
+  {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+  {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-ro-role"
+subjects:
+  - kind: Group
+    name: "{{ template "eric-bss-ecmeoc-common.name" . }}-ro-group"

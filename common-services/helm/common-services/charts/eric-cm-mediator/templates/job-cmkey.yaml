@@ -1,0 +1,144 @@
+{{ if (.Values.cmkey.enable) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}-key-init
+  labels: {{- include "eric-cm-mediator.labels" . | nindent 4 }}
+  annotations:
+    {{- $annotationsDict := dict }}
+    {{- $_ := set $annotationsDict "meta.helm.sh/release-name" .Release.Name }}
+    {{- $_ := set $annotationsDict "meta.helm.sh/release-namespace" .Release.Namespace }}
+
+    {{- $baseAnnotations := include "eric-cm-mediator.baseAnnotations" . | fromYaml  -}}
+    {{- include "eric-cm-mediator.mergeAnnotations" (dict "location" .Template.Name "sources" (list $annotationsDict $baseAnnotations)) | trim | nindent 4 }}
+spec:
+  template:
+    metadata:
+      name: {{ template "eric-cm-mediator.name" . }}-key-init
+      labels:
+      {{- $baseLabels := include "eric-cm-mediator.labels" . | fromYaml  -}}
+      {{- $peerLabels := include "eric-cm-mediator-job-cmkey.peer.labels" . | fromYaml  -}}
+      {{- include "eric-cm-mediator.mergeLabels" (dict "location" .Template.Name "sources" (list $peerLabels $baseLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- include "eric-cm-mediator-key-init.pod.annotations" . | nindent 8 }}
+    spec:
+      securityContext: {{- include "eric-cm-mediator.seccomp" (dict "pod" "eric-cm-key-init" "Values" .Values ) | nindent 8 }}
+      {{- if include "eric-cm-mediator.pullSecret" . }}
+      imagePullSecrets:
+      - name: {{ template "eric-cm-mediator.pullSecret" . }}
+      {{- end }}
+      restartPolicy: OnFailure
+      {{- if include "eric-cm-mediator.nodeSelector.general" . }}
+      nodeSelector:
+        {{ template "eric-cm-mediator.nodeSelector.general" . }}
+      {{- else if include "eric-cm-mediator-key-init.nodeSelector" . }}
+      nodeSelector:
+        {{ template "eric-cm-mediator-key-init.nodeSelector" . }}
+      {{- end }}
+{{- if index .Values.podPriority "eric-cm-key-init" "priorityClassName" }}
+      priorityClassName: {{ index .Values.podPriority "eric-cm-key-init" "priorityClassName" | quote }}
+{{- end }}
+{{- if (index .Values "tolerations" "eric-cm-key-init") }}
+      tolerations:
+{{ toYaml (index .Values "tolerations" "eric-cm-key-init") | indent 6 }}
+{{- end }}
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          medium: "Memory"
+      - name: tls-trusted-ca-cert-volumemount
+        secret:
+          secretName: eric-sec-sip-tls-trusted-root-cert
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+      - name: tls-log-transformer-client-cert-volumemount
+        secret:
+          secretName: {{ template "eric-cm-mediator.name" . }}-log-transformer-tls-client-secret
+{{- end }}
+{{- end }}
+      serviceAccountName: {{ .Values.cmkey.kms.hostname }}-admin
+      initContainers:
+      - name: "eric-cm-mediator-init-container"
+        image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-mediator-init-container" "files" .Files) }}
+        imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
+        env:
+        - name: TZ
+          value: {{ template "eric-cm-mediator.timezone" . }}
+        - name: CM_LOG_LEVEL
+          value: {{ .Values.cmm.logLevel | title | quote }}
+        - name: CM_LOG_FORMAT
+          value: {{ .Values.cmm.logFormat | quote }}
+        - name: CM_LOG_SERVICE_TAG
+          value: {{ .Chart.Name | quote }}
+        - name: CM_LOG_OUTPUT
+          value: {{ template "eric-cm-mediator.logOutput" . }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+        - name: CM_LOG_SERVER
+          value: {{ template "eric-cm-mediator.logtransformer" . }}
+{{- end }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+        - name: CM_SERVER_USE_TLS
+          value: "true"
+{{- end }}
+        - name: ENDPOINT
+          value: {{ .Values.cmkey.kms.hostname }}:{{ .Values.cmkey.kms.port }}
+        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+{{ if index .Values "resources" "eric-cm-mediator-init-container" }}
+        resources:
+{{ toYaml (index .Values "resources" "eric-cm-mediator-init-container") | indent 10 }}
+{{ end }}
+        volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp
+{{- if and (eq (include "eric-cm-mediator.tls" .) "true") (has "stream" .Values.cmm.logOutput) }}
+          - name: tls-trusted-ca-cert-volumemount
+            mountPath: /etc/sip-tls-ca
+            readOnly: true
+          - name: tls-log-transformer-client-cert-volumemount
+            mountPath: /etc/sip-tls-logtransformer-client
+            readOnly: true
+{{- end }}
+      containers:
+      - name: eric-cm-key-init
+        image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-key-init" "files" .Files) }}
+        imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
+        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+{{ if index .Values "resources" "eric-cm-key-init" }}
+        resources:
+{{ toYaml (index .Values "resources" "eric-cm-key-init") | indent 10 }}
+{{ end }}
+        volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp
+          - name: tls-trusted-ca-cert-volumemount
+            mountPath: /etc/sip-tls-ca/
+            readOnly: true
+{{- if and (eq (include "eric-cm-mediator.tls" .) "true") (has "stream" .Values.cmm.logOutput) }}
+          - name: tls-log-transformer-client-cert-volumemount
+            mountPath: /etc/sip-tls-logtransformer-client
+            readOnly: true
+{{- end }}
+        env:
+        - name: CM_LOG_LEVEL
+          value: {{ .Values.cmm.logLevel | title | quote }}
+        - name: CM_LOG_OUTPUT
+          value: {{ template "eric-cm-mediator.logOutput" . }}
+{{- if (has "stream" .Values.cmm.logOutput) }}
+        - name: CM_LOG_SERVER
+          value: {{ template "eric-cm-mediator.logtransformer" . }}
+{{- end }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+        - name: CM_SERVER_USE_TLS
+          value: "true"
+{{- end }}
+        - name: TZ
+          value: {{ template "eric-cm-mediator.timezone" . }}
+        - name: KMS_SERVER
+          value: {{ .Values.cmkey.kms.hostname }}:{{ .Values.cmkey.kms.port }}
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: KEY_NAME
+          value: {{ .Values.cmkey.key.name }}
+        - name: KEY_ALGORITHM
+          value: {{ .Values.cmkey.key.algorithm | quote }}
+{{ end }}

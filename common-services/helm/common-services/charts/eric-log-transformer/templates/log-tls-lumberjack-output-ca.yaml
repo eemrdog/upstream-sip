@@ -1,0 +1,15 @@
+{{- if and .Values.egress.lumberjack.enabled (.Values.egress.lumberjack.certificates.trustedCertificateListName) }}
+apiVersion: certm.sec.ericsson.com/v1beta1
+kind: ExternalCertificate
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . }}-lumberjack-output-trusted-cert
+  labels:
+    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+spec:
+  generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-lumberjack-trusted-external-secret
+  generated-secret-type: opaque
+  trusted-certificates-file-name: trustedcert
+  trusted-certificate-list-name: {{ .Values.egress.lumberjack.certificates.trustedCertificateListName }}
+{{- end -}}

@@ -1,0 +1,3 @@
+{{- if has "stream" .Values.log.outputs }}
+  {{- include "eric-data-search-engine.logshipper-tls-cert-lt-client" . }}
+{{- end }}

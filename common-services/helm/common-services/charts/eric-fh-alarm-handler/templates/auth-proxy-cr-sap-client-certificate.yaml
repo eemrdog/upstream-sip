@@ -1,0 +1,20 @@
+{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
+{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
+{{- $globals := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
+{{- if $globals.security.tls.enabled }}
+{{- if include "eric-fh-alarm-handler.sap-cli-used" . }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-iam-sap-client-cert
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels )) | indent 4}}
+  annotations:
+    {{- include "eric-fh-alarm-handler.annotations" . | nindent 4 }}
+spec:
+{{ include "eric-fh-alarm-handler.authz-proxy-sap-cli-cert-spec" . | indent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}

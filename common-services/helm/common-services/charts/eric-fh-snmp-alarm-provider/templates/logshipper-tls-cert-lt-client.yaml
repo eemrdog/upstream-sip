@@ -1,0 +1,3 @@
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-fh-snmp-alarm-provider.logshipper-tls-cert-lt-client" . }}
+{{- end }}

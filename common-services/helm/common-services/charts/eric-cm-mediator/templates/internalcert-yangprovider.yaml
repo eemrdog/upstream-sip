@@ -1,0 +1,21 @@
+{{- if and (eq (include "eric-cm-mediator.tls" .) "true") .Values.exilis.cm.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}-yangprovider-client-certificate
+  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-cm-mediator.name" . }}-yangprovider-tls-client-secret
+    certificateName: clicert.pem
+    privateKeyName: cliprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-cm-mediator.name" . }}
+    issuer:
+      reference: {{ .Values.exilis.cm.yangprovider.hostname }}-client-ca
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end }}

@@ -1,0 +1,49 @@
+Ericsson BSS BAM Integration Chart
+==================================
+
+Installs following components
+-----------------------------
+
+---------------------------------------------------------------
+| Component                                | Version          |
+|------------------------------------------|------------------|
+| eric-cm-mediator                         | 7.16.0+29        |
+| eric-ctrl-bro                            | 5.5.0+49         |
+| eric-data-coordinator-zk                 | 1.28.0+12        |
+| eric-data-distributed-coordinator-ed     | 3.3.0+13         |
+| eric-data-document-database-pg           | 7.4.0+44         |
+| eric-data-message-bus-kf                 | 1.27.0+21        |
+| eric-data-search-engine                  | 10.1.0+22        |
+| eric-data-search-engine-curator          | 2.9.0+22         |
+| eric-fh-alarm-handler                    | 8.3.0+63         |
+| eric-fh-snmp-alarm-provider              | 6.3.0+49         |
+| eric-log-shipper                         | 9.3.0+24         |
+| eric-log-transformer                     | 8.2.0+17         |
+| eric-sec-access-mgmt                     | 12.0.0+39        |
+| eric-sec-key-management                  | 3.4.0+15         |
+| eric-sec-sip-tls                         | 4.2.0+32         |
+| eric-pm-server                           | 10.0.0+14        |
+| eric-pm-bulk-reporter                    | 7.5.0+19         |
+| eric-lm-combined-server                  | 6.0.0+38         |
+| eric-data-object-storage-mn              | 1.23.0+22        |
+---------------------------------------------------------------
+
+Uninstall/delete steps
+----------------------
+  - Delete the helm installation
+
+    helm 2:  helm delete --purge {{ .Release.Name }}
+    helm 3:  helm uninstall {{ .Release.Name }}
+
+  - There are underlying kubernetes objects(related to secret and volumes), which needs to be manually deleted
+
+      kubectl get secret,pvc,pv -n {{ .Release.Namespace }}
+
+  - Then delete the respective component from above list
+
+      kubectl delete <k8 object type>/<k8 object name> -n {{ .Release.Namespace }}
+
+{{- if .Values.iamAuth.multitenancy }}
+Warning:  Multitenancy feature should not be enabled in production environment for this release. It is meant only for testing and verification.
+{{- end }}
+

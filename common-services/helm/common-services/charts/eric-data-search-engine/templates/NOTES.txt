@@ -1,0 +1,38 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+Welcome to eric-data-search-engine on Kubernetes!
+{{- if $g.security.tls.enabled }}
+{{- if eq .Values.service.endpoints.rest.tls.enforced "optional" }}
+
+Deployed in dual mode with both TLS and insecure REST interfaces expose.
+This deployment mode is not completely secured and should only be used during upgrade scenario until all clients have migrated to TLS interface.
+{{- else }}
+
+{{- if eq .Values.service.endpoints.rest.tls.verifyClientCertificate "optional" }}
+
+Deployed in semi-secure mode with TLS.
+Client certificates are not required by server leaving service vulnerable to "man-in-the-middle" attacks and should only be used during upgrade scenario until all clients are updated to use trusted certificates to support mTLS.
+{{- else }}
+
+Deployed in secure mode with mTLS.
+{{- end }}
+{{- end }}
+{{- else }}
+
+Deployed in insecure mode without TLS which is only supported for test and demo purposes.
+{{- end }}
+
+For maintenance operations the REST API of the eric-data-search-engine cluster can be accessed as follows:
+
+  alias esRest="kubectl -n {{ .Release.Namespace }} exec -c ingest $(kubectl get pods -n {{ .Release.Namespace }} -l "app={{ template "eric-data-search-engine.fullname" . }},role in (ingest-tls,ingest)" -o jsonpath="{.items[0].metadata.name}") -- /bin/esRest"
+
+  esRest GET /_cat/nodes?v
+  esRest GET /_cat/indices?v
+
+{{- if ne (include "eric-data-search-engine.deprecation-notices" .) "" }}
+
+DEPRECATION NOTICE: The following parameters have been specified but are deprecated.
+{{ include "eric-data-search-engine.deprecation-notices" . }}
+
+See deployment guide for more information.
+
+{{- end }}

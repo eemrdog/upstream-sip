@@ -1,0 +1,48 @@
+{{- if .Values.service.tls.enabled }}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-key-management.name" . }}-kms-cert
+    certificateName: 'srvcert.pem'
+    privateKeyName: 'srvprivkey.pem'
+  certificate:
+    subject:
+      cn: {{ template "eric-sec-key-management.name" . }}
+    validity:
+      # Renewal policy:
+      #
+      # The time to live of the certificate (in seconds). We override
+      # the default certificate time-to-live in order to avoid deadlock
+      # when cluster is down. Since KMS is dependent on DCED, if the
+      # KMS certificate expires then it cannot communicate with DCED
+      # and SIP-TLS can no longer provision certificates. It would
+      # require manual intervention. Set to one week (7 days = 604800 s).
+      #
+      # The certificate is renewed after 1 hour, meaning the lead time
+      # is 7 days - 1 hour = 604800 s - 3600 s = 601200 s. This means
+      # that it takes about 6.95 days before a valid certificate expires.
+      overrideTtl: 604800
+      overrideLeadTime: 601200
+
+    subjectAlternativeName:
+      dns:
+        # Needed for client redirection when a client hits standby node
+        {{- range $i := until (.Values.replicas | int) }}
+        - {{ template "eric-sec-key-management.name" $ }}-main-{{ $i }}.{{ template "eric-sec-key-management.name" $ }}-peer
+        {{- end }}
+        # 'certified-scrape-target' is a magic SAN that allows PM Server to scrape the metrics.
+        - certified-scrape-target
+
+    extendedKeyUsage:
+      tlsClientAuth: false
+      tlsServerAuth: true
+
+{{- end }}

@@ -1,0 +1,9 @@
+{{- define "eric-sec-iam-server.containerSecurityContext" }}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+privileged: false
+runAsNonRoot: true
+capabilities:
+    drop:
+      - all
+{{- end}}

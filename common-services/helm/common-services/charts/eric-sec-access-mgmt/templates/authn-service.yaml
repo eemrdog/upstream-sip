@@ -1,0 +1,30 @@
+{{ if .Values.authenticationProxy.enabled }}
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-authn
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- $annotations := dict -}}
+    {{- if $global.security.tls.enabled }}
+      {{- $_ := set $annotations "projectcontour.io/upstream-protocol.tls" "http, 8080" -}}
+    {{- end }}
+    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $annotations $common)) | trim | nindent 4 }}
+spec:
+  {{- if $global.internalIPFamily }}
+  ipFamilies: [{{ $global.internalIPFamily | quote }}]
+  {{- end }}
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: http
+      port: 8080
+      targetPort: http-pxy
+  selector:
+    app: {{ template "eric-sec-access-mgmt.name" . }}
+    release: {{ .Release.Name | quote }}
+status:
+  loadBalancer: {}
+{{ end }}

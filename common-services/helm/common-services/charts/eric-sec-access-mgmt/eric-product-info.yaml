@@ -1,0 +1,42 @@
+productName:       "Identity and Access Management"
+productNumber:     "CXD 101 189"
+images:
+  iam:
+    productName:   "Identity and Access Management Image"
+    productNumber: "CXU 101 1145"
+    registry:      "armdocker.rnd.ericsson.se"
+    repoPath:      "proj-common-assets-cd/security"
+    name:          "eric-sec-access-mgmt-image"
+    tag:           "12.0.0-39"
+  iaminit:
+    productName:   "Identity and Access Management Initcontainer"
+    productNumber: "CXU 101 1146"
+    registry:      "armdocker.rnd.ericsson.se"
+    repoPath:      "proj-common-assets-cd/security"
+    name:          "eric-sec-access-mgmt-initcontainer"
+    tag:           "12.0.0-39"
+  authenticationproxy:
+    productName:   "Authentication Proxy"
+    productNumber: "CXC 174 3251"
+    registry:      "armdocker.rnd.ericsson.se"
+    repoPath:      "proj-common-assets-cd/security"
+    name:          "eric-sec-access-mgmt-authnproxy"
+    tag:           "12.0.0-39"
+  logshipper:
+    productName:   "ADP Log Shipper"
+    productNumber: "CXU 101 0642/9"
+    registry:      "armdocker.rnd.ericsson.se"
+    repoPath:      "proj-adp-log-released"
+    name:          "eric-log-shipper"
+    tag:           "9.1.0-33"
+  sipoauth2:
+    productName:   "Service Identity Provider Oauth2"
+    productNumber: "CXC 174 4152"
+    registry:      "armdocker.rnd.ericsson.se"
+    repoPath:      "proj-common-assets-cd/security"
+    name:          "eric-sec-access-mgmt-sip-oauth2"
+    tag:           "12.0.0-39"
+
+# Dev note:
+# 1. The values in the file come from common-properties.yaml
+# 2. Replaced by ruleset2.0.yaml during helm package

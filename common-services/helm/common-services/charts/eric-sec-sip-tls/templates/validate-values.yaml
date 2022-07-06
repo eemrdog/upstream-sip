@@ -1,0 +1,58 @@
+{{- if false -}}
+# Sanity checks for input values.
+# In a nutshell:
+# The Helm template function 'required' will throw an error if the parameter given to it cannot be found.
+# This essentially means it will always throw this error because 'nonExistent' never exists.
+# However, the whole check is only rendered when the 'if' condition is true, otherwise it is skipped.
+# I.e., the below lines can be read as: 'if <boolean expression> fails, throw error'
+
+# Similar safety guards are present in the code as well.
+{{- end -}}
+
+{{- if lt (int64 .Values.serverCertificate.validLifetimeSeconds) 180 -}}
+{{- required "serverCertificate.validLifetimeSeconds must be minimum 180" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (int64 .Values.serverCertificate.validLifetimeSeconds) 604800 -}}
+{{- required "serverCertificate.validLifetimeSeconds must be maximum 604800" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if lt (int64 .Values.clientCertificate.validLifetimeSeconds) 180 -}}
+{{- required "clientCertificate.validLifetimeSeconds must be minimum 180" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (int64 .Values.clientCertificate.validLifetimeSeconds) 604800 -}}
+{{- required "clientCertificate.validLifetimeSeconds must be maximum 604800" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if lt (int64 .Values.internalCertificate.validLifetimeSeconds) 180 -}}
+{{- required "internalCertificate.validLifetimeSeconds must be minimum 180" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (int64 .Values.internalCertificate.validLifetimeSeconds) 315576000 -}}
+{{- required "internalCertificate.validLifetimeSeconds must be maximum 315576000" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if lt (float64 .Values.serverCertificate.renewalThresholdRatio) 0.5 -}}
+{{- required "serverCertificate.renewalThresholdRatio must be minimum 0.5" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (float64 .Values.serverCertificate.renewalThresholdRatio) 0.95 -}}
+{{- required "serverCertificate.renewalThresholdRatio must be maximum 0.95" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if lt (float64 .Values.clientCertificate.renewalThresholdRatio) 0.5 -}}
+{{- required "clientCertificate.renewalThresholdRatio must be minimum 0.5" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (float64 .Values.clientCertificate.renewalThresholdRatio) 0.95 -}}
+{{- required "clientCertificate.renewalThresholdRatio must be maximum 0.95" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if lt (float64 .Values.internalCertificate.renewalThresholdRatio) 0.5 -}}
+{{- required "internalCertificate.renewalThresholdRatio must be minimum 0.5" .Values.nonExistent -}}
+{{- end -}}
+
+{{- if gt (float64 .Values.internalCertificate.renewalThresholdRatio) 0.95 -}}
+{{- required "internalCertificate.renewalThresholdRatio must be maximum 0.95" .Values.nonExistent -}}
+{{- end -}}

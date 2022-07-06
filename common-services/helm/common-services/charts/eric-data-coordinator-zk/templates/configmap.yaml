@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-data-coordinator-zk.name" . }}
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4}}
+  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+data:
+  zoo.cfg: |
+    standaloneEnabled=false
+    reconfigEnabled=true
+    admin.serverAddress={{ .Values.network.datacoordinatorzk.adminServer.address }}
+    admin.serverPort={{ .Values.network.datacoordinatorzk.adminServer.port }}
+    dataDir=/var/lib/zookeeper/data
+    dataLogDir=/var/lib/zookeeper/log
+    tickTime={{ .Values.tickTimeMs  }}
+    initLimit={{ .Values.initLimit }}
+    syncLimit={{ .Values.syncLimit  }}
+    maxClientCnxns={{ .Values.maxClientCnxns  }}
+    minSessionTimeout={{ mul .Values.tickTimeMs 2 }}
+    maxSessionTimeout={{ mul .Values.tickTimeMs 20  }}
+    autopurge.snapRetainCount={{ .Values.snapRetainCount }}
+    snapCount={{ .Values.snapCount }}
+    autopurge.purgeInterval={{ .Values.purgeIntervalHours }}
+    snapshot.trust.empty=true
+    {{- if .Values.metrics.enabled }}
+    metricsProvider.className=com.ericsson.adp.mgmt.dczk.metrics.SecureMetricsProvider
+    metricsProvider.exportJvmInfo=true
+    metricsProvider.connectors={{ include "eric-data-coordinator-zk.pm.connectors" . }}
+    {{- if contains "clearText" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+      metricsProvider.clearTextPort={{ .Values.service.endpoints.datacoordinatorzk.metricsPort }}
+    {{- end }}
+    {{- if contains "TLS" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+      metricsProvider.ssl.port={{ .Values.service.endpoints.pm.tls.port }}
+      metricsProvider.ssl.verifyClientCertificate={{ .Values.service.endpoints.pm.tls.verifyClientCertificate }}
+      metricsProvider.ssl.keyStore.location=/var/lib/zookeeper/secrets/jetty/server.keystore.jks
+      metricsProvider.ssl.keyStore.code=eric-data-coordinator-zk
+      metricsProvider.ssl.truststore.location=/var/lib/zookeeper/secrets/jetty/server.truststore.jks
+      metricsProvider.ssl.truststore.code=eric-data-coordinator-zk
+    {{- end }}
+    {{- end }}
+    dynamicConfigFile=/var/lib/zookeeper/config-dynamic/zoo.cfg.dynamic
+    authProvider.loadableX509=com.ericsson.adp.mgmt.dczk.authentication.LoadableAuthenticationProvider
+    ssl.authProvider=loadableX509
+
+{{- if (eq (include "eric-data-coordinator-zk.sasl" .) "true") }}
+    authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+    requireClientAuthScheme=sasl
+    jaasLoginRenew=3600000
+{{- end }}
+
+{{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+    ssl.protocol=TLSv1.3
+    ssl.enabledProtocols=TLSv1.3,TLSv1.2
+    ssl.ciphersuites={{ .Values.tlsCiphers }}
+    serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory
+    sslQuorumReloadCertFiles=true
+    quorumListenOnAllIPs=true
+    secureClientPort={{ .Values.network.datacoordinatorzk.client.tlsPort }}
+    {{- if eq .Values.service.endpoints.datacoordinatorzk.tls.provider "edaTls" }}
+      ssl.keyStore.location=/etc/zookeeper/secrets/{{ .Values.service.endpoints.datacoordinatorzk.tls.edaTls.keystoreFile }}
+      ssl.trustStore.location=/etc/zookeeper/secrets/{{ .Values.service.endpoints.datacoordinatorzk.tls.edaTls.truststoreFile }}
+      ssl.clientAuth={{ .Values.service.endpoints.datacoordinatorzk.tls.edaTls.clientAuth }}
+    {{- else if eq .Values.service.endpoints.datacoordinatorzk.tls.provider "sip-tls" }}
+      {{- if eq .Values.service.endpoints.datacoordinatorzk.tls.peer.enforced "required" }}
+        sslQuorum=true
+      {{- else if eq .Values.service.endpoints.datacoordinatorzk.tls.peer.enforced "optional" }}
+        sslQuorum=false
+      {{- end }}
+      portUnification={{ .Values.service.endpoints.datacoordinatorzk.tls.peer.portUnification }}
+      ssl.quorum.clientAuth=need
+      ssl.quorum.hostnameVerification=true
+      ssl.quorum.keyStore.location=/var/lib/zookeeper/secrets/certWithPrivateKey.pem
+      ssl.quorum.trustStore.location=/run/zookeeper/secrets/siptlsca/cacertbundle.pem
+      ssl.trustStore.location=/run/zookeeper/secrets/clientca/clientcacertbundle.pem
+      ssl.keyStore.location=/var/lib/zookeeper/secrets/certWithPrivateKey.pem
+      {{- if eq .Values.service.endpoints.datacoordinatorzk.tls.verifyClientCertificate "required" }}
+        ssl.clientAuth=need
+      {{- else if eq .Values.service.endpoints.datacoordinatorzk.tls.verifyClientCertificate "optional" }}
+        ssl.clientAuth=want
+      {{- end }}
+    {{- end }}
+{{- end }}
+
+  zoo.cfg.dynamic: |
+    {{- $root := . }}
+    {{- $replicas := include "eric-data-coordinator-zk.replicas" . }}
+    # server.<positive id> = <address1>:<serverPort1>:<electionPort>[:role];[<client port address>:]<client port>
+    {{- if and (eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.service.endpoints.datacoordinatorzk.tls.enforced "required" ) }}
+    {{ range $k, $e := until (int $replicas) -}}
+    server.{{ add1 $k }}={{ template "eric-data-coordinator-zk.fullname" $root }}-{{ $k }}.{{ template "eric-data-coordinator-zk.fullname" $root }}-ensemble-service.{{ $root.Release.Namespace }}.svc.{{ $root.Values.clusterDomain }}:{{ $root.Values.serverPort }}:{{ $root.Values.leaderElectionPort }}:participant
+    {{ end }}
+    {{- else }}
+    {{ range $k, $e := until (int $replicas) -}}
+    server.{{ add1 $k }}={{ template "eric-data-coordinator-zk.fullname" $root }}-{{ $k }}.{{ template "eric-data-coordinator-zk.fullname" $root }}-ensemble-service.{{ $root.Release.Namespace }}.svc.{{ $root.Values.clusterDomain }}:{{ $root.Values.serverPort }}:{{ $root.Values.leaderElectionPort }}:participant;{{ $root.Values.clientPort }}
+    {{ end }}
+    {{- end }}
+
+  log4j2.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration monitorInterval="30" >
+      <Appenders>
+        <Console name="STDOUT" target="SYSTEM_OUT">
+          <Filters>
+            {{- range $index, $message := .Values.logFilterMessage }}
+              <RegexFilter regex=".*{{- $message -}}.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+            {{- end }}
+          </Filters>
+          <PatternLayout pattern="%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n"/>
+        </Console>
+      </Appenders>
+      <Loggers>
+        <Logger name="org.apache.zookeeper.server.admin.Commands" level="WARN" additivity="false">
+          <AppenderRef ref="STDOUT"/>
+        </Logger>
+        <Root level={{- .Values.logLevel | quote}}>
+          <AppenderRef ref="STDOUT"/>
+        </Root>
+      </Loggers>
+    </Configuration>
+
+{{- if (eq (include "eric-data-coordinator-zk.sasl" .) "true") }}
+  zookeeper_jaas.conf.template: |
+    Server {
+      org.apache.zookeeper.server.auth.DigestLoginModule required
+      user_super="zookeeper"
+      user_admin="KAFKA_SASL_ADMIN_PASSWORD";
+    };
+{{- end }}
+
+  java.env: |
+    ZOO_LOG_DIR=$ZK_LOG_DIR
+    JVMFLAGS="-Xmx{{ .Values.heap }} -Xms{{ .Values.heap }} {{ .Values.dczkJvmFlags }}"
+{{- if and (eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.service.endpoints.datacoordinatorzk.tls.provider "edaTls" ) }}
+    SERVER_JVMFLAGS="-Dzookeeper.ssl.keyStore.password=$(cat /etc/zookeeper/secrets/{{ .Values.service.endpoints.datacoordinatorzk.tls.edaTls.keystorePasswordFile }}) -Dzookeeper.ssl.trustStore.password=$(cat /etc/zookeeper/secrets/{{ .Values.service.endpoints.datacoordinatorzk.tls.edaTls.truststorePasswordFile }})"
+{{- else if (eq (include "eric-data-coordinator-zk.sasl" .) "true") }}
+    SERVER_JVMFLAGS="-Djava.security.auth.login.config=/var/lib/zookeeper/data/zookeeper_jaas.conf"
+{{- end }}
+
+  zkOkSSL.sh: |
+    #!/bin/bash
+    zkOk.sh || echo 'Q' | openssl s_client --connect localhost:{{ .Values.network.datacoordinatorzk.client.tlsPort }} --cert /run/zookeeper/secrets/clientcert/clicert.pem --key /run/zookeeper/secrets/clientcert/cliprivkey.pem --CAfile /run/zookeeper/secrets/clientca/clientcacertbundle.pem >/dev/null 2>&1

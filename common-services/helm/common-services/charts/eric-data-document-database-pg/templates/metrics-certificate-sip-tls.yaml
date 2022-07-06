@@ -1,0 +1,23 @@
+{{- if .Values.metrics.enabled }} 
+{{- if and (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) (eq .Values.service.endpoints.postgresExporter.tls.enforced "required") }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+ name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-metrics-cert
+ annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+ labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+spec:
+ kubernetes:
+  generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-metrics-cert
+  certificateName: metrics-cert.pem
+  privateKeyName: metrics-privkey.pem
+ certificate:
+  subject:
+   cn: {{ template "eric-data-document-database-pg.name" . }}
+  issuer:
+   reference: eric-pm-server-ca
+  extendedKeyUsage:
+   tlsClientAuth: true
+   tlsServerAuth: false
+{{- end }}
+{{- end }}

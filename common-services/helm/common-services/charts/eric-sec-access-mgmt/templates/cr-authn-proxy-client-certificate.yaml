@@ -1,0 +1,24 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{ if and .Values.authenticationProxy.enabled $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-authn-proxy-cli-cert
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-access-mgmt.name" . }}-authn-proxy-client-cert
+    certificateName: cert.pem
+    privateKeyName: key.pem
+  certificate:
+    subject:
+      cn: eric-sec-access-mgmt-authn-client
+    extendedKeyUsage:
+      tlsServerAuth: false
+      tlsClientAuth: true
+    issuer:
+      reference: "{{ template "eric-sec-access-mgmt.name" . }}-iam-client-ca"
+{{ end }}

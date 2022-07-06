@@ -1,0 +1,17 @@
+# Set the host validation filter
+
+set enabled=\"true\"
+
+# allowedHosts is a comma-separated list of hostnames
+# need to have double quotes around
+set allowedhosts=\"{{ template "eric-sec-access-mgmt.allowedHosts" . }}\"
+
+# Add the host validation filter
+/subsystem=undertow/configuration=filter/custom-filter=host-validation-filter:add(class-name=adp.keycloak.filter.hostvalidation.HostValidationHandler, module=adp.keycloak.filter.hostvalidation)
+
+# Add list to the host validaton filter parameters
+/subsystem=undertow/configuration=filter/custom-filter=host-validation-filter:write-attribute(name=parameters.validHosts, value=$allowedhosts)
+/subsystem=undertow/configuration=filter/custom-filter=host-validation-filter:write-attribute(name=parameters.enabled, value=$enabled)
+
+# Add the filter to undertow default host
+/subsystem=undertow/server=default-server/host=default-host/filter-ref=host-validation-filter:add()

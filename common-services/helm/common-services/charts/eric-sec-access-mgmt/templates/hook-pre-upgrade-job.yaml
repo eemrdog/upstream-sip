@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-pre-upgrade-job
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- $commonHookAnn := dict -}}
+    {{- $_ := set $commonHookAnn "helm.sh/hook" "pre-upgrade" -}}
+    {{- $_ := set $commonHookAnn "helm.sh/hook-delete-policy" "hook-succeeded,before-hook-creation" -}}
+    {{- $_ := set $commonHookAnn "helm.sh/hook-weight" "5" -}}
+    {{- $commonAnn := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $commonAnn $commonHookAnn)) | trim | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- $static := dict -}}
+        {{- $_ := set $static "app" (printf "%s-pre-upgrade-job" (include "eric-sec-access-mgmt.name" .)) -}}
+        {{- $labels := include "eric-sec-access-mgmt.labels" . | fromYaml -}}
+        {{- $_ := unset $labels "app" -}}
+        {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $labels)) | trim | nindent 8 }}
+      annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ template "eric-sec-access-mgmt.name" . }}-sa
+      restartPolicy: Never
+      {{- if .Values.podPriority.preupgrade.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.preupgrade.priorityClassName | quote}}
+      {{- end }}
+      containers:
+      - name: "preupgrade"
+        securityContext: {{- include "eric-sec-iam-server.containerSecurityContext" . | nindent 10 }}
+        resources: {{ include "eric-sec-access-mgmt.resourcesHelper" (dict "Values" .Values "resourceName" "preupgrade") | nindent 10 }}
+        image: {{ include "eric-sec-access-mgmt.imagePath" (dict "root" . "image" "iaminit") }}
+        imagePullPolicy: {{ template "eric-sec-access-mgmt.imagePullPolicy" . }}
+        command: ['python3', '/opt/iam/bin/hooks/pre_upgrade.py']
+        env:
+        - name: IAM_STATEFULSET_NAME
+          value: "{{ template "eric-sec-access-mgmt.name" . }}"
+        - name: IAM_VERSION
+          value: "{{ template "eric-sec-access-mgmt.version" . }}"
+        - name: IAM_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+      {{- if (include "eric-sec-access-mgmt.pullSecret" .) }}
+      imagePullSecrets:
+        - name: {{ template "eric-sec-access-mgmt.pullSecret" . }}
+      {{- end }}
+      tolerations: {{- toYaml .Values.tolerations.preupgrade | nindent 8 }}

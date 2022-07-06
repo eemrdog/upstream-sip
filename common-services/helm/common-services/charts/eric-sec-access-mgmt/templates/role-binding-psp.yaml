@@ -1,0 +1,18 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if $global.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-sa-security-policy
+  annotations:
+    {{- include "eric-sec-access-mgmt.securityPolicy.annotations" . | nindent 4 }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $global.security "policyReferenceMap" "default-restricted-security-policy" }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "eric-sec-access-mgmt.name" . }}-sa
+{{- end -}}

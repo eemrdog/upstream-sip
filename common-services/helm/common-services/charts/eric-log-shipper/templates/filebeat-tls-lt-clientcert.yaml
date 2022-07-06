@@ -1,0 +1,51 @@
+{{- $g := fromJson (include "eric-log-shipper.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+{{- $ti := fromJson (include "eric-log-shipper.testInternal" .) -}}
+{{- if and (.Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate") (not $ti.oldTls) -}}
+
+apiVersion: "siptls.sec.ericsson.com/v1"
+kind: "InternalCertificate"
+metadata:
+  name: "{{ include "eric-log-shipper.fullname" . }}-lt-clientcert"
+  labels:
+    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: "{{ include "eric-log-shipper.fullname" . }}-lt-client-cert"
+    certificateName: "clicert.pem"
+    privateKeyName: "cliprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-log-shipper.fullname" . | quote }}
+    issuer:
+      reference: "{{ .Values.logtransformer.host }}-filebeat-input-ca-cert"
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- else -}}
+
+apiVersion: "com.ericsson.sec.tls/v1alpha1"
+kind: "ClientCertificate"
+metadata:
+  name: "{{ include "eric-log-shipper.fullname" . }}-lt-clientcert"
+  labels:
+    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+spec:
+  generated-secret-name: "{{ include "eric-log-shipper.fullname" . }}-lt-client-cert"
+  common-name: {{ include "eric-log-shipper.fullname" . | quote }}
+  issuer-ref: "{{ .Values.logtransformer.host }}-filebeat-input-ca-cert"
+  {{- if $ti.tlsTtl }}
+  override-ttl: {{ $ti.tlsTtl }}
+  {{- end }}
+
+{{- end -}}
+{{- end -}}

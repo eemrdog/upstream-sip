@@ -1,0 +1,33 @@
+{{- if and (eq (print .Values.ingress.enabled) "true") (eq .Values.ingress.ingressController "contour") -}}
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: {{ include "eric-lm-combined-server.lch.ingress-name" . }}
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- $k8sLabels := dict }}
+    {{- $_ := set $k8sLabels "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) }}
+
+    {{- $base := include "eric-lm-combined-server.annotations" . | fromYaml -}}
+    {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $k8sLabels $base)) | trim | nindent 4 }}
+spec:
+  virtualhost:
+    fqdn: {{ .Values.ingress.hostname | quote }}
+    {{- if eq (print .Values.ingress.tls.enabled) "true" }}
+    tls:
+      secretName: {{ include "eric-lm-combined-server.lch.ingress-certificate-name" . }}
+      minimumProtocolVersion: {{ .Values.ingress.tls.minimumTlsVersion | quote }}
+      passthrough: {{ .Values.ingress.tls.passthrough }}
+    {{- end }}
+  routes:
+    - conditions:
+      - prefix: /
+      services:
+        - name: {{ include "eric-lm-combined-server.name" . }}
+          protocol: tls
+          port: {{ .Values.tls.lch.ingressAPIPort }}
+          validation:
+            caSecret: eric-sec-sip-tls-trusted-root-cert
+            subjectName: {{ include "eric-lm-combined-server.name" . | quote }}
+{{- end -}}

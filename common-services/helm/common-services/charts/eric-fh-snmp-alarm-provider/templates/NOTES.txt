@@ -1,0 +1,9 @@
+# Verify that the SNMP Alarm Provider Service is responding by doing an SNMP GET
+# with a configured user to the SNMP agent address and port. The example below
+# performs a get on the eriAlarmXHbInterval using a community user named public:
+
+          snmpget -v 2c -c public <Service Name>.<namespace>.<KUBERNETES_CLUSTER_NAME>:{{ .Values.service.servicePort }} 1.3.6.1.4.1.193.183.6.1.5.1.0
+example : snmpget -v 2c -c public eric-fh-snmp-alarm-provider.vip.hoff096.rnd.gic.ericsson.se:161 1.3.6.1.4.1.193.183.6.1.5.1.0
+# By default, the heartbeat interval is 60 sec, and the service should in this
+# case respond with:
+# iso.3.6.1.4.1.193.183.6.1.5.1.0 = Unsigned32: 60

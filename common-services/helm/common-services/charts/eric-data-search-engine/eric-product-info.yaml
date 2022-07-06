@@ -1,0 +1,38 @@
+productName: "ADP Search Engine Helm"
+productNumber: "CXC 201 1191"
+images:
+  searchengine:
+    productName: "ADP Search Engine Image"
+    productNumber: "CXU 101 0644"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-data-search-engine"
+    tag: "10.1.0-22"
+  bragent:
+    productName: "ADP Search Engine BR Agent Image"
+    productNumber: "CXU 101 0645"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-data-search-engine-br-agent"
+    tag: "10.1.0-22"
+  metrics:
+    productName: "ADP Search Engine PM Metrics Image"
+    productNumber: "CXU 101 0646"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-data-search-engine-pm-metrics"
+    tag: "10.1.0-22"
+  tlsproxy:
+    productName: "ADP Search Engine TLS Proxy Image"
+    productNumber: "CXU 101 0194"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-data-search-engine-tls-proxy"
+    tag: "10.1.0-22"
+  logshipper:
+    productName: "ADP Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.2.0-13"

@@ -1,0 +1,27 @@
+{{- if eq (include "eric-sec-sip-tls.alarmHandler.useAPIDefinition" .) "true" }}
+{{- if eq (include "eric-sec-sip-tls.alarmHandler.tls.enabled" .) "true" }}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.secret" . }}
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.secret" . }}
+  certificate:
+    subject:
+      cn: {{ template "eric-sec-sip-tls.name" . }}
+    issuer:
+      reference: {{ .Values.alarmHandler.hostname }}-fi-server-client-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- end }}
+{{- end }}

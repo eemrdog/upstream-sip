@@ -1,0 +1,25 @@
+{{- if .Values.kafka.tls.enabled }}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-sip-tls.name" . }}-kafka-client-cert
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-sip-tls.name" . }}-kafka-client-cert
+  certificate:
+    subject:
+      cn: {{ template "eric-sec-sip-tls.name" . }}
+    issuer:
+      reference: {{ .Values.kafka.hostname }}-client-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- end }}

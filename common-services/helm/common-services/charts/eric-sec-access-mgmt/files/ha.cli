@@ -1,0 +1,83 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+# IF High Availability is enabled then the following should be used to start KC in clustered standalone mode
+
+#configure keystore to store HA certificates
+/subsystem=elytron/key-store=hatlsKS:add(path=${env.RUNDIR_SAFE_PATH}/ha.keystore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+
+# cache configuration.
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=sessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=authenticationSessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineSessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=loginFailures:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=clientSessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineClientSessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=actionTokens:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})
+
+# cache expiration (keycloak respect session timeout when invalidating cache)
+/subsystem=infinispan/cache-container=keycloak/replicated-cache=work/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=sessions/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=clientSessions/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineSessions/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=offlineClientSessions/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=authenticationSessions/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=loginFailures/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+/subsystem=infinispan/cache-container=keycloak/distributed-cache=actionTokens/component=expiration/:write-attribute(name=lifespan,value=900000000000000000)
+
+# protocol stack configuration for replicas (KC instances) to communicate, for example, discovering the memebers of KC cluster
+/subsystem=jgroups/stack=tcp:remove()
+/subsystem=jgroups/stack=tcp:add()
+/subsystem=jgroups/stack=tcp/transport=TCP:add(socket-binding="jgroups-tcp")
+
+#discovery protocol
+/subsystem=jgroups/stack=tcp/protocol=dns.DNS_PING:add()
+#dns query is the iam headless service name. The Kubernetes internal DNS server resolves the headless service name to the IPs of the pods (replicas). This is how the members of KC cluster discover themselves
+/subsystem=jgroups/stack=tcp/protocol=dns.DNS_PING/property=dns_query:add(value="{{ template "eric-sec-access-mgmt.name" . }}-headless")
+
+#other protocols in the stack
+/subsystem=jgroups/stack=tcp/protocol=MERGE3:add()
+/subsystem=jgroups/stack=tcp/protocol=FD_SOCK:add(socket-binding="jgroups-tcp-fd")
+/subsystem=jgroups/stack=tcp/protocol=FD:add()
+/subsystem=jgroups/stack=tcp/protocol=VERIFY_SUSPECT:add()
+{{- if $global.security.tls.enabled }}
+#configure security for communication
+#SSL_KEY_EXCHANGE will authenticate nodes. Prevents rouge nodes from joining the cluster
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE:add()
+
+#SSL_KEY_EXCHANGE expects both authentication certificate and the trusted root certificate to be in the same keystore
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=keystore_name:add(value="{{ template "eric-sec-access-mgmt.haKeystorePath" . }}")
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=keystore_password:add(value=${env.KEYSTORE_SECRET})
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=session_verifier_class:add(value="org.jgroups.protocols.CertficateCNMatcher")
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=session_verifier_arg:add(value="CN={{ template "eric-sec-access-mgmt.name" . }}")
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=port:add(value="{{ template "eric-sec-access-mgmt.jgroupsSSLKeyExchange" . }}")
+/subsystem=jgroups/stack=tcp/protocol=org.jgroups.protocols.CUSTOM_SSL_KEY_EXCHANGE/property=ssl_protocol:add(value="TLSv1.2")
+
+#Encryption of JGroups traffic i.e. communication between cluster nodes is encrypted
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT:add()
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=change_key_on_leave:add(value="true")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=change_key_on_coord_leave:add(value="true")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=use_external_key_exchange:add(value="true")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=sym_keylength:add(value="128")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=sym_algorithm:add(value="AES")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=asym_keylength:add(value="2048")
+/subsystem=jgroups/stack=tcp/protocol=ASYM_ENCRYPT/property=asym_algorithm:add(value="RSA")
+{{- end }}
+
+/subsystem=jgroups/stack=tcp/protocol=pbcast.NAKACK2:add()
+/subsystem=jgroups/stack=tcp/protocol=UNICAST3:add()
+/subsystem=jgroups/stack=tcp/protocol=pbcast.STABLE:add()
+/subsystem=jgroups/stack=tcp/protocol=pbcast.GMS:add()
+/subsystem=jgroups/stack=tcp/protocol=pbcast.GMS/property=max_join_attempts:add(value=5)
+/subsystem=jgroups/stack=tcp/protocol=pbcast.GMS/property=join_timeout:add(value=30000)
+/subsystem=jgroups/stack=tcp/protocol=MFC:add()
+/subsystem=jgroups/stack=tcp/protocol=FRAG3:add()
+
+/subsystem=jgroups/channel=ee:write-attribute(name=stack, value=tcp)
+
+#remove pre-configuration from standalone-ha.xml
+/subsystem=jgroups/stack=udp:remove()
+/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:remove()
+
+# the private interface is used in defining a socket-binding (look standalone-ha.xml) which is used when JGroups needs to create general sockets internally.
+# eth0 is the external interface of pods in kubernetes (interface name eth0 seems to be "well-known" for kubernetes pods)
+/interface=private:write-attribute(name=nic, value=eth0)
+/interface=private:undefine-attribute(name=inet-address)

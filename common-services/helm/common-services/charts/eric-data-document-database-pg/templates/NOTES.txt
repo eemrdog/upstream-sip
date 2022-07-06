@@ -1,0 +1,62 @@
+PostgreSQL can be accessed via port {{ .Values.service.port }} on the following DNS name from within your cluster:
+{{ template "eric-data-document-database-pg.name" . }}.{{ .Release.Namespace }}.svc.cluster.local
+{{ template "eric-data-document-database-pg.name" . }}-replica.{{ .Release.Namespace }}.svc.cluster.local
+
+{{ if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+mTLS does not use password for authentication
+{{ else }}
+To get your password for superuser or custom user run:
+
+    # superuser name
+    PG_SUPER_USER=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ template "eric-data-document-database-pg.name" . }} -o jsonpath="{.data.super-user}" | base64 --decode)
+    # superuser password
+    PG_SUPER_PWD=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.credentials.kubernetesSecretName }} -o jsonpath="{.data.super-pwd}" | base64 --decode)
+
+    # custom user name
+    PG_CUSTOM_USER=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.credentials.kubernetesSecretName }} -o jsonpath="{.data.custom-user}" | base64 --decode)
+    # custom user password
+    PG_CUSTOM_PWD=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ .Values.credentials.kubernetesSecretName }} -o jsonpath="{.data.custom-pwd}" | base64 --decode)
+{{ end }}
+
+To connect to your database:
+
+    Run a postgres pod and connect using the psql cli:
+
+{{ if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+    # login as superuser
+    # For write and read service
+    psql 'postgresql://postgres@{{ template "eric-data-document-database-pg.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:5432/postgres?sslkey=<postgres key file path>&sslcert=<postgres certificate file path>'
+    # For read only service
+    psql 'postgresql://postgres@{{ template "eric-data-document-database-pg.name" . }}-replica.{{ .Release.Namespace }}.svc.cluster.local:5432/postgres?sslkey=<postgres key file path>&sslcert=<postgres certificate file path>'
+    
+    # login as custom user
+    # For write and read service
+    psql 'postgresql://<cm username>@{{ template "eric-data-document-database-pg.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:5432/postgres?sslkey=<cm user key file path>&sslcert=<cm user certificate file path>'
+    # For read only service
+    psql 'postgresql://<cm username>@{{ template "eric-data-document-database-pg.name" . }}-replica.{{ .Release.Namespace }}.svc.cluster.local:5432/postgres?sslkey=<cm user key file path>&sslcert=<cm user certificate file path>'
+{{ else }}
+    # login as superuser
+    # For write and read service
+    kubectl run -i --tty --rm psql --image=postgres \
+      --env "PGPASSWORD=$PG_SUPER_PWD" \
+      --command -- psql -U $PG_SUPER_USER  \
+      -h {{ template "eric-data-document-database-pg.name" . }}.{{ .Release.Namespace }}.svc.cluster.local postgres
+    # For read only service
+    kubectl run -i --tty --rm psql --image=postgres \
+      --env "PGPASSWORD=$PG_SUPER_PWD" \
+      --command -- psql -U $PG_SUPER_USER  \
+      -h {{ template "eric-data-document-database-pg.name" . }}-replica.{{ .Release.Namespace }}.svc.cluster.local postgres
+
+    # login as custom user
+    # For write and read service
+    kubectl run -i --tty --rm psql --image=postgres \
+      --env "PGPASSWORD=$PG_CUSTOM_PWD" \
+      --command -- psql -U $PG_CUSTOM_USER  \
+      -h {{ template "eric-data-document-database-pg.name" . }}.{{ .Release.Namespace }}.svc.cluster.local postgres
+    # For read only service
+    kubectl run -i --tty --rm psql --image=postgres \
+      --env "PGPASSWORD=$PG_CUSTOM_PWD" \
+      --command -- psql -U $PG_CUSTOM_USER  \
+      -h {{ template "eric-data-document-database-pg.name" . }}-replica.{{ .Release.Namespace }}.svc.cluster.local postgres
+{{ end }}
+

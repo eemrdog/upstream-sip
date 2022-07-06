@@ -1,0 +1,1 @@
+{{- include "eric-data-search-engine.os-configmap" (dict "context" "tls" "root" .) }}

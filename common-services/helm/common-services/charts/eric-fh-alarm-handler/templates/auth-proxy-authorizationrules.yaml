@@ -1,0 +1,60 @@
+{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
+{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-authorizationrules
+  annotations:
+    {{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels )) | indent 4}}
+data:
+  authz-proxy-authorizationrules.yaml: |2
+      ## The resource(s) service provider is exposing its resources and specify their respective authorization rules.
+      ## Exposed resources are expressed as "resources".
+      ## Authorization rules are expressed as "permissions".
+      ## Permission expresses an access right which is "guarded" by a role policy and is attached to resource.
+      ## Permission states that if the user has a role, then this permission to the attached resource can granted for the user.
+      ## Allowed scopes are fixed to ["GET","HEAD","POST","PUT","DELETE","CONNECT","OPTIONS","TRACE","PATCH"]
+      ## =========================================================
+      ##
+      ## Each service provider is free to define own roles, but should take roles DR into account.
+      ## The roles, listed below will be created in ADP IAM by SAP
+      ## Mandatory: roles
+      roles:
+      - name: system-admin
+      - name: system-security-admin
+      - name: system-read-only
+      - name: system-alarm-remover
+      ## Mandatory; resources
+      resources:
+      - name: rest-api
+        uris:
+          - /ah/api/**
+      ## =========================================================
+      ## Mandatory; permissions
+      permissions:
+        ## --------------------------------------
+        ## User with role system-admin, system-security-admin or system-read-only is allowed to
+        ## apply scopes: "GET"
+        ## to resource: "rest-api"
+        ## --------------------------------------
+      - name: get access
+        config:
+          resources:        ["rest-api"]
+          operations:       ["GET"]
+          roles:            ["system-admin","system-security-admin","system-read-only"]
+        ## --------------------------------------
+        ## User with role system-admin, "system-security-admin" or system-alarm-remover is allowed to
+        ## apply scopes: "DELETE"
+        ## to resource: "rest-api"
+        ## --------------------------------------
+      - name: delete access
+        config:
+          resources:        ["rest-api"]
+          operations:       ["DELETE"]
+          roles:            ["system-admin","system-security-admin","system-alarm-remover"]
+
+{{- end -}}

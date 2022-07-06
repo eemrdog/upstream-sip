@@ -1,0 +1,34 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+ {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+  name: {{ include "eric-data-search-engine.fullname" . }}-privileged-security-policy
+ {{- else }}
+  name: {{ include "eric-data-search-engine.fullname" . }}-restricted-security-policy
+ {{- end }}
+  annotations:
+    {{- $rolebindingAnn := dict -}}
+    {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.capabilities" "" -}}
+    {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+      {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.type" "privileged/custom" -}}
+    {{- else }}
+      {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.type" "restricted/default" -}}
+    {{- end }}
+
+    {{- $commonAnn := include "eric-data-search-engine.annotations" . | fromYaml }}
+    {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $rolebindingAnn)) | trim | nindent 4 }}
+  labels: {{- include "eric-data-search-engine.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+ {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+  name: {{ index $g.security.policyReferenceMap "plc-9c20871f9bf62c7b09fd0c684ac651" | quote }}
+ {{- else }}
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+ {{- end }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-data-search-engine.fullname" . }}-sa
+{{- end -}}

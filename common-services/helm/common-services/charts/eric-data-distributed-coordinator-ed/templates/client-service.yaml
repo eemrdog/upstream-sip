@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-data-distributed-coordinator-ed.name" . }}
+  labels:
+{{- include "eric-data-distributed-coordinator-ed.labels" . | indent 2 }}
+  annotations:
+{{- include "eric-data-distributed-coordinator-ed.productinfo" . | indent 4 }}
+{{- include "eric-data-distributed-coordinator-ed.config-annotations" . | indent 4 }}
+    prometheus.io/scrape: "{{ .Values.service.endpoints.dced.metrics.enabled }}"
+    prometheus.io/port: {{ include "eric-data-distributed-coordinator-ed.ports.client" . | quote }}
+{{- if and ( eq .Values.service.endpoints.pm.tls.enforced "required" ) ( eq ( include "eric-data-distributed-coordinator-ed.tls.enabled" . ) "true" ) }}
+    prometheus.io/scheme: "https"
+{{- else }}
+    prometheus.io/scheme: "http"
+{{- end }}
+spec:
+{{- if (include "eric-data-distributed-coordinator-ed.internalIPFamily.global" .) }}
+  # ipFamilies was introduced in K8s v1.20
+  ipFamilies: [{{- include "eric-data-distributed-coordinator-ed.internalIPFamily.global" . | quote }}]
+{{- end }}
+  type: ClusterIP
+  ports:
+    - port: {{ include "eric-data-distributed-coordinator-ed.ports.client" . }}
+      name: client-port-tls
+  selector:
+{{- include "eric-data-distributed-coordinator-ed.selectorLabels" . | indent 2 }}

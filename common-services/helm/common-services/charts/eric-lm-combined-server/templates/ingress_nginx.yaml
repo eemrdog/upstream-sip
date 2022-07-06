@@ -1,0 +1,36 @@
+{{- if and (eq (print .Values.ingress.enabled) "true") (eq .Values.ingress.ingressController "nginx") -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "eric-lm-combined-server.lch.ingress-name" . }}
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- $k8sLabels := dict }}
+    {{- $_ := set $k8sLabels "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) }}
+    {{- $_ := set $k8sLabels "nginx.ingress.kubernetes.io/backend-protocol" "HTTPS" }}
+    {{- $_ := set $k8sLabels "nginx.ingress.kubernetes.io/ssl-passthrough" (.Values.ingress.tls.passthrough | toString) }}
+
+    {{- $base := include "eric-lm-combined-server.annotations" . | fromYaml -}}
+    {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $k8sLabels $base)) | trim | nindent 4 }}
+spec:
+  {{- if eq (print .Values.ingress.tls.enabled) "true" }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.hostname | quote }}
+    # This assumes the secret exists in the same namespace and the SSL
+    # certificate contains a CN for the host
+    secretName: {{ include "eric-lm-combined-server.lch.ingress-certificate-name" . }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.ingress.hostname | quote }}
+    http:
+      paths:
+      - path: / #root path
+        pathType: Prefix
+        backend:
+          service:
+            name:  {{ include "eric-lm-combined-server.name" . }}
+            port:
+              number: {{ .Values.tls.lch.ingressAPIPort }}
+{{- end -}}

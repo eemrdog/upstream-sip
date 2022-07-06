@@ -1,0 +1,181 @@
+{{- $g := fromJson (include "eric-log-shipper.global" .) -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "eric-log-shipper.fullname" . | quote }}
+  labels:
+    {{- $daemonsetLabels := dict -}}
+    {{- $_ := set $daemonsetLabels "app" (include "eric-log-shipper.name" .) -}}
+    {{- $_ := set $daemonsetLabels "chart" (include "eric-log-shipper.chart" .) -}}
+    {{- $_ := set $daemonsetLabels "heritage" .Release.Service -}}
+    {{- $_ := set $daemonsetLabels "release" .Release.Name -}}
+
+    {{- $baseLabels := include "eric-log-shipper.labels" . | fromYaml -}}
+    {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $daemonsetLabels $baseLabels)) | trim | nindent 4 }}
+  annotations:
+    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "eric-log-shipper.name" . | quote }}
+  updateStrategy:
+{{ .Values.updateStrategy | toYaml | indent 4 }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  template:
+    metadata:
+      labels:
+        {{- $podTempLabels := dict -}}
+        {{- $_ := set $podTempLabels "app" (include "eric-log-shipper.name" .) -}}
+        {{- $_ := set $podTempLabels "component" "filebeat" -}}
+        {{- $_ := set $podTempLabels "release" .Release.Name -}}
+        {{- $_ := set $podTempLabels "role" "logger" -}}
+
+        {{- $baseLabels := include "eric-log-shipper.labels" . | fromYaml -}}
+        {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $podTempLabels $baseLabels)) | trim | nindent 8 }}
+      annotations:
+	{{- include "eric-log-shipper.appArmorProfileAnnotation" . | indent 8 -}}
+        {{- $podTempAnn := dict -}}
+        {{- $_ := set $podTempAnn "checksum/config" (include (print $.Template.BasePath "/filebeat-configmap.yaml") . | sha256sum) -}}
+
+        {{- if .Values.bandwidth.maxEgressRate }}
+        {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
+        {{- end }}
+
+        {{- $baseAnn := include "eric-log-shipper.annotations" . | fromYaml -}}
+        {{- include "eric-log-shipper.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $baseAnn)) | trim | nindent 8 }}
+    spec:
+      securityContext:
+        {{- include "eric-log-shipper.podSeccompProfile" . | nindent 8 }}
+      serviceAccountName: {{ include "eric-log-shipper.name" . | quote }}
+      volumes:
+      {{- if $g.security.tls.enabled }}
+      - name: "lt-ca-cert"
+        secret:
+          secretName: "eric-sec-sip-tls-trusted-root-cert"
+      - name: "lt-client-cert"
+        secret:
+          secretName: {{ include "eric-log-shipper.fullname" . }}-lt-client-cert
+      {{- end }}
+{{- if .Values.additionalVolumes }}
+{{ .Values.additionalVolumes  | indent 6 }}
+{{- end }}
+      - name: {{ include "eric-log-shipper.fullname" . }}-cfg
+        configMap:
+          name: {{ include "eric-log-shipper.fullname" . }}-cfg
+          items:
+          - key: filebeat.yml
+            path: filebeat.yml
+      - name: "registry"
+        emptyDir: {}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
+      {{- end }}
+      {{- if $.Values.podPriority.logshipper.priorityClassName }}
+      priorityClassName: {{ $.Values.podPriority.logshipper.priorityClassName | quote }}
+      {{- end }}
+      containers:
+      - name: "logshipper"
+        image: {{ template "eric-log-shipper.logshipperImagePath" . }}
+        imagePullPolicy: {{ .Values.imageCredentials.registry.imagePullPolicy | default $g.registry.imagePullPolicy | quote }}
+        args:
+          - /opt/filebeat/init.sh
+        securityContext:
+        {{- if .Values.logshipper.privileged }}
+          privileged: true
+          allowPrivilegeEscalation: true
+        {{- else }}
+          allowPrivilegeEscalation: false
+          privileged: false
+        {{- end }}
+          readOnlyRootFilesystem: true
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          capabilities:
+            drop:
+              - all
+          {{- if .Values.seccompProfile.logshipper }}
+          {{- include "eric-log-shipper.contSeccompProfile" . | nindent 10 }}
+          {{- end }}
+        livenessProbe:
+          exec:
+            command:
+            - /opt/filebeat/liveness-probe.sh
+          initialDelaySeconds: {{ .Values.probes.logshipper.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.probes.logshipper.livenessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.probes.logshipper.livenessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.probes.logshipper.livenessProbe.failureThreshold }}
+        resources:
+          limits:
+          {{- if .Values.resources.logshipper.limits.cpu }}
+            cpu: {{ .Values.resources.logshipper.limits.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.logshipper.limits.memory }}
+            memory: {{ .Values.resources.logshipper.limits.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.logshipper.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.logshipper.limits "ephemeral-storage" | quote }}
+          {{- end }}
+          requests:
+          {{- if .Values.resources.logshipper.requests.cpu }}
+            cpu: {{ .Values.resources.logshipper.requests.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.logshipper.requests.memory }}
+            memory: {{ .Values.resources.logshipper.requests.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.logshipper.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.logshipper.requests "ephemeral-storage" | quote }}
+          {{- end }}
+        volumeMounts:
+        {{- if $g.security.tls.enabled }}
+        - name: "lt-ca-cert"
+          mountPath: "/run/secrets/ca-certificates/"
+          readOnly: true
+        - name: "lt-client-cert"
+          mountPath: "/run/secrets/certificates/"
+          readOnly: true
+        {{- end }}
+{{- if .Values.additionalVolumeMounts }}
+{{ .Values.additionalVolumeMounts | indent 8 }}
+{{- end }}
+        - name: {{ include "eric-log-shipper.fullname" . }}-cfg
+          mountPath: "/etc/filebeat"
+        - name: "registry"
+          mountPath: /opt/filebeat/data
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: SERVICE_ID
+          value: {{ include "eric-log-shipper.fullname" . }}
+        - name: CONTAINER_NAME
+          value: logshipper
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TZ
+          value: {{ $g.timezone | quote }}
+        - name: DEPLOYMENT_TYPE
+          value: "DAEMONSET"
+        - name: TLS_ENABLED
+          value: {{ $g.security.tls.enabled | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.logLevel | quote | default "INFO" | upper }}
+      {{- if (or .Values.nodeSelector $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-log-shipper.nodeSelector" . | nindent 8 }}
+      {{- end }}
+      {{- if (or .Values.imageCredentials.pullSecret $g.pullSecret) }}
+      imagePullSecrets:
+        - name: {{ (or  .Values.imageCredentials.pullSecret $g.pullSecret) | quote }}
+      {{- end }}

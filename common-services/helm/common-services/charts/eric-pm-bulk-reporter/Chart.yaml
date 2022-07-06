@@ -1,0 +1,9 @@
+apiVersion: v1
+description: A Helm chart for the PM Bulk Reporter
+maintainers:
+- email: PDLAMSDEVE@pdl.internal.ericsson.com
+  name: Team Challenger
+name: eric-pm-bulk-reporter
+sources:
+- https://gerrit.ericsson.se/#/admin/projects/adp-gs/adp-gs-pm-bulk-reporter
+version: 7.5.0+19
