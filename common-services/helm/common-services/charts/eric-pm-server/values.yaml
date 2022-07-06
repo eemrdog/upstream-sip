@@ -3,7 +3,7 @@
 #global:
 #  pullSecret:
 #  registry:
-#    url: armdocker.rnd.ericsson.se
+#    url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
     ## Secret must be manually created in the namespace.
     # deprecated, it will be removed
 #    pullSecret:
@@ -22,9 +22,6 @@ log:
   outputs: ["stdout"]
   logshipper:
     level: info
-
-# logLevel, possible values: debug, info, warning, error
-logLevel: info
 
 logshipper:
   storageAllocation: "1Gi"
@@ -53,11 +50,6 @@ imageCredentials:
 updateStrategy:
   server:
     type: RollingUpdate
-
-## Prometheus server pod termination grace period
-##
-terminationGracePeriodSeconds:
-  server: 300
 
 service:
   endpoints:
@@ -180,6 +172,10 @@ server:
   service:
     annotations: {}
     labels: {}
+
+  ## Prometheus server pod termination grace period
+  ##
+  terminationGracePeriodSeconds: 300
 
   ## Prometheus data retention period (i.e 360h)
   ##
@@ -438,10 +434,6 @@ labels: {}
 podDisruptionBudget:
   minAvailable: 0
 
-podPriority:
-  eric-pm-server:
-    priorityClassName: ""
-
 ## Probes
 probes:
   server:
@@ -480,26 +472,6 @@ probes:
     livenessProbe:
       initialDelaySeconds: 15
       periodSeconds: 15
-      timeoutSeconds: 15
-      failureThreshold: 3
-      successThreshold: 1
-  logshipper:
-    livenessProbe:
-      initialDelaySeconds: 1
-      periodSeconds: 10
-      timeoutSeconds: 10
-      failureThreshold: 3
-      successThreshold: 1
-  configmapreload:
-    readinessProbe:
-      initialDelaySeconds: 30
-      periodSeconds: 10
-      timeoutSeconds: 30
-      failureThreshold: 3
-      successThreshold: 1
-    livenessProbe:
-      initialDelaySeconds: 30
-      periodSeconds: 10
       timeoutSeconds: 15
       failureThreshold: 3
       successThreshold: 1
@@ -546,11 +518,11 @@ resources:
   logshipper:
     limits:
       cpu: "100m"
-      memory: "100Mi"
+      memory: "50Mi"
       ephemeral-storage:
     requests:
       cpu: "50m"
-      memory: "50Mi"
+      memory: "25Mi"
       ephemeral-storage:
 
 ## Security Context for all containers
@@ -558,32 +530,4 @@ securityContext: {}
  # runAsUser: 47040
  # runAsGroup: 47040
 
-affinity:
-  podAntiAffinity: "hard"
-
-bandwidth:
-  maxEgressRate: ""
-
 annotations: {}
-
-appArmorProfile:
-  type:
-  localhostProfile:
-  eric-pm-configmap-reload:
-    type:
-    localhostProfile:
-  eric-pm-exporter:
-    type:
-    localhostProfile:
-  eric-pm-reverseproxy:
-    type:
-    localhostProfile:
-  eric-pm-server:
-    type:
-    localhostProfile:
-  logshipper:
-    type:
-    localhostProfile:
-
-seccompProfile:
-  type:

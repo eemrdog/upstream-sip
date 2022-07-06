@@ -4,4 +4,4 @@ maintainers:
 - email: PDLADPGSBA@pdl.internal.ericsson.com
   name: ADP Backup and Restore Orchestrator
 name: eric-ctrl-bro
-version: 5.5.0+49
+version: 5.1.0+18

@@ -11,10 +11,8 @@
     - /opt/redirect/stdout-redirect
     - -redirect
     - {{ include "eric-data-search-engine.log-redirect" .root }}
-    - -service-id
-    - {{ include "eric-data-search-engine.fullname" .root }}
     - -run
-    - elasticsearch_exporter {{ $connection_settings }}:9200 --log.format=json --log.level={{ .root.Values.logLevel }} --web.listen-address=:9114
+    - elasticsearch_exporter {{ $connection_settings }}:9200 --log.level={{ .root.Values.logLevel }} --web.listen-address=:9114
     {{- if has "stream" .root.Values.log.outputs }}
     - -logfile
     - {{ .root.Values.logshipper.storagePath }}/metrics.log
@@ -36,9 +34,9 @@
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
-  - name: "OS_PORT"
+  - name: "ES_PORT"
     value: "9200"
-  - name: "OS_TLS"
+  - name: "ES_TLS"
   {{- if and $g.security.tls.enabled (eq .context "tls") }}
     value: "true"
   {{- else }}
@@ -48,14 +46,14 @@
     exec:
       command:
       - /readiness-probe.sh
-    initialDelaySeconds: {{ .root.Values.probes.metrics.readinessProbe.initialDelaySeconds }}
-    timeoutSeconds: {{ .root.Values.probes.metrics.readinessProbe.timeoutSeconds }}
+    initialDelaySeconds: {{ .root.Values.probes.metrics.readinessProbe.initialDelaySeconds | default .root.Values.readinessProbe.metrics.initialDelaySeconds }}
+    timeoutSeconds: {{ .root.Values.probes.metrics.readinessProbe.timeoutSeconds | default .root.Values.readinessProbe.metrics.timeoutSeconds }}
   livenessProbe:
     httpGet:
       path: /healthz
       port: 9114
-    initialDelaySeconds: {{ .root.Values.probes.metrics.livenessProbe.initialDelaySeconds }}
-    timeoutSeconds: {{ .root.Values.probes.metrics.livenessProbe.timeoutSeconds }}
+    initialDelaySeconds: {{ .root.Values.probes.metrics.livenessProbe.initialDelaySeconds | default .root.Values.livenessProbe.metrics.initialDelaySeconds }}
+    timeoutSeconds: {{ .root.Values.probes.metrics.livenessProbe.timeoutSeconds | default .root.Values.livenessProbe.metrics.timeoutSeconds }}
   resources: {{- include "eric-data-search-engine.resources" .root.Values.resources.metrics | nindent 4 }}
   volumeMounts:
 {{- if and $g.security.tls.enabled (eq .context "tls") }}
@@ -104,7 +102,7 @@ prometheus.io/path: "/metrics"
   env:
   - name: "TZ"
     value: {{ $g.timezone | quote }}
-  - name: "OS_PORT"
+  - name: "ES_PORT"
   - name: "LOGLEVEL"
     value: {{ .root.Values.logLevel | quote }}
   - name: "TARGET"
@@ -133,8 +131,8 @@ prometheus.io/path: "/metrics"
     exec:
       command:
       - /liveness-probe.sh
-    initialDelaySeconds: {{ .root.Values.probes.tlsproxy.livenessProbe.initialDelaySeconds }}
-    timeoutSeconds: {{ .root.Values.probes.tlsproxy.livenessProbe.timeoutSeconds }}
+    initialDelaySeconds: {{ .root.Values.probes.tlsproxy.livenessProbe.initialDelaySeconds | default .root.Values.livenessProbe.tlsproxy.initialDelaySeconds }}
+    timeoutSeconds: {{ .root.Values.probes.tlsproxy.livenessProbe.timeoutSeconds | default .root.Values.livenessProbe.tlsproxy.timeoutSeconds }}
   resources: {{- include "eric-data-search-engine.resources" .root.Values.resources.tlsproxy | nindent 4 }}
   volumeMounts:
     {{- include "eric-data-search-engine.security-tls-secret-volume-mounts-metrics" .root | indent 2 }}

@@ -2,11 +2,11 @@
 {{- if $currentPGVersion -}}
   {{- if $currentPGVersion.annotations -}}
     {{- if $currentPGVersion.annotations.currentPGVersion -}}
-      {{- if (not (eq ("13" | toString) $currentPGVersion.annotations.currentPGVersion)) -}}
-        {{- include "eric-data-document-database-pg.preUpgradeHookBackup" .}}
+      {{- if (not (eq (.Values.targetPGversion | toString) $currentPGVersion.annotations.currentPGVersion)) -}}
+        {{- include "eric-data-document-database-pg.preUpgradeHook" .}}
       {{- end -}}
-    {{- else -}}
-      {{- include "eric-data-document-database-pg.preUpgradeHookBackup" .}}
+    {{- else if (eq "13" (.Values.targetPGversion | toString) ) -}}
+      {{- include "eric-data-document-database-pg.preUpgradeHook" .}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

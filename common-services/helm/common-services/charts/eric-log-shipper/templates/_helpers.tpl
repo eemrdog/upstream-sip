@@ -52,32 +52,28 @@ The logshipper Image path
 {{- end -}}
 
 {{/*
-Merge user-defined annotations with product info (DR-D1121-065, DR-D1121-060)
+Create annotation for the product information
 */}}
-{{- define "eric-log-shipper.annotations" -}}
-  {{- $productAnnotations := dict }}
-  {{- $_ := set $productAnnotations "ericsson.com/product-name" (fromYaml (.Files.Get "eric-product-info.yaml")).productName }}
-  {{- $_ := set $productAnnotations "ericsson.com/product-number" (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber }}
-  {{- $_ := set $productAnnotations "ericsson.com/product-revision" (split "-" (.Chart.Version | replace "+" "-" ))._0 }}
-
-  {{- $globalAnn := (.Values.global).annotations -}}
-  {{- $serviceAnn := .Values.annotations -}}
-  {{- include "eric-log-shipper.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productAnnotations $globalAnn $serviceAnn)) | trim }}
-{{- end -}}
+{{- define "eric-log-shipper.annotations" }}
+ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
+ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
+ericsson.com/product-revision: {{ (split "-" (.Chart.Version | replace "+" "-" ))._0 | quote }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
+{{- end }}
+{{- end }}
 
 {{/*
-Merge user-defined labels with kubernetes labels (DR-D1121-068, DR-D1121-060)
+Create kubernetes.io name and version
 */}}
-{{- define "eric-log-shipper.labels" -}}
-  {{- $k8sLabels := dict }}
-  {{- $_ := set $k8sLabels "app.kubernetes.io/name" (include "eric-log-shipper.name" .) }}
-  {{- $_ := set $k8sLabels "app.kubernetes.io/version" (.Chart.Version | replace "+" "_") }}
-  {{- $_ := set $k8sLabels "app.kubernetes.io/instance" .Release.Name }}
-
-  {{- $globalLabels := (.Values.global).labels -}}
-  {{- $serviceLabels := .Values.labels -}}
-  {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $k8sLabels $globalLabels $serviceLabels)) | trim }}
-{{- end -}}
+{{- define "eric-log-shipper.labels" }}
+app.kubernetes.io/name: {{ include "eric-log-shipper.name" . | quote }}
+app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
+{{- end }}
 
 {{/*
 Create a map from testInternals with defaults if missing in values file.
@@ -101,7 +97,7 @@ This hides defaults from values file.
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "policyBinding" (dict "create" false))) -}}
@@ -118,10 +114,20 @@ This hides defaults from values file.
 Create a merged set of nodeSelectors from global and service level.
 */}}
 {{ define "eric-log-shipper.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-log-shipper.nodeSelector" -}}
-  {{- include "eric-log-shipper.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $service $global)) | trim -}}
+  {{- $g := fromJson (include "eric-log-shipper.global" .) -}}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $g.nodeSelector $key -}}
+          {{- $globalValue := index $g.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $g.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $g.nodeSelector | trim -}}
+  {{- end -}}
 {{ end }}
 
 {{/*
@@ -153,61 +159,3 @@ Deprecation notices
 {{- define "eric-log-shipper.deprecation-notices" }}
   {{- $d := fromJson (include "eric-log-shipper.deprecated" .) -}}
 {{- end }}
-
-{{/*
-Define eric-log-shipper.podSeccompProfile
-*/}}
-{{- define "eric-log-shipper.podSeccompProfile" -}}
-{{- if and .Values.seccompProfile .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-log-shipper.contSeccompProfile
-*/}}
-{{- define "eric-log-shipper.contSeccompProfile" -}}
-{{- if and .Values.seccompProfile.logshipper .Values.seccompProfile.logshipper.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.logshipper.type }}
-  {{- if eq .Values.seccompProfile.logshipper.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.logshipper.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-Define eric-log-shipper.appArmorProfileAnnotation
-*/}}
-{{- define "eric-log-shipper.appArmorProfileAnnotation" -}}
-{{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-{{- $commonProfile := dict -}}
-{{- if .Values.appArmorProfile.type -}}
-  {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-  {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-    {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- $profiles := dict -}}
-{{- range $container := list "logshipper" -}}
-  {{- if and (hasKey $.Values.appArmorProfile $container) (index $.Values.appArmorProfile $container "type") -}}
-    {{- $_ := set $profiles $container (index $.Values.appArmorProfile $container) -}}
-  {{- else -}}
-    {{- $_ := set $profiles $container $commonProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- range $key, $value := $profiles -}}
-  {{- if $value.type -}}
-    {{- if not (has $value.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $value.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $value.type "localhost") (empty $value.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-container.apparmor.security.beta.kubernetes.io/{{ $key }}: {{ $value.type }}{{ eq $value.type "localhost" | ternary (printf "/%s" $value.localhostProfile) ""  }}
-  {{- end -}}
-{{- end -}}
-{{- end -}}

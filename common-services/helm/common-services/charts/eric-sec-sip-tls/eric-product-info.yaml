@@ -4,31 +4,31 @@ images:
   sip:
     productName: "SIP-TLS Main Image"
     productNumber: "CXC 174 2799"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-common-assets-cd/security"
     name: "eric-sec-sip-tls-main"
     # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
-    tag: "4.2.0-32"
+    tag: "3.0.0-46"
   init:
     productName: "SIP-TLS Init Image"
     productNumber: "CXC 174 2801"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-common-assets-cd/security"
     name: "eric-sec-sip-tls-init"
     # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
-    tag: "4.2.0-32"
+    tag: "3.0.0-46"
   supervisor:
     productName: "SIP-TLS Supervisor Image"
     productNumber: "CXC 174 2797"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-common-assets-cd/security"
     name: "eric-sec-sip-tls-supervisor"
     # Note: template value that will replaced in helm-package script from release automation builder to replace at build time
-    tag: "4.2.0-32"
+    tag: "3.0.0-46"
   logshipper:
     productName: "ADP Log Shipper Image"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: "9.3.0-24"
+    tag: "7.3.0-23"

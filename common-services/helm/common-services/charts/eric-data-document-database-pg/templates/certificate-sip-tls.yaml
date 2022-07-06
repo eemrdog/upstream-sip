@@ -3,8 +3,18 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
  name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-root-cert
- annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
- labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+ annotations:
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+ labels:
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
 spec:
  kubernetes:
   generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-root-cert

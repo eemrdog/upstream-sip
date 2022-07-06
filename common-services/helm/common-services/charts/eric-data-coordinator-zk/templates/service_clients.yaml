@@ -2,21 +2,21 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "eric-data-coordinator-zk.fullname" . }}
-  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+  labels:
+{{- include "eric-data-coordinator-zk.labels" . | indent 4 }}
   annotations:
-    {{- $base := dict -}}
-    {{- if .Values.metrics.enabled }}
-      {{- $_ := set $base "prometheus.io/scrape" "true" -}}
-      {{- if contains "clearText" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
-        {{- $_ := set $base "prometheus.io/port" (.Values.service.endpoints.datacoordinatorzk.metricsPort | toString) -}}
-        {{- $_ := set $base "prometheus.io/scheme" "http" -}}
-      {{- else }}
-        {{- $_ := set $base "prometheus.io/port" (.Values.service.endpoints.pm.tls.port | toString) -}}
-        {{- $_ := set $base "prometheus.io/scheme" "https" -}}
-      {{- end }}
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 4 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 4 }}
+{{- if .Values.metrics.enabled }}
+    prometheus.io/scrape: "true"
+    {{- if contains "clearText" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+    prometheus.io/port: {{ .Values.service.endpoints.datacoordinatorzk.metricsPort | quote }}
+    prometheus.io/scheme: "http"
+    {{- else }}
+    prometheus.io/port: {{ .Values.service.endpoints.pm.tls.port | quote }}
+    prometheus.io/scheme: "https"
     {{- end }}
-    {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
-    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $base $default)) | trim | nindent 4 }}
+{{- end }}
 spec:
   # ipFamilies was introduced in K8s v1.20
 {{- if (include "eric-data-coordinator-zk.internalIPFamily.global" .) }}

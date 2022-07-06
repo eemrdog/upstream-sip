@@ -1,0 +1,36 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" . ) -}}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-transport-data
+  {{- include "eric-data-search-engine.helm-labels" . | indent 2 }}
+  annotations:
+  {{- include "eric-data-search-engine.annotations" . | indent 4 }}
+  {{- if and (.Values.metrics.enabled) $g.security.tls.enabled }}
+    prometheus.io/scrape: {{ .Values.metrics.enabled | quote }}
+    prometheus.io/port: "9115"
+    prometheus.io/scheme: "https"
+  {{- end }}
+spec:
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ include "eric-data-search-engine.fullname" . | quote }}
+    component: eric-data-search-engine
+    role: data
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: transport
+    port: 9300
+    protocol: TCP
+  {{- if .Values.metrics.enabled }}
+  {{- if $g.security.tls.enabled }}
+  - name: metrics-tls
+    port: 9115
+    protocol: TCP
+  {{- else }}
+  - name: metrics
+    port: 9114
+    protocol: TCP
+  {{- end }}
+  {{- end }}

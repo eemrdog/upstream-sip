@@ -125,7 +125,7 @@ adp_lm_private.key
 Minimum flyway schema version for lch-managed db schemas
 */}}
 {{- define "eric-lm-combined-server.database.lchMigrationVersion" -}}
-2.0
+1.9
 {{- end -}}
 
 {{/*

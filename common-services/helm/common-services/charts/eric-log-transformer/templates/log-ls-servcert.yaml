@@ -1,5 +1,5 @@
 {{- $d := fromJson (include "eric-log-transformer.deprecated" .) -}}
-{{- if and $d.security.tls.logshipper.enabled (not $d.security.tls.eda) }}
+{{- if $d.security.tls.logshipper.enabled }}
 # ServerCertificate Resource declaration file for TLS (LT-LS)
 
 apiVersion: com.ericsson.sec.tls/v1alpha1
@@ -7,14 +7,12 @@ kind: ServerCertificate
 metadata:
   name: {{ include "eric-log-transformer.fullname" . | quote }}
   labels:
-    {{- $labels := dict -}}
-    {{- $_ := set $labels "release" .Release.Name -}}
-    {{- $_ := set $labels "heritage" .Release.Service -}}
-    {{- $_ := set $labels "chart" (include "eric-log-transformer.chart" .) -}}
-    {{- $defaultLabels := fromYaml (include "eric-log-transformer.labels" .) -}}
-    {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-log-transformer.labels" . | indent 4 }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 
 spec:
 

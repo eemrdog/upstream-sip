@@ -1,4 +1,0 @@
-{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
-{{- if $g.security.tls.enabled -}}
-  {{- include "eric-data-search-engine.os-service" (dict "context" "tls" "root" .) }}
-{{- end -}}

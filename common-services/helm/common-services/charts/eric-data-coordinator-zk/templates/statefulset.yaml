@@ -3,11 +3,11 @@ kind: StatefulSet
 metadata:
   name: {{ template "eric-data-coordinator-zk.fullname" . }}
   annotations:
-    {{- $custom := dict -}}
-    {{- $_ := set $custom "helm.sh/created" (now.Unix | toString) -}}
-    {{- $default_annotations := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
-    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $default_annotations $custom)) | trim |nindent 4}}
-  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 4 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 4 }}
+    helm.sh/created: "{{ now.Unix }}"
+  labels:
+{{- include "eric-data-coordinator-zk.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -19,45 +19,26 @@ spec:
     type: {{ .Values.updateStrategy.type | quote }}
   template:
     metadata:
-      labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 8 }}
+      labels:
+{{- include "eric-data-coordinator-zk.labels" . | indent 8 }}
       annotations:
-        {{- $custom := dict -}}
-        {{- $_ := set $custom "checksum/config" (print $.Template.BasePath "/configmap.yaml" . | sha256sum) -}}
-        {{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
-          {{- $_ := set $custom "prometheus.io/scrape" "true" -}}
-          {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
-            {{- $_ := set $custom "pprometheus.io/scheme" "https" -}}
-          {{- else }}
-            {{- $_ := set $custom "pprometheus.io/scheme" "http" -}}
-          {{- end }}
-        {{- end }}
-        {{- $bandwidth_annotations := include "eric-data-coordinator-zk.bandwidth-annotations" . | fromYaml }}
-        {{- $default_annotations := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
-        {{- $dczkAppArmorAnn := include "eric-data-coordinator-zk.datacoordinatorzk.appArmorAnnotations" . | fromYaml -}}
-        {{- $metricsExporterAppArmorAnn := include "eric-data-coordinator-zk.metricsexporter.appArmorAnnotations" . | fromYaml -}}
-        {{- $logShipperAppArmorAnn := include "eric-data-coordinator-zk.logshipper.appArmorAnnotations" . | fromYaml -}}
-        {{- $apparmorAnn := dict -}}
-        {{- $apparmorAnn = merge $apparmorAnn $dczkAppArmorAnn }}
-        {{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
-        {{- $apparmorAnn = merge $apparmorAnn $metricsExporterAppArmorAnn }}
-        {{- end }}
-        {{- if has "stream" .Values.log.outputs }}
-        {{- $apparmorAnn = merge $apparmorAnn $logShipperAppArmorAnn }}
-        {{- end }}
-        {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $default_annotations $bandwidth_annotations $custom $apparmorAnn)) | trim | nindent 8 }}
+  {{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
+        prometheus.io/scrape: "true"
+     {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+        prometheus.io/scheme: "https"
+     {{- else }}
+        prometheus.io/scheme: "http"
+     {{- end }}
+  {{- end }}
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 8 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
-      {{- include "eric-data-coordinator-zk.podPriority" . }}
       serviceAccountName: {{ template "eric-data-coordinator-zk.fullname" . }}-sa
       {{ template "eric-data-coordinator-zk.serviceAccount" . }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.datacoordinatorzk }}
       securityContext:
         fsGroup: {{ include "eric-data-coordinator-zk.fsGroup.coordinated" . }}
-{{- if .Values.seccompProfile }}
-{{- if .Values.seccompProfile.type }}
-{{- $profiledefault := .Values.seccompProfile }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profiledefault) | indent 8 }}
-{{- end }}
-{{- end }}
       {{- if include "eric-data-coordinator-zk.pullSecret" . }}
       imagePullSecrets:
         - name: {{ template "eric-data-coordinator-zk.pullSecret" . }}
@@ -137,11 +118,6 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-{{- if .Values.seccompProfile }}
-{{- if .Values.seccompProfile.metricsexporter }}
-{{- include "eric-data-coordinator-zk.metricsexporter.seccompProfile" . | indent 10 }}
-{{- end }}
-{{- end }}
           capabilities:
             drop:
               - all
@@ -264,11 +240,6 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-{{- if .Values.seccompProfile }}
-{{- if .Values.seccompProfile.datacoordinatorzk }}
-{{- include "eric-data-coordinator-zk.datacoordinatorzk.seccompProfile" . | indent 10 }}
-{{- end }}
-{{- end }}
           capabilities:
             drop:
               - all
@@ -362,9 +333,7 @@ spec:
           {{- end }}
 {{- end }}
 {{- include "eric-data-coordinator-zk.volumes" . | nindent 6 -}}
-      {{- if or (.Values.nodeSelector.datacoordinatorzk) ((.Values.global).nodeSelector) }}
-      nodeSelector: {{- include "eric-data-coordinator-zk.dczkNodeSelector" . | nindent 8 }}
-      {{- end }}
+{{- include "eric-data-coordinator-zk.dczkNodeSelector" . | nindent 6 }}
     {{- if .Values.tolerations.datacoordinatorzk }}
       tolerations:
         {{- toYaml .Values.tolerations.datacoordinatorzk | nindent 6 }}
@@ -382,20 +351,14 @@ spec:
     {{- end }}
 {{- if .Values.persistence.persistentVolumeClaim.enabled }}
   volumeClaimTemplates:
-    - metadata:
-        {{- $vctName := "datadir" -}}
-        {{- $name := include "eric-data-coordinator-zk.fullname" . }}
-        name: {{ $vctName }}
-        labels: {{- include "eric-data-coordinator-zk.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
-        {{- if .Values.annotations }}
-        annotations: {{- include "eric-data-coordinator-zk.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
-        {{- end }}
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.persistence.persistentVolumeClaim.size | quote }}
-        {{- if .Values.persistence.persistentVolumeClaim.storageClassName }}
-        storageClassName: {{ .Values.persistence.persistentVolumeClaim.storageClassName | quote }}
-        {{- end }}
-  {{- end }}
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.persistence.persistentVolumeClaim.size | quote }}
+      {{- if .Values.persistence.persistentVolumeClaim.storageClassName }}
+      storageClassName: {{ .Values.persistence.persistentVolumeClaim.storageClassName | quote }}
+      {{- end }}
+{{- end }}

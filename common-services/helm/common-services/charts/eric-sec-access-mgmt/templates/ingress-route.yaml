@@ -1,19 +1,18 @@
-{{- if .Values.ingress.enabled -}}
 {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if and .Values.ingress.enabled (or ($global.security.tls.enabled) (eq .Values.ingress.type "iccr")) -}}
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}
-  annotations:
-    {{- $ingressAnnotations := (.Values.ingress.annotations) -}}
-    {{- $ingress := dict -}}
-    {{- if .Values.ingress.ingressClass }}
-      {{- $_ := set $ingress "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) -}}
-    {{- end }}
-    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $common $ingressAnnotations $ingress)) | trim | nindent 4 }}
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+  {{- if .Values.ingress.ingressClass }}
+    kubernetes.io/ingress.class: {{.Values.ingress.ingressClass | quote }}
+  {{- end }}
+  {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+  {{- end }}
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
 spec:
   virtualhost:
     fqdn: {{ .Values.ingress.hostname | quote }}
@@ -38,7 +37,4 @@ spec:
           {{- else }}
           port: {{ template "eric-sec-access-mgmt.serviceHttpPort" . }}
           {{- end }}
-      timeoutPolicy:
-        response: {{ .Values.ingress.responseTimeout | quote }}
-        idle: {{ .Values.ingress.idleTimeout | quote }}
 {{- end -}}{{- /* if ingress is enabled */}}

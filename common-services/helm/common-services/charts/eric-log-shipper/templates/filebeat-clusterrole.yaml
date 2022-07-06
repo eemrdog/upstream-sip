@@ -3,18 +3,15 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    {{- $clusterroleDict := dict -}}
-    {{- $_ := set $clusterroleDict "app" (include "eric-log-shipper.name" .) -}}
-    {{- $_ := set $clusterroleDict "chart" (include "eric-log-shipper.chart" .) -}}
-    {{- $_ := set $clusterroleDict "component" .Values.logshipper.name -}}
-    {{- $_ := set $clusterroleDict "heritage" .Release.Service -}}
-    {{- $_ := set $clusterroleDict "release" .Release.Name -}}
-
-    {{- $baseLabels := include "eric-log-shipper.labels" . | fromYaml -}}
-    {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $clusterroleDict $baseLabels)) | trim | nindent 4 }}
+{{- include "eric-log-shipper.labels" . | indent 4 }}
+    app: {{ include "eric-log-shipper.name" . | quote }}
+    chart: {{ include "eric-log-shipper.chart" . | quote }}
+    component: {{ .Values.logshipper.name | quote }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
   name: {{ include "eric-log-shipper.name" . }}-{{ .Release.Namespace }}
   annotations:
-    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+    {{- include "eric-log-shipper.annotations" . | indent 4 }}
 rules:
   - apiGroups: [""]
     resources:

@@ -5,9 +5,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ template "eric-pm-bulk-reporter.name" . }}-security-policy
-  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations: {{- include "eric-pm-bulk-reporter.roleBinding.annotations" . | nindent 4 }}
+ name: {{ template "eric-pm-bulk-reporter.name" . }}-security-policy
+ annotations:
+   {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
+   {{- include "eric-pm-bulk-reporter.roleBinding.annotations" . | nindent 4 }}
 roleRef:
  apiGroup: rbac.authorization.k8s.io
  kind: ClusterRole

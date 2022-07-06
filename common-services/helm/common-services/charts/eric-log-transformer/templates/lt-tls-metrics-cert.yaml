@@ -7,8 +7,8 @@ apiVersion: "siptls.sec.ericsson.com/v1"
 kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-log-transformer.fullname" . }}-pm-server-cert"
-  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
-  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations: {{ include "eric-log-transformer.annotations" . | indent 4 }}
+  labels: {{ include "eric-log-transformer.labels" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-log-transformer.fullname" . }}-pm-server-cert"
@@ -35,8 +35,8 @@ apiVersion: "com.ericsson.sec.tls/v1alpha1"
 kind: "ServerCertificate"
 metadata:
   name: "{{ include "eric-log-transformer.fullname" . }}-pm-server-cert"
-  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
-  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations: {{ include "eric-log-transformer.annotations" . | indent 4 }}
+  labels: {{ include "eric-log-transformer.labels" . | indent 4 }}
 spec:
   generated-secret-name: "{{ include "eric-log-transformer.fullname" . }}-pm-server-cert"
   common-name: "{{ include "eric-log-transformer.fullname" . }}"

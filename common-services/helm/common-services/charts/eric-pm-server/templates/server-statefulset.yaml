@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {{- include "eric-pm-server.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-server.annotations" . | nindent 2 }}
   labels: {{- include "eric-pm-server.labels" . | nindent 4 }}
   name: {{ template "eric-pm-server.name" . }}
 spec:
@@ -14,23 +14,14 @@ spec:
     matchLabels: {{- include "eric-pm-server.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      annotations:
-        {{- $appArmorAnn := include "eric-pm-server.appArmorProfileAnnotation" . | fromYaml }}
-        {{- $egressAnn := dict -}}
-        {{- if .Values.bandwidth.maxEgressRate -}}
-          {{- $_ := set $egressAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $serverPodAnn := .Values.server.podAnnotations -}}
-        {{- $commonAnn := include "eric-pm-server.annotations" . | fromYaml -}}
-        {{- include "eric-pm-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $appArmorAnn $egressAnn $serverPodAnn $commonAnn)) | trim | nindent 8 }}
-      labels:
-        {{- $peerLabels := include "eric-pm-server.peer.labels" . | fromYaml }}
-        {{- $commonLabels := include "eric-pm-server.labels" . | fromYaml }}
-        {{- include "eric-pm-server.mergeLabels" (dict "location" .Template.Name "sources" (list $peerLabels $commonLabels)) | trim | nindent 8 }}
+      annotations: {{- include "eric-pm-server.annotations" . | nindent 6 }}
+    {{- if .Values.server.podAnnotations }}
+{{ toYaml .Values.server.podAnnotations | indent 8 }}
+    {{- end }}
+      labels: {{- include "eric-pm-server.labels" . | nindent 8 }}
     spec:
       securityContext:
         fsGroup: {{ template "eric-pm-server.fsGroup.coordinated" . }}
-        {{- include "eric-pm-server.podSeccompProfile" . | indent 8 }}
       serviceAccountName: {{ template "eric-pm-server.serviceaccountname" . }}
       containers:
 {{- if has "stream" .Values.log.outputs }}
@@ -47,13 +38,7 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-server") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -service-id=eric-pm-server
@@ -74,11 +59,7 @@ spec:
                     {{- end }}
                     {{- if .Values.server.baseURL }}
                     --web.external-url={{ .Values.server.baseURL }}
-                    {{- end }}
-                    {{- if .Values.logLevel }}
-                    --log.level={{ .Values.logLevel }}
-                    {{- end }}
-                    --log.format=json"
+                    {{- end }}"
           {{- else }}
             - /bin/prometheus
               --config.file=/etc/config/prometheus.yml
@@ -95,17 +76,12 @@ spec:
               {{- if .Values.server.baseURL }}
               --web.external-url={{ .Values.server.baseURL }}
               {{- end }}
-              {{- if .Values.logLevel }}
-              --log.level={{ .Values.logLevel }}
-              {{- end }}
           {{- end }}
           env:
             - name: STORAGE_CONNECTIVITY
               value: {{ .Values.server.persistentVolume.storageConnectivity | quote }}
             - name: TZ
               value: {{ $g.timezone | quote }}
-            - name: LOG_LEVEL
-              value: {{ .Values.logLevel }}
           ports:
             - name: http-pm
               containerPort: 9090
@@ -138,7 +114,7 @@ spec:
               mountPath: /etc/config
             - name: tmp-volume
               mountPath: /tmp
-            - name: {{ template "eric-pm-server.persistence.volumeMount.name" . }}
+            - name: storage-volume
               mountPath: {{ .Values.server.persistentVolume.mountPath | quote }}
               subPath: {{ .Values.server.persistentVolume.subPath | quote }}
           {{- range .Values.server.extraHostPathMounts }}
@@ -188,13 +164,7 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-reverseproxy") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -service-id=eric-pm-server
@@ -209,7 +179,7 @@ spec:
             - name: PM_TLS_PORT
               value: "9089"
             - name: LOG_LEVEL
-              value: {{ .Values.logLevel }}
+              value: "info"
             - name: SERVER_CERTIFICATE_AUTHORITY
             {{- if not .Values.service.endpoints.reverseproxy.tls.certificateAuthorityBackwardCompatibility }}
               value: "/run/secrets/pmqryca/query-cacertbundle.pem"
@@ -273,26 +243,19 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-configmap-reload") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -service-id=eric-pm-server
               -container=eric-pm-configmap-reload
               -redirect={{ template "eric-pm-server.log.outputs" . }}
               -logfile=/logs/configmap-reload.log
-              -format=json
               -run="/configmap-reload
-                    --web.listen-address=0.0.0.0:9085
+                    --web.listen-address=127.0.0.1:9533
                     --volume-dir=/etc/config
                     --webhook-url={{ template "eric-pm-server.configmap-reload.webhook" . }}"
           {{- else }}
-            - /configmap-reload --web.listen-address=0.0.0.0:9085 --volume-dir=/etc/config --webhook-url={{ template "eric-pm-server.configmap-reload.webhook" . }}
+            - /configmap-reload --web.listen-address=127.0.0.1:9533 --volume-dir=/etc/config --webhook-url={{ template "eric-pm-server.configmap-reload.webhook" . }}
           {{- end }}
           env:
             - name: TZ
@@ -306,24 +269,6 @@ spec:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
-          readinessProbe:
-            httpGet:
-              port: 9085
-              scheme: HTTP
-            initialDelaySeconds: {{ .Values.probes.configmapreload.readinessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.configmapreload.readinessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.probes.configmapreload.readinessProbe.timeoutSeconds }}
-            failureThreshold: {{ .Values.probes.configmapreload.readinessProbe.failureThreshold }}
-            successThreshold: {{ .Values.probes.configmapreload.readinessProbe.successThreshold }}
-          livenessProbe:
-            httpGet:
-              port: 9085
-              scheme: HTTP
-            initialDelaySeconds: {{ .Values.probes.configmapreload.livenessProbe.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.configmapreload.livenessProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.probes.configmapreload.livenessProbe.timeoutSeconds }}
-            failureThreshold: {{ .Values.probes.configmapreload.livenessProbe.failureThreshold }}
-            successThreshold: {{ .Values.probes.configmapreload.livenessProbe.successThreshold }}
         - name: eric-pm-exporter
           image: {{ template "eric-pm-server.imagePath" (merge (dict "imageName" "eric-pm-exporter") .) }}
           imagePullPolicy: {{ .Values.imageCredentials.pullPolicy | quote }}
@@ -335,13 +280,7 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-exporter") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -service-id=eric-pm-server
@@ -361,10 +300,8 @@ spec:
             - name: ENABLE_TLS_METRIC
               value: "true"
             {{- end }}
-            - name: LOG_LEVEL
-              value: {{ .Values.logLevel }}
             - name: PVCNAME
-              value: {{ printf "%s-%s" (include "eric-pm-server.persistence.volumeMount.name" .) (include "eric-pm-server.name" .) }}
+              value: storage-volume-{{ template "eric-pm-server.name" . }}
             - name: TZ
               value: {{ $g.timezone | quote }}
           ports:
@@ -403,7 +340,7 @@ spec:
             - name: pme-cert
               mountPath: "/run/secrets/pme-cert"
           {{- end }}
-            - name: {{ template "eric-pm-server.persistence.volumeMount.name" . }}
+            - name: storage-volume
               mountPath: "/data"
       {{- if include "eric-pm-server.pullSecrets" . }}
       imagePullSecrets:
@@ -422,33 +359,11 @@ spec:
     {{- if .Values.topologySpreadConstraints }}
       topologySpreadConstraints: {{- toYaml .Values.topologySpreadConstraints | nindent 8}}
     {{- end }}
-    {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+    {{- if .Values.server.affinity }}
       affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - {{ template "eric-pm-server.name" . }}
-              topologyKey: "kubernetes.io/hostname"
-    {{- else if eq .Values.affinity.podAntiAffinity  "soft" }}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - {{ template "eric-pm-server.name" . }}
-                topologyKey: "kubernetes.io/hostname"
+{{ toYaml .Values.server.affinity | indent 8 }}
     {{- end }}
-    {{- include "eric-pm-server.podpriority" . }}
-      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.server }}
+      terminationGracePeriodSeconds: {{ .Values.server.terminationGracePeriodSeconds }}
       volumes:
 {{- if has "stream" .Values.log.outputs }}
 {{- include "eric-pm-server.logshipper-volume" . | indent 8 }}
@@ -460,7 +375,7 @@ spec:
           emptyDir:
             medium: Memory
       {{- if not .Values.server.persistentVolume.enabled }}
-        - name: {{ include "eric-pm-server.persistence.volumeMount.name" . }}
+        - name: storage-volume
           emptyDir: {}
       {{- end }}
       {{- range .Values.server.extraHostPathMounts }}
@@ -513,20 +428,11 @@ spec:
 {{- if .Values.server.persistentVolume.enabled }}
   volumeClaimTemplates:
   - metadata:
-      {{- $vctName := include "eric-pm-server.persistence.volumeMount.name" . -}}
-      {{- $name := include "eric-pm-server.name" . }}
-      {{- $copiedVCTLabels := include "eric-pm-server.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) }}
-      {{- if $copiedVCTLabels }}
-      labels:
-        {{- $copiedVCTLabels | nindent 8 }}
-      {{- end }}
-      {{- $serviceAnn := .Values.server.persistentVolume.annotations -}}
-      {{- $copiedVCTAnn := include "eric-pm-server.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name "customKeys" $serviceAnn) }}
-      {{- if $copiedVCTAnn }}
+  {{- if .Values.server.persistentVolume.annotations }}
       annotations:
-        {{- $copiedVCTAnn | nindent 8 }}
-      {{- end }}
-      name: {{ template "eric-pm-server.persistence.volumeMount.name" . }}
+{{ toYaml .Values.server.persistentVolume.annotations | indent 8 }}
+  {{- end }}
+      name: storage-volume
     spec:
   {{- if .Values.server.persistentVolume.storageClass }}
     {{- if (eq "-" .Values.server.persistentVolume.storageClass) }}

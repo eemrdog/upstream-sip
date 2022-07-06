@@ -2,4 +2,4 @@ apiVersion: v1
 appVersion: 0.1.0
 description: Distributed Coordinator ED (based on ETCD) Helm chart
 name: eric-data-distributed-coordinator-ed
-version: 3.3.0+13
+version: 3.0.0+9

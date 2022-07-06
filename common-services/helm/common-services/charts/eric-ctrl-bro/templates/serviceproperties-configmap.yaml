@@ -2,8 +2,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ template "eric-ctrl-bro.name" . }}-serviceproperties
-  labels: {{- include "eric-ctrl-bro.labels" . | nindent 4 }}
-  annotations: {{- include "eric-ctrl-bro.annotations" . | nindent 4 }}
+  labels:
+{{ include "eric-ctrl-bro.k8sLabels" . | indent 4 }}
+{{- include "eric-ctrl-bro.prodInfoLabels" . | indent 4}}
+  annotations:
+{{ include "eric-ctrl-bro.prodInfoAnnotations" . | indent 4 }}
 data:
   {{- $backupLocation := toString .Values.bro.backupLocation }}
   application.properties: |-
@@ -40,10 +43,8 @@ data:
     server.tls.port = {{ .Values.bro.restTlsPort }}
     grpc.server.port = {{ include "eric-ctrl-bro.globalBroGrpcServicePort" . }}
     logging.config = {{ .Values.bro.logging.logDirectory }}/{{ .Values.bro.logging.log4j2File }}
-    bro.logging.log4j2Level = {{ .Values.bro.logging.log4j2Level }}
     backup.location = {{ $backupLocation }}/backups
     backup.managers.location = {{ $backupLocation }}/backupManagers
-    backup.dummy.location = {{ $backupLocation }}/reservedspace
     backup.autoDeleteFailures = {{ .Values.bro.immediateFailedBackupDeletion | default "false" }}
     kubernetes.namespace.environment.variable = {{ .Values.bro.namespaceEnvironmentVariable }}
     flag.enable.notification = {{ .Values.bro.enableNotifications }}
@@ -162,13 +163,6 @@ data:
     {{- fail (print "The value for sftp.archive.compressionLevel is not allowed: "  .Values.sftp.archive.compressionLevel) }}
     {{- end }}
 
-    {{- $vBRMAutoGenTypes := list "ALL" "DEFAULT" "NONE" }}
-    {{- if has (.Values.bro.vBRMAutoCreate | upper | trim) $vBRMAutoGenTypes }}
-    vBRMAutoCreate = {{ .Values.bro.vBRMAutoCreate | upper | trim }}
-    {{- else }}
-    {{- fail (print "The value for bro.vBRMAutoCreate is not allowed: " .Values.bro.vBRMAutoCreate) }}
-    {{- end }}
-
     bro.service.name = {{ include "eric-ctrl-bro.name" . }}
     bro.service.version = {{ include "eric-ctrl-bro.version" . }}
     bro.product.name = {{ template "eric-ctrl-bro.productName" . }}
@@ -197,14 +191,10 @@ data:
     osmn.port = {{ .Values.osmn.port }}
     osmn.bucketName = {{ .Values.osmn.bucketName }}
     osmn.region = {{ .Values.osmn.region }}
+    osmn.credentials = {{ .Values.osmn.credentials }}
+    osmn.credentials.secretName = {{ .Values.osmn.credentials.secretName }}
     osmn.credentials.secretKeyName = {{ .Values.osmn.credentials.secretKeyName }}
     osmn.credentials.accessKeyName = {{ .Values.osmn.credentials.accessKeyName }}
-    osmn.credentials.path = /run/sec/certs/objectstore/credentials
-    osmn.skipMD5CheckSum = {{ hasKey .Values.osmn "skipMD5CheckSum" | ternary .Values.osmn.skipMD5CheckSum true }}
     {{- else }}
     osmn.enabled = {{ .Values.osmn.enabled }}
     {{- end }}
-    kvdbrd.acl.enabled = {{ .Values.keyValueDatabaseRd.acl.enabled | default "false"}}
-    kvdbrd.acl.username = ${KVDBRDUSER:userbro}
-    kvdbrd.acl.password = ${KVDBRDPASSWORD:password}
-    spring.main.allow-circular-references = true

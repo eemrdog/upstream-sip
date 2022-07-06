@@ -30,9 +30,6 @@
     capabilities:
       drop:
         - all
-    {{- if .Values.seccompProfile.metrics }}
-    {{- include "eric-log-transformer.contMetricsSeccompProfile" . | indent 4 }}
-    {{- end }}
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
@@ -126,9 +123,6 @@ prometheus.io/path: "/metrics"
     capabilities:
       drop:
         - all
-    {{- if .Values.seccompProfile.tlsproxy }}
-    {{- include "eric-log-transformer.contTlsproxySeccompProfile" . | indent 4 }}
-    {{- end }}
   ports:
   - name: "metrics-tls"
     containerPort: 9115

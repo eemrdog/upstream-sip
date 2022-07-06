@@ -34,43 +34,22 @@ Create chart name and version as used by the chart label.
 Add common kubernetes labels
 */}}
 {{- define "eric-lm-combined-server.labels" -}}
-{{- $k8sLabels := dict }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/name" (include "eric-lm-combined-server.name" . | toString) }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/version" (include "eric-lm-combined-server.chart-version" . | toString) }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/instance" (.Release.Name) }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/managed-by" (.Release.Service) }}
-{{- $_ := set $k8sLabels "helm.sh/chart" (include "eric-lm-combined-server.chart" . | toString) }}
-
-{{- $global := (.Values.global).labels -}}
-{{- $service := .Values.labels -}}
-{{- include "eric-lm-combined-server.mergeLabels" (dict "location" .Template.Name "sources" (list $k8sLabels $global $service)) | trim -}}
+app.kubernetes.io/name: {{ include "eric-lm-combined-server.name" . | quote }}
+app.kubernetes.io/version: {{ include "eric-lm-combined-server.chart-version" . | quote }}
+app.kubernetes.io/instance : {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+helm.sh/chart: {{ include "eric-lm-combined-server.chart" . }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
 {{- end -}}
-
-{{/*
-Logshipper labels
-*/}}
-{{- define "eric-lm-combined-server.logshipper-labels" }}
-{{- include "eric-lm-combined-server.labels" . -}}
-{{- end }}
-
-{{/*
-Define eric-data-document-database-pg peer label to be used by network policy
-*/}}
-{{- define "eric-lm-combined-server.document-database-pg-peer.labels" -}}
-{{ .Values.database.host }}-access: "true"
 {{- end -}}
 
 {{/*
 Add common LCH kubernetes labels
 */}}
 {{- define "eric-lm-combined-server.lch-labels" -}}
-{{- $lch := dict }}
-{{- $_ := set $lch "eric.lm.component/name" "license-consumer-handler" }}
-{{- $_ := set $lch (printf "%s-access" (include "eric-lm-combined-server.name" .)) "true" }}
-
-{{- $service := include "eric-lm-combined-server.labels" . | fromYaml -}}
-{{- $postgres := include "eric-lm-combined-server.document-database-pg-peer.labels" . | fromYaml -}}
-{{- include "eric-lm-combined-server.mergeLabels" (dict "location" .Template.Name "sources" (list $lch $service $postgres)) | trim -}}
+{{ include "eric-lm-combined-server.labels" . }}
+eric.lm.component/name: "license-consumer-handler"
 {{- end -}}
 
 {{/*
@@ -86,13 +65,8 @@ eric.lm.component/name: "license-consumer-handler"
 Add common LSC kubernetes labels
 */}}
 {{- define "eric-lm-combined-server.lsc-labels" -}}
-{{- $lsc := dict }}
-{{- $_ := set $lsc "eric.lm.component/name" "license-server-client" }}
-{{- $_ := set $lsc (printf "%s-access" (include "eric-lm-combined-server.name" .)) "true" }}
-
-{{- $service := include "eric-lm-combined-server.labels" . | fromYaml -}}
-{{- $postgres := include "eric-lm-combined-server.document-database-pg-peer.labels" . | fromYaml -}}
-{{- include "eric-lm-combined-server.mergeLabels" (dict "location" .Template.Name "sources" (list $lsc $service $postgres)) | trim -}}
+{{ include "eric-lm-combined-server.labels" . }}
+eric.lm.component/name: "license-server-client"
 {{- end -}}
 
 {{/*
@@ -110,25 +84,18 @@ Add Ericsson product information annotations
 {{- define "eric-lm-combined-server.product-info" -}}
 ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
 ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
-ericsson.com/product-revision: 6.0.0
+ericsson.com/product-revision: 5.0.0
 {{- end -}}
 
 {{/*
 Set Ericsson product information and additional annotations
 */}}
 {{- define "eric-lm-combined-server.annotations" -}}
-{{- $productInfo := include "eric-lm-combined-server.product-info" . | fromYaml -}}
-{{- $global := (.Values.global).annotations -}}
-{{- $service := .Values.annotations -}}
-{{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $global $service)) | trim -}}
-{{- end -}}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-lm-combined-server.logshipper-annotations" }}
-{{- include "eric-lm-combined-server.annotations" . -}}
+{{- include "eric-lm-combined-server.product-info" . }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
 {{- end }}
+{{- end -}}
 
 {{/*
 Add image pull secrets
@@ -149,7 +116,7 @@ See DR-D1123-115 for secret format
 Global image registry url
 */}}
 {{- define "eric-lm-combined-server.global.registry.url" -}}
-{{- $url := "armdocker.rnd.ericsson.se" -}}
+{{- $url := "451278531435.dkr.ecr.us-east-1.amazonaws.com" -}}
 {{- if .Values.global -}}
     {{- if .Values.global.registry -}}
         {{- if .Values.global.registry.url -}}
@@ -494,20 +461,56 @@ Set IANA Timezone
 Set LCH nodeSelector
 */}}
 {{- define "eric-lm-combined-server.nodeSelector.licenseConsumerHandler" -}}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector.licenseConsumerHandler -}}
-  {{- $context := "eric-lm-combined-server.nodeSelector.licenseConsumerHandler" -}}
-  {{- include "eric-lm-combined-server.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $service $global)) | trim -}}
+{{- $nodeSelector := dict -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+        {{- $nodeSelector = .Values.global.nodeSelector -}}
+    {{- end -}}
+{{- end -}}
+{{- if .Values.nodeSelector -}}
+    {{- if .Values.nodeSelector.licenseConsumerHandler -}}
+        {{- range $key, $localValue := .Values.nodeSelector.licenseConsumerHandler -}}
+            {{- if hasKey $nodeSelector $key -}}
+                {{- $globalValue := index $nodeSelector $key -}}
+                {{- if ne $globalValue $localValue -}}
+                    {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+                {{- end -}}
+            {{- end -}}
+        {{- end -}}
+        {{- $nodeSelector = merge $nodeSelector .Values.nodeSelector.licenseConsumerHandler -}}
+    {{- end -}}
+{{- end -}}
+{{- if $nodeSelector -}}
+    {{- toYaml $nodeSelector | indent 8 | trim -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
 Set LSC nodeSelector
 */}}
 {{- define "eric-lm-combined-server.nodeSelector.licenseServerClient" -}}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector.licenseServerClient -}}
-  {{- $context := "eric-lm-combined-server.nodeSelector.licenseServerClient" -}}
-  {{- include "eric-lm-combined-server.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $service $global)) | trim -}}
+{{- $nodeSelector := dict -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+        {{- $nodeSelector = .Values.global.nodeSelector -}}
+    {{- end -}}
+{{- end -}}
+{{- if .Values.nodeSelector -}}
+    {{- if .Values.nodeSelector.licenseServerClient -}}
+        {{- range $key, $localValue := .Values.nodeSelector.licenseServerClient -}}
+            {{- if hasKey $nodeSelector $key -}}
+                {{- $globalValue := index $nodeSelector $key -}}
+                {{- if ne $globalValue $localValue -}}
+                    {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+                {{- end -}}
+            {{- end -}}
+        {{- end -}}
+        {{- $nodeSelector = merge $nodeSelector .Values.nodeSelector.licenseServerClient -}}
+    {{- end -}}
+{{- end -}}
+{{- if $nodeSelector -}}
+    {{- toYaml $nodeSelector | indent 8 | trim -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -686,43 +689,4 @@ Set ASIH Client Certificate Secret name
 */}}
 {{- define "eric-lm-combined-server.asih.client-certificate-name" -}}
 {{ include "eric-lm-combined-server.name" . }}-asih-cert
-{{- end -}}
-
-{{/*
-Introduce NetworkPolicy enable flag in values.yaml
-DR-D1125-059
-*/}}
-{{- define "eric-lm-combined-server.networkPolicy.enabled" -}}
-{{- $enabled := false -}}
-{{- if .Values.global -}}
-    {{- if .Values.global.networkPolicy -}}
-        {{- if hasKey .Values.global.networkPolicy "enabled" -}}
-            {{- $enabled = .Values.global.networkPolicy.enabled -}}
-        {{- end -}}
-    {{- end -}}
-{{- end -}}
-{{- if $enabled -}}
-    {{- if .Values.networkPolicy -}}
-        {{- if hasKey .Values.networkPolicy "enabled" -}}
-            {{- $enabled = .Values.networkPolicy.enabled -}}
-        {{- end -}}
-    {{- end -}}
-{{- end -}}
-{{- print $enabled -}}
-{{- end -}}
-
-{{/*
-Set ASIH failure retry interval in milliseconds
-*/}}
-{{- define "eric-lm-combined-server.asih.failureRetryInterval" -}}
-{{- $retryInterval := "3000" -}}
-{{/* Get the Values.licenseServerClient.asih.failureRetryInterval value */}}
-{{- if .Values.licenseServerClient -}}
-    {{- if .Values.licenseServerClient.asih -}}
-        {{- if .Values.licenseServerClient.asih.failureRetryInterval -}}
-            {{- $retryInterval := .Values.licenseServerClient.asih.failureRetryInterval  -}}
-        {{- end -}}
-    {{- end -}}
-{{- end -}}
-{{- print $retryInterval -}}
 {{- end -}}

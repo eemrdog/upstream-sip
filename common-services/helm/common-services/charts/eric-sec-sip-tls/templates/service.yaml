@@ -15,8 +15,8 @@ spec:
       protocol: TCP
       targetPort: {{ template "eric-sec-sip-tls.metrics.server.port" . }}
   selector:
-    app.kubernetes.io/name: {{ template "eric-sec-sip-tls.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app: {{ template "eric-sec-sip-tls.name" . }}
+    release: {{ .Release.Name }}
     eric-sec-sip-tls-ha-leader-follower-label: "leader"
   type: "ClusterIP"
 {{- if .Values.global }}

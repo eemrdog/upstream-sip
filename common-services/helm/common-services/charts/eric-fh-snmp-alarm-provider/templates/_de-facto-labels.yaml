@@ -1,26 +1,8 @@
-{{/*
-Merge user-defined labels (DR-D1121-068, DR-D1121-060)
-*/}}
-{{ define "eric-fh-snmp-alarm-provider.config-labels" }}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $global $service)) -}}
-{{- end -}}
-
-{{/*
-Standard labels of Helm and Kubernetes
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.standard-labels" }}
+{{- define "eric-fh-snmp-alarm-provider.helm-labels" }}
 app.kubernetes.io/name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
 app.kubernetes.io/version: {{ template "eric-fh-snmp-alarm-provider.version" . }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
-{{- end -}}
-
-{{/*
-Merge labels for Default, which includes Standard and Config
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.labels" }}
-  {{- $config := include "eric-fh-snmp-alarm-provider.config-labels" . | fromYaml -}}
-  {{- $standard := include "eric-fh-snmp-alarm-provider.standard-labels" . | fromYaml -}}
-  {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $config $standard)) | trim }}
-{{- end -}}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
+{{- end}}

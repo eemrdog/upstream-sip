@@ -4,7 +4,7 @@
 - name: MINIO_KMS_VAULT_DEPRECATION
   value: "off"
 - name: MINIO_SSE_VAULT_ENDPOINT
-  value: https://{{ .Values.keyManagement.hostname }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}:{{ .Values.keyManagement.port }}
+  value: https://{{ .Values.keyManagement.hostname }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.keyManagement.port }}
 - name: MINIO_SSE_VAULT_CAPATH
   value: /kms-ca-certs/ca.crt
 - name: MINIO_SSE_VAULT_KEY_NAME

@@ -10,7 +10,7 @@ kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-log-transformer.logshipper-service-fullname" . }}-logshipper-cfg"
   annotations:
-    {{- include "eric-log-transformer.logshipper-annotations" . | indent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
   labels:
     {{- include "eric-log-transformer.logshipper-labels" . | indent 4 }}
 data:

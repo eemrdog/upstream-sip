@@ -8,14 +8,12 @@ apiVersion: "siptls.sec.ericsson.com/v1"
 kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-lt-client-cert"
-  annotations:
-    {{- $logShipperProductInfo := include "eric-sec-sip-tls.logshipper-product-info" . | fromYaml -}}
-    {{- $commonAnn := include "eric-sec-sip-tls.annotations" . | fromYaml -}}
-    {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $logShipperProductInfo $commonAnn)) | trim | nindent 4 }}
   labels:
-    {{- $logShipperLabels := include "eric-sec-sip-tls.logshipper-labels" . | fromYaml -}}
-    {{- $commonLabels := include "eric-sec-sip-tls.labels" . | fromYaml -}}
-    {{- include "eric-sec-sip-tls.mergeLabels" (dict "location" .Template.Name "sources" (list $logShipperLabels $commonLabels)) | trim | nindent 4 }}
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.logshipper-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
+    {{- include "eric-sec-sip-tls.logshipper-product-info" . | nindent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-lt-client-cert"

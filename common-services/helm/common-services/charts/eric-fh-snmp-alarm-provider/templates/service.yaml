@@ -5,31 +5,24 @@ kind: Service
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-ipv4
   labels:
-    {{- $staticLabels := dict -}}
-    {{- $_ := set $staticLabels "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $staticLabels "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $staticLabels "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $staticLabels "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $staticLabels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
   annotations:
-    {{- $staticAnn := dict -}}
-    {{- $cloudProviderAnn := dict -}}
-    {{- if .Values.service.externalIPv4.annotations }}
-      {{- if .Values.service.externalIPv4.annotations.cloudProviderLB }}
-        {{- range $key, $value := .Values.service.externalIPv4.cloudProviderLB -}}
-          {{- $_ := set $cloudProviderAnn $key $value -}}
-        {{- end -}}
-      {{- end -}}
-      {{- if .Values.service.externalIPv4.annotations.sharedVIPLabel }}
-        {{- $_ := set $staticAnn "metallb.universe.tf/allow-shared-ip" (.Values.service.externalIPv4.annotations.sharedVIPLabel | toString) -}}
-      {{- end -}}
-      {{- if .Values.service.externalIPv4.annotations.addressPoolName }}
-        {{- $_ := set $staticAnn "metallb.universe.tf/address-pool" (.Values.service.externalIPv4.annotations.addressPoolName | toString) -}}
-      {{- end -}}
-    {{- end -}}
-    {{- $defaultAnn := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $staticAnn $cloudProviderAnn $defaultAnn)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
+{{- if .Values.service.externalIPv4.annotations }}
+{{- if .Values.service.externalIPv4.cloudProviderLB}}
+{{ toYaml .Values.service.externalIPv4.cloudProviderLB | indent 4 }}
+{{- end }}
+{{- if .Values.service.externalIPv4.annotations.sharedVIPLabel }}
+    metallb.universe.tf/allow-shared-ip: {{.Values.service.externalIPv4.annotations.sharedVIPLabel }}
+{{- end -}}
+{{- if .Values.service.externalIPv4.annotations.addressPoolName }}
+    metallb.universe.tf/address-pool: {{ .Values.service.externalIPv4.annotations.addressPoolName }}
+{{- end -}}
+{{- end }}
 spec:
   ipFamilies: ["IPv4"]   # ipFamilies was introduced in K8s v1.20
   type: {{ .Values.service.type }}
@@ -67,31 +60,24 @@ kind: Service
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-ipv6
   labels:
-    {{- $staticLabels := dict -}}
-    {{- $_ := set $staticLabels "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $staticLabels "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $staticLabels "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $staticLabels "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $staticLabels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
   annotations:
-    {{- $staticAnn := dict -}}
-    {{- $cloudProviderAnn := dict -}}
-    {{- if .Values.service.externalIPv6.annotations }}
-      {{- if .Values.service.externalIPv6.annotations.cloudProviderLB }}
-      {{- range $key, $value := .Values.service.externalIPv6.cloudProviderLB -}}
-          {{- $_ := set $cloudProviderAnn $key $value -}}
-        {{- end -}}
-      {{- end -}}
-      {{- if .Values.service.externalIPv6.annotations.sharedVIPLabel }}
-        {{- $_ := set $staticAnn "metallb.universe.tf/allow-shared-ip" (.Values.service.externalIPv6.annotations.sharedVIPLabel | toString) -}}
-      {{- end -}}
-      {{- if .Values.service.externalIPv6.annotations.addressPoolName }}
-        {{- $_ := set $staticAnn "metallb.universe.tf/address-pool" (.Values.service.externalIPv6.annotations.addressPoolName | toString) -}}
-      {{- end -}}
-    {{- end -}}
-    {{- $defaultAnn := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $staticAnn $cloudProviderAnn $defaultAnn)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
+{{- if .Values.service.externalIPv6.annotations }}
+{{- if .Values.service.externalIPv6.cloudProviderLB}}
+{{ toYaml .Values.service.externalIPv6.cloudProviderLB | indent 4 }}
+{{- end }}
+{{- if .Values.service.externalIPv6.annotations.sharedVIPLabel }}
+    metallb.universe.tf/allow-shared-ip: {{.Values.service.externalIPv6.annotations.sharedVIPLabel }}
+{{- end -}}
+{{- if .Values.service.externalIPv6.annotations.addressPoolName }}
+    metallb.universe.tf/address-pool: {{ .Values.service.externalIPv6.annotations.addressPoolName }}
+{{- end -}}
+{{- end }}
 spec:
   ipFamilies: ["IPv6"]   # ipFamilies was introduced in K8s v1.20
   type: {{ .Values.service.type }}
@@ -127,31 +113,24 @@ kind: Service
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
   labels:
-    {{- $staticLabels := dict -}}
-    {{- $_ := set $staticLabels "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $staticLabels "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $staticLabels "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $staticLabels "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $staticLabels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
   annotations:
-    {{- $staticAnn := dict -}}
-    {{- $cloudProviderAnn := dict -}}
-    {{- if .Values.service.annotations }}
-      {{- if .Values.service.annotations.cloudProviderLB}}
-        {{- range $key, $value := .Values.service.annotations.cloudProviderLB -}}
-          {{- $_ := set $cloudProviderAnn $key $value -}}
-        {{- end -}}
-      {{- end -}}
-      {{- if .Values.service.annotations.sharedVIPLabel}}
-        {{- $_ := set $staticAnn "metallb.universe.tf/allow-shared-ip" (.Values.service.annotations.sharedVIPLabel | toString) -}}
-      {{- end -}}
-      {{- if .Values.service.annotations.addressPoolName}}
-        {{- $_ := set $staticAnn "metallb.universe.tf/address-pool" (.Values.service.annotations.addressPoolName | toString) -}}
-      {{- end -}}
-    {{- end -}}
-    {{- $defaultAnn := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $staticAnn $cloudProviderAnn $defaultAnn)) | trim | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
+{{- if .Values.service.annotations }}
+{{- if .Values.service.annotations.cloudProviderLB}}
+{{ toYaml .Values.service.annotations.cloudProviderLB | indent 4 }}
+{{- end }}
+{{- if .Values.service.annotations.sharedVIPLabel }}
+    metallb.universe.tf/allow-shared-ip: {{.Values.service.annotations.sharedVIPLabel }}
+{{- end -}}
+{{- if .Values.service.annotations.addressPoolName }}
+    metallb.universe.tf/address-pool: {{ .Values.service.annotations.addressPoolName }}
+{{- end -}}
+{{- end }}
 spec:
   type: {{ .Values.service.type }}
 {{- if .Values.service.clusterIP }}

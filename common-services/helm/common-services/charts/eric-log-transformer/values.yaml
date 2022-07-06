@@ -18,7 +18,7 @@ terminationGracePeriodSeconds: 30
 #global:
 #  registry:
 #    imagePullPolicy: "IfNotPresent"
-#    url: "armdocker.rnd.ericsson.se"
+#    url: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
 #  timezone: "UTC"
 #  nodeSelector: {}
 #  pullSecret:
@@ -32,9 +32,6 @@ terminationGracePeriodSeconds: 30
 #      default-restricted-security-policy: "default-restricted-security-policy"
 
 annotations: {}
-
-bandwidth:
-  maxEgressRate: ""
 
 labels: {}
 
@@ -53,12 +50,6 @@ service:
     jsonIn:
       tls:
         enforced: "required"
-    httpIn:
-      tls:
-        enforced: "required"
-
-networkPolicy:
-  enabled: true
 
 probes:
   logtransformer:
@@ -137,17 +128,17 @@ log:
     metrics: ""
     tlsproxy: ""
 
-jvmHeap: 4096m
+jvmHeap: 1024m
 
 resources:
   logtransformer:
     requests:
       cpu: 250m
-      memory: 6Gi
+      memory: 2Gi
       ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
     limits:
       cpu: 1000m
-      memory: 6Gi
+      memory: 2Gi
       ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
   metrics:
     limits:
@@ -192,16 +183,12 @@ json:
 syslog:
  syslogLogplane: adp-app-logs
 
-http:
-  logplane: "adp-app-logs"
-
 egress:
   lumberjack:
     enabled: false
     remoteHosts: []
     certificates:
       asymmetricKeyCertificateName: log-lumberjack-client
-      trustedCertificateListName:
   syslog:
     enabled: false
     defaultFacility: 1
@@ -211,7 +198,6 @@ egress:
     certificates:
       asymmetricKeyCertificateName: log-syslog-client
       trustedCertificateListName: log-syslog-client
-      useCertmOnboarding: true
     remoteHosts: []
     inclusions: []
     exclusions: []
@@ -249,9 +235,6 @@ metrics:
   enabled: true
   pmServer: "eric-pm-server"
 
-logshipper:
-  hostname: "eric-log-shipper"
-
 clusterDomain: "cluster.local"
 
 podDisruptionBudget:
@@ -259,40 +242,3 @@ podDisruptionBudget:
 
 queue:
   sizePerPipeline: 1024
-
-podPriority:
-  logtransformer:
-    # Priority class name for the logtransformer Pod. Priority classes are used to determine the priority of Pods when scheduling them on nodes.
-    priorityClassName:
-
-appArmorProfile:
-  type:
-  localhostProfile:
-  logtransformer:
-    type:
-    localhostProfile:
-  metrics:
-    type:
-    localhostProfile:
-  tlsproxy:
-    type:
-    localhostProfile:
-  logshipper:
-    type:
-    localhostProfile:
-
-seccompProfile:
-  type: ""
-  localhostProfile:
-  logtransformer:
-    type: ""
-    localhostProfile:
-  logshipper:
-    type: ""
-    localhostProfile:
-  metrics:
-    type: ""
-    localhostProfile:
-  tlsproxy:
-    type: ""
-    localhostProfile:

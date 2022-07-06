@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}
   labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
-  annotations: {{- include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
 spec:
   strategy:
     type: {{ .Values.updateStrategy.type | quote }}
@@ -26,12 +26,12 @@ spec:
       app: {{ template "eric-cm-mediator.name" . }}
   template:
     metadata:
-      labels:
-        {{- include "eric-cm-mediator.pod.labels" . | nindent 8 }}
-      annotations:
-        {{- include "eric-cm-mediator.pod.annotations" . | nindent 8 }}
+      labels: {{ include "eric-cm-mediator.labels" . | nindent 8 }}
+        app: {{ template "eric-cm-mediator.name" . }}
+        release: {{ .Release.Name }}
+      annotations: {{ include "eric-cm-mediator.annotations" . | nindent 8 }}
+        {{- include "eric-cm-mediator.metrics" . | nindent 8 }}
     spec:
-      securityContext: {{- include "eric-cm-mediator.seccomp" (dict "pod" "eric-cm-mediator" "Values" .Values ) | nindent 8 }}
       serviceAccountName: {{ template "eric-cm-mediator.name" . }}-sa
       automountServiceAccountToken: false
       {{- if include "eric-cm-mediator.pullSecret" . }}
@@ -95,7 +95,7 @@ spec:
         - name: CM_BACKEND_SERVER
           value: {{ template "eric-cm-mediator.dbbackend" . }}
 {{- end }}
-        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+        securityContext: {{ include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
 {{ if index .Values "resources" "eric-cm-mediator-init-container" }}
         resources:
 {{ toYaml (index .Values "resources" "eric-cm-mediator-init-container") | indent 10 }}
@@ -165,10 +165,6 @@ spec:
           value: {{ template "eric-cm-mediator.exilis.transformer" . }}
         - name: EXILIS_YANG_PROVIDER
           value: {{ template "eric-cm-mediator.exilis.yangprovider" . }}
-        - name: EXILIS_STATE_DATA_PROVIDER_API
-          value: {{ .Values.exilis.cm.transformer.stateDataProviderApiEnabled | quote }}
-        - name: EXILIS_DYNAMIC_VALIDATION_API
-          value: {{ .Values.exilis.cm.yangprovider.dynamicValidationApiEnabled | quote }}
 {{- end }}
 {{- if not (eq (include "eric-cm-mediator.tls" .) "true") }}
         - name: CM_BACKEND_USERNAME
@@ -207,10 +203,6 @@ spec:
 {{- end }}
         - name: CM_GUNICORN_LOG_LEVEL
           value: {{ .Values.cmm.gunicornLogLevel | title | quote }}
-        - name: CM_GUNICORN_ACCESS_LOG_LEVEL
-          value: {{ .Values.cmm.gunicornAccessLogLevel | title | quote }}
-        - name: CM_ACCESS_LOGGING
-          value: {{ .Values.cmm.accessLogging | quote }}
 {{- if eq (include "eric-cm-mediator.tls" .) "true" }}
 {{- if (eq .Values.service.endpoints.restapi.tls.enforced "required") }}
         - name: CM_SERVER_USE_TLS_ONLY
@@ -234,7 +226,7 @@ spec:
         image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-mediator" "files" .Files) }}
         imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
         ports:
-        - containerPort: {{ template "eric-cm-mediator.metrics-port" . }}
+        - containerPort: 5005
 {{- if eq (include "eric-cm-mediator.tls" .) "true" }}
           name: https-pm-tls
 {{- else }}
@@ -289,7 +281,7 @@ spec:
             readOnly: true
 {{- end }}
 {{- end }}
-        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+        securityContext: {{ include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
         livenessProbe:
           exec:
             command:
@@ -307,18 +299,12 @@ spec:
         resources:
 {{ toYaml (index .Values "resources" "eric-cm-mediator") | indent 10 }}
 {{ end }}
-      {{- if include "eric-cm-mediator.nodeSelector.general" . }}
-      nodeSelector:
-        {{ template "eric-cm-mediator.nodeSelector.general" . }}
-      {{- else if include "eric-cm-mediator.nodeSelector" . }}
+      {{- if include "eric-cm-mediator.nodeSelector" . }}
       nodeSelector:
         {{ template "eric-cm-mediator.nodeSelector" . }}
       {{- end }}
       affinity:
         podAntiAffinity: {{ include "eric-cm-mediator.podAntiAffinity" . | nindent 10 }}
-{{- if index .Values.podPriority "eric-cm-mediator" "priorityClassName" }}
-      priorityClassName: {{ index .Values.podPriority "eric-cm-mediator" "priorityClassName" | quote }}
-{{- end }}
       volumes:
       - name: service-volume
         emptyDir: {}
@@ -346,7 +332,7 @@ spec:
           secretName: {{ template "eric-cm-mediator.name" . }}-document-db-tls-admin-secret
       - name: tls-pm-client-ca-cert-volumemount
         secret:
-          secretName: {{ .Values.pmserver.hostname }}-ca
+          secretName: eric-pm-server-ca
           optional: true
 {{- if (has "stream" .Values.cmm.logOutput) }}
       - name: tls-log-transformer-client-cert-volumemount

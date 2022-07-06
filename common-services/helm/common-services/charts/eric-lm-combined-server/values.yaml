@@ -10,7 +10,7 @@
 #    # global.registry.imagePullPolicy - The default image pull policy
 #    imagePullPolicy: IfNotPresent
 #    # global.registry.url - The default container image registry
-#    url: armdocker.rnd.ericsson.se
+#    url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
 #  # global.internalIPFamily - A list specifies which IP address families the Service belongs to,
 #  # possible IP address families: "IPv4", "IPv6", e.g.["IPv4", "IPv6"]
 #  # It is only supported from K8s 1.20
@@ -43,19 +43,11 @@
 #    # global.log.outputs - Supported values ["k8sLevel", "applicationLevel"]
 #    outputs: ["k8sLevel"]
 
-#  # global.networkPolicy.enabled - Enable or disable the network policy globally
-#  networkPolicy:
-#    enabled: false
-
 # Additional annotations to be attached to all resource objects created by the License Manager service
 annotations: {}
 
 # Additional labels to be attached to all resource objects created by the License Manager service
 labels: {}
-
-# Enable or disable the network policy
-networkPolicy:
-  enabled: true
 
 imageCredentials:
   # imageCredentials.pullSecret - Secret containing credentials for the registries containing eric-lm-combined-server's images; overrides global.pullSecret
@@ -250,8 +242,6 @@ licenseServerClient:
     certTtl: 3600
     # licenseServerClient.asih.certIssuerRef - The ASIH Client certificate CA issuer
     certIssuerRef: eric-si-application-sys-info-handler-ca
-    # licenseServerClient.asih.failureRetryInterval - The ASIH Client retry interval after connection failure in milliseconds
-    failureRetryInterval: 3000
 
   timer:
     # licenseServerClient.timer.licenseRequestAggregationPeriod - period with which license requests are aggregated (in seconds)
@@ -392,20 +382,11 @@ resources:
 
 probes:
   eric-lm-license-consumer-handler:
-    startupProbe:
-      # probes.eric-lm-license-consumer-handler.startupProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
-      failureThreshold: 300
-      # probes.eric-lm-license-consumer-handler.startupProbe.initialDelaySeconds - Kubernetes startup probe startup delay
-      initialDelaySeconds: 0
-      # probes.eric-lm-license-consumer-handler.startupProbe.periodSeconds - Kubernetes startup probe check period
-      periodSeconds: 1
-      # probes.eric-lm-license-consumer-handler.startupProbe.timeoutSeconds - number of seconds after which the probe times out
-      timeoutSeconds: 1
     livenessProbe:
       # probes.eric-lm-license-consumer-handler.livenessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
       failureThreshold: 1
       # probes.eric-lm-license-consumer-handler.livenessProbe.initialDelaySeconds - Kubernetes liveness probe startup delay
-      initialDelaySeconds: 0
+      initialDelaySeconds: 20
       # probes.eric-lm-license-consumer-handler.livenessProbe.periodSeconds - Kubernetes liveness probe check period
       periodSeconds: 10
       # probes.eric-lm-license-consumer-handler.livenessProbe.timeoutSeconds - number of seconds after which the probe times out
@@ -422,20 +403,11 @@ probes:
       # probes.eric-lm-license-consumer-handler.readinessProbe.timeoutSeconds - number of seconds after which the probe times out
       timeoutSeconds: 10
   eric-lm-license-server-client:
-    startupProbe:
-      # probes.eric-lm-license-server-client.startupProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
-      failureThreshold: 300
-      # probes.eric-lm-license-server-client.startupProbe.initialDelaySeconds - Kubernetes startup probe startup delay
-      initialDelaySeconds: 0
-      # probes.eric-lm-license-server-client.startupProbe.periodSeconds - Kubernetes startup probe check period
-      periodSeconds: 1
-      # probes.eric-lm-license-server-client.startupProbe.timeoutSeconds - number of seconds after which the probe times out
-      timeoutSeconds: 1
     livenessProbe:
       # probes.eric-lm-license-server-client.livenessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
       failureThreshold: 1
       # probes.eric-lm-license-server-client.livenessProbe.initialDelaySeconds - Kubernetes liveness probe startup delay
-      initialDelaySeconds: 0
+      initialDelaySeconds: 30
       # probes.eric-lm-license-server-client.livenessProbe.periodSeconds - Kubernetes liveness probe check period
       periodSeconds: 10
       # probes.eric-lm-license-server-client.livenessProbe.timeoutSeconds - number of seconds after which the probe times out
@@ -451,21 +423,3 @@ probes:
       successThreshold: 1
       # probes.eric-lm-license-server-client.readinessProbe.timeoutSeconds - number of seconds after which the probe times out
       timeoutSeconds: 10
-
-podPriority:
-  # Priority indicates the importance of a Pod relative to other Pods.
-  eric-lm-combined-server-license-consumer-handler:
-    # podPriority.eric-lm-combined-server-license-consumer-handler.priorityClassName - no priorityClass is specified. The POD will be assigned the default Pod priority class
-    priorityClassName: ""
-  eric-lm-combined-server-license-server-client:
-    # podPriority.eric-lm-combined-server-license-server-client.priorityClassName - no priorityClass is specified. The POD will be assigned the default Pod priority class
-    priorityClassName: ""
-
-# limit Pod Egress bandwidth, DR-D1125-040-AD
-bandwidth:
-  eric-lm-license-consumer-handler:
-    # bandwidth.eric-lm-license-consumer-handler.maxEgressRate - The maximum egress rate of LCH pod, the rate is in megabit-per-second at which traffic can leave the Pod interface
-    maxEgressRate: 30M
-  eric-lm-license-server-client:
-    # bandwidth.eric-lm-license-server-client.maxEgressRate - The maximum egress rate of LSC pod, the rate is in megabit-per-second at which traffic can leave the Pod interface
-    maxEgressRate: 10M

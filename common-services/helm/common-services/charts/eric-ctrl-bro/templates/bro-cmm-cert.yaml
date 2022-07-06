@@ -4,8 +4,11 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-ctrl-bro.name" . }}-cmm-client-certificate
-  annotations: {{- include "eric-ctrl-bro.annotations" . | nindent 4 }}
-  labels: {{- include "eric-ctrl-bro.labels" . | nindent 4 }}
+  annotations:
+{{- include "eric-ctrl-bro.prodInfoAnnotations" . | indent 4 }}
+  labels:
+{{ include "eric-ctrl-bro.k8sLabels" . | indent 4 }}
+{{- include "eric-ctrl-bro.prodInfoLabels" . | indent 4}}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-ctrl-bro.name" . }}-cmm-client-secret

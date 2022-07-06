@@ -4,8 +4,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-security-policy
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
-  labels: {{- include "eric-fh-snmp-alarm-provider.labels" . | nindent 4 }}
+  annotations:
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

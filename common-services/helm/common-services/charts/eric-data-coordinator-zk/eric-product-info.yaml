@@ -4,28 +4,28 @@ images:
   datacoordinatorzk:
     productName: "Data Coordinator ZK"
     productNumber: "CXC 201 1465"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-eric-data-dc-zk-drop"
     name: eric-data-coordinator-zk
-    tag: "1.28.0-12"
+    tag: "1.24.0-5"
   brAgent:
     productName: "Data Coordinator ZK BrAgent"
     productNumber: "CXC 174 2673"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-eric-data-dc-zk-drop"
     name: eric-data-coordinator-zk-bragent
-    tag: "1.28.0-12"
+    tag: "1.24.0-5"
   logshipper:
     productName: "Log Shipper Image"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: "9.1.0-33"
+    tag: "7.3.0-23"
   metricsexporter:
     productName: "Data Coordinator ZK Metrics-Exporter"
     productNumber: "CXU 101 0877"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-eric-data-dc-zk-drop"
     name: eric-data-coordinator-zk-metrics-exporter
-    tag: "1.28.0-12"
+    tag: "1.24.0-5"

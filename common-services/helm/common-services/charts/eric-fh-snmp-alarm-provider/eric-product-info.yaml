@@ -6,14 +6,14 @@ images:
     productNumber: "CXU 101 0217"
     registry: "selndocker.mo.sw.ericsson.se"
     # env variable set by running BOB (ruleset2.0.yaml)
-    repoPath: "proj-pc-gs-released"
+    repoPath: "proj-pc-gs-drop"
     name: "eric-fh-snmp-alarm-provider"
     # env variable set by running BOB (ruleset2.0.yaml)
-    tag: "6.3.0-49"
+    tag: "6.0.0-5"
   logshipper:
     productName: "eric-log-shipper"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: "9.2.0-13"
+    tag: "7.3.0-23"

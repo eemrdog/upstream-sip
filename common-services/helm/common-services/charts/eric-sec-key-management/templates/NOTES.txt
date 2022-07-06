@@ -1,8 +1,6 @@
 {{- if eq .Values.persistence.type "pvc" }}
 
-!!!
-Warning: using file-based backend is not supported nor considered production grade. Please use Distributed Coordinator ED service instead.
-!!!
+! Warning: using file-based backend is not supported nor considered production grade. Please use Distributed Coordinator ED service instead.
 
 {{- end }}
 
@@ -18,25 +16,22 @@ kubectl exec -n {{ .Release.Namespace }} -it $VAULT_POD -c kms -- sh -c "curl ht
 II. CLEANUP:
 
 Delete the deployment:
-helm uninstall {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+helm uninstall {{ .Release.Name }}
 
-{{- if and (eq .Values.persistence.type "pvc") (.Values.persistence.pvc.keep) }}
+{{- if eq .Values.persistence.type "pvc" }}
 
 Delete the permanent storage:
 kubectl delete pvc {{ template "eric-sec-key-management.name" . }}-pvc --namespace {{ .Release.Namespace }}
 
 {{- end }}
 
-Delete the namespace:
-kubectl delete namespace {{ .Release.Namespace }}
 
 ####
-{{- if not (eq .Values.persistence.type "pvc") }}
 
 The Key Management Service (KMS) *must* be deployed with the Service Identity Provider TLS (SIP-TLS) and the Distributed Coordinator ED (DCED) in the same namespace.
 This means that in addition to the deployment prerequisites of KMS, also the prerequisites of SIP-TLS and DCED must hold, otherwise the KMS installation will fail.
 
-{{- end }}
-
-For further instructions, see *Key Management User Guide*.
-
+For further instructions, see
+*Key Management User Guide* (1/1553-APR 201 29/2)
+*Service Identity Provider TLS User Guide* (1/1553-APR 201 36/2)
+*Distributed Coordinator ED User Guide (1/1553-APR 201 59/2)

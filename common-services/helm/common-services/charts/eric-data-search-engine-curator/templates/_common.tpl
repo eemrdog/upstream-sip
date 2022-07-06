@@ -11,17 +11,10 @@ template:
     annotations:
       {{- include "eric-data-search-engine-curator.annotations" . | indent 6 }}
   spec:
-    {{- if .Capabilities.APIVersions.Has "v1/ServiceAccount" }}
+    {{- if (semverCompare ">=1.16, <1.19" .Capabilities.KubeVersion.GitVersion) }}
     serviceAccount: ""
     {{- end }}
-    {{- if .Values.tolerations }}
-    tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
-    {{- end }}
     serviceAccountName: "{{ include "eric-data-search-engine-curator.fullname" . }}-sa"
-    terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
-    {{- if .Values.podPriority.priorityClassName }}
-    priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
-    {{- end }}
     containers:
       - name: "curator"
         image: {{ include "eric-data-search-engine-curator.image-registry-url" . | quote }}
@@ -33,6 +26,10 @@ template:
             {{- $redirect = "all" }}
           {{- end }}
         {{- end }}
+        {{- $dryrun := "" }}
+        {{- if .Values.dryRun }}
+          {{- $dryrun = "--dry-run" }}
+        {{- end }}
         command:
           - /opt/stdout/stdout-redirect
           - -redirect
@@ -41,16 +38,16 @@ template:
           - "5"
           - -rotate
           - "5"
+          - -format
+          - "json"
+          - -container
+          - "curator"
+          - -service-id
+          - {{ include "eric-data-search-engine-curator.fullname" . | quote }}
           - -logfile
           - /logs/curator.log
-          - --
-          - curator
-          {{- if .Values.dryRun }}
-          - --dry-run
-          {{- end }}
-          - --config
-          - /opt/curator/config.yaml
-          - /opt/curator/actions.yaml
+          - -run
+          - curator {{ $dryrun }} --config /opt/curator/config.yaml /opt/curator/actions.yaml
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false

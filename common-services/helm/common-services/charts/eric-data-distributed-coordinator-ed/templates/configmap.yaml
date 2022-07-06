@@ -263,10 +263,10 @@ data:
       # etcd automatically reloads the server and client certs
       # but it does not reload the CA
       # we need to restart etcd to make this happen
-      # if an exisiting watch_cert process is detected, skip step.
-      if [[ -z $(ps -ef | grep watch_cert | grep -v grep) ]]
+      # if an exisiting pyinotify process is detected, skip step.
+      if [[ -z $(ps -ef | grep pyinotify | grep -v grep) ]]
       then
-       nohup /usr/local/bin/scripts/watch_cert.sh /run/sec/cas/*ca &
+      (python3 -m pyinotify -r /run/sec/cas/*ca -e IN_MODIFY,IN_CREATE,IN_DELETE -f --command='/usr/local/bin/scripts/restart.sh' )  &
       fi
     fi
 
@@ -293,7 +293,7 @@ data:
     # runs defragmentation command every set interval(minute)
     while true; do
       {{- if eq ( include "eric-data-distributed-coordinator-ed.tls.enabled" . ) "true" }}
-      bash -c 'unset ETCDCTL_ENDPOINTS; /usr/local/bin/etcdctl defrag  --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify || true'
+      /usr/local/bin/etcdctl defrag  --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify || true
       {{- else }}
       /usr/local/bin/etcdctl --user root:${ACL_ROOT_PASSWORD} defrag --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} || true
       {{ end }}
@@ -308,7 +308,7 @@ data:
       if [[ -n $alarm ]];then
         echo "alarm detected:"+$alarm
         echo "Endpoint status before compaction and defragmentation -"
-        bash -c 'unset ETCDCTL_ENDPOINTS; /usr/local/bin/etcdctl --write-out=table endpoint status --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify'
+        /usr/local/bin/etcdctl --write-out=table endpoint status --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify
         nohup /usr/local/bin/scripts/handleAlarm.sh
       fi
       sleep ${MONITOR_ALARM_INTERVAL}m
@@ -322,12 +322,12 @@ data:
     # runs defragmentation command
     echo "Running Defragmentation"
     {{- if eq ( include "eric-data-distributed-coordinator-ed.tls.enabled" . ) "true" }}
-    bash -c 'unset ETCDCTL_ENDPOINTS; /usr/local/bin/etcdctl defrag  --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify'
+    /usr/local/bin/etcdctl defrag  --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify
     {{- else }}
     /usr/local/bin/etcdctl --user root:${ACL_ROOT_PASSWORD} defrag --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }}
     {{ end }}
     echo "Endpoint after compaction and defragmentation -"
-    bash -c 'unset ETCDCTL_ENDPOINTS; /usr/local/bin/etcdctl --write-out=table endpoint status --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify'
+    /usr/local/bin/etcdctl --write-out=table endpoint status --endpoints=:{{- include "eric-data-distributed-coordinator-ed.ports.client" . }} --insecure-skip-tls-verify
     # wait for delay mins for all pod defragging
     echo "Delay Alarm Removal for (minutes):"+${DISARM_ALARM_PEER_INTERVAL}
     sleep ${DISARM_ALARM_PEER_INTERVAL}m
@@ -392,7 +392,6 @@ data:
     fi
     fail_count={{ include "eric-data-distributed-coordinator-ed.livenessProbe.entrypointChecksNumber" . }}
     restart={{ include "eric-data-distributed-coordinator-ed.livenessProbe.entrypointRestartEtcd" . }}
-    restart_count=0
     # checking for etcd health
     while true; do
       # get the start time so is possible to know the time spent reading the pipe
@@ -422,10 +421,6 @@ data:
             echo "Restarting ETCD"
             nohup /usr/local/bin/scripts/etcd_runner.sh &
             PIDRUNNER=$!
-            ((restart_count++))
-            if [[ "$restart_count" == 12 ]]; then
-               echo "dead" > ${ETCD_DATA_DIR}/etcd.liveness
-            fi
           fi
         else
           echo "dead" > ${ETCD_DATA_DIR}/etcd.liveness
@@ -436,14 +431,11 @@ data:
   restart.sh: |
     #!/bin/bash
 
-    echo "$(date +%Y-%m-%dT%T.%N) Restarting ETCD while reloading certificates"
-
     PHASE_1_CA_CERT_FILE=/run/sec/cas/bootstrap/cacertbundle.pem
     PHASE_2_CA_CERT_FILE=/run/sec/cas/clientca/client-cacertbundle.pem
     SIPTLS_CA_CERT_FILE=/run/sec/cas/siptlsca/cacertbundle.pem
     if [[ "${ETCD_NAME: -1}" == 0 && -f "$PHASE_2_CA_CERT_FILE" && -f "$SIPTLS_CA_CERT_FILE" ]]
     then
-      echo "$(date +%Y-%m-%dT%T.%N) Killing ETCD process"
       pkill etcd &
     elif [[ ! "${ETCD_NAME: -1}" == 0 ]]
     then
@@ -451,27 +443,6 @@ data:
       then
         :
       else
-        echo "$(date +%Y-%m-%dT%T.%N) Killing ETCD process"
         pkill etcd &
       fi
     fi
-
-  watch_cert.sh: |
-    #!/bin/bash
-
-    CERT=$1
-    last_modified=$(date +%s)
-    while true
-    do
-      if [[ ! -z ${CERT} ]]
-      then
-         epoch_arr=$(stat -c %Y ${CERT})
-         current_modified=${epoch_arr[0]}
-         if [ $last_modified != $current_modified ]; then
-            last_modified=$current_modified
-            echo "$(date +%Y-%m-%dT%T.%N) [ ${CERT} ] Caught Certificate renewed event."
-            bash /usr/local/bin/scripts/restart.sh &
-          fi
-          sleep 5
-      fi
-    done

@@ -4,28 +4,28 @@ images:
   osmn:
     productName: "Object Storage MN"
     productNumber: "CXC 174 2823"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-eric-data-object-storage-mn-drop
     name: eric-data-object-storage-mn
-    tag: 1.23.0-22
+    tag: 1.19.0-5
   init:
     productName: "Object Storage MN Init container"
     productNumber: "CXC 174 2824"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-eric-data-object-storage-mn-drop
     name: eric-data-object-storage-mn-init
-    tag: 1.23.0-22
+    tag: 1.19.0-5
   bra:
     productName: "Object Storage MN brAgent"
     productNumber: "CXU 101 0224"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-eric-data-object-storage-mn-drop
     name: eric-data-object-storage-bra
-    tag: 1.23.0-22
+    tag: 1.19.0-5
   logshipper:
     productName: "Log Shipper IMAGE"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-log-released
     name: eric-log-shipper
-    tag: 9.1.0-33
+    tag: 7.3.0-23

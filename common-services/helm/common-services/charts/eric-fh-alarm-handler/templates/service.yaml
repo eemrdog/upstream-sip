@@ -1,15 +1,10 @@
 {{- $g := fromJson (include "eric-fh-alarm-handler.global" .) }}
-{{- $tls := (include "eric-fh-alarm-handler.tls.enabled" .) -}}
-{{- $metricsEnabled := ( .Values.service.endpoints.metrics.enabled | toString | lower) -}}
-{{- $metricsTLSOnly := (include "eric-fh-alarm-handler.metrics.server.tlsOnly" .) -}}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "eric-fh-alarm-handler.name" . }}
   annotations:
-{{- $service := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
-{{- $metricsAnnotations := include "eric-fh-alarm-handler.metrics.annotations" . | fromYaml -}}
-{{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $metricsAnnotations)) | indent 4}}
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
   labels:
 {{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
 spec:
@@ -19,31 +14,42 @@ spec:
   type: ClusterIP
   ports:
   {{/* DR-D1123-113 */}}
-{{- if eq (include "eric-fh-alarm-handler.aalAPI.httpEnabled" .) "true" }}
+  {{- if not $g.security.tls.enabled }}
+    # Only cleartext due to global tls disabled
     - name: api-http
       port: {{ include "eric-fh-alarm-handler.restapi.server.port" . }}
       targetPort: http-rest-api
-{{- end }}
-{{- if eq (include "eric-fh-alarm-handler.fiAPI.httpEnabled" .) "true" }}
+    {{- if eq (include "eric-fh-alarm-handler.fiAPI.httpEnabled" .) "true" }}
     - name: fi-api-http
       port: {{ include "eric-fh-alarm-handler.rest.fi.server.httpPort" . }}
       targetPort: http-fi-api
-{{- end }}
-{{- if eq (include "eric-fh-alarm-handler.aalAPI.httpsEnabled" .) "true" }}
-    - name: api-https
-      port: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . }}
-      targetPort: https-rest-api
-{{- end }}
-{{- if eq (include "eric-fh-alarm-handler.fiAPI.httpsEnabled" .) "true" }}
+    {{- end }}
+  {{- else -}}
+    {{- if eq (include "eric-fh-alarm-handler.fiAPI.httpEnabled" .) "true" }}
+    - name: fi-api-http
+      port: {{ include "eric-fh-alarm-handler.rest.fi.server.httpPort" . }}
+      targetPort: http-fi-api
+    {{- end }}
+    {{- if eq (include "eric-fh-alarm-handler.fiAPI.httpsEnabled" .) "true" }}
     - name: fi-api-https
       port: {{ include "eric-fh-alarm-handler.rest.fi.server.httpsPort" . }}
       targetPort: https-fi-api
-{{- end }}
-{{- if eq $metricsEnabled "true" }}
-    - name: {{ include "eric-fh-alarm-handler.metrics.portName" . }}
-      port: {{ include "eric-fh-alarm-handler.metrics.port" . }}
-      targetPort: {{ include "eric-fh-alarm-handler.metrics.portName" . }}
-{{- end }}
+    {{- end }}
+    {{- if eq .Values.service.endpoints.restapi.tls.enforced "required" }}
+    # Only tls when global tls is enabled and local tls is "required"
+    - name: api-https
+      port: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . }}
+      targetPort: https-rest-api
+    {{- else if eq .Values.service.endpoints.restapi.tls.enforced "optional" }}
+    # Both tls and cleartext when global tls is enabled and local tls is "optional"
+    - name: api-http
+      port: {{ include "eric-fh-alarm-handler.restapi.server.port" . }}
+      targetPort: http-rest-api
+    - name: api-https
+      port: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . }}
+      targetPort: https-rest-api
+    {{- end }}
+  {{- end }}
   selector:
     app: {{ template "eric-fh-alarm-handler.name" . }}
     release: {{ .Release.Name }}

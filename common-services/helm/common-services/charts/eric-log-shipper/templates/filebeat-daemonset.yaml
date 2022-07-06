@@ -4,16 +4,13 @@ kind: DaemonSet
 metadata:
   name: {{ include "eric-log-shipper.fullname" . | quote }}
   labels:
-    {{- $daemonsetLabels := dict -}}
-    {{- $_ := set $daemonsetLabels "app" (include "eric-log-shipper.name" .) -}}
-    {{- $_ := set $daemonsetLabels "chart" (include "eric-log-shipper.chart" .) -}}
-    {{- $_ := set $daemonsetLabels "heritage" .Release.Service -}}
-    {{- $_ := set $daemonsetLabels "release" .Release.Name -}}
-
-    {{- $baseLabels := include "eric-log-shipper.labels" . | fromYaml -}}
-    {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $daemonsetLabels $baseLabels)) | trim | nindent 4 }}
+{{- include "eric-log-shipper.labels" . | indent 4 }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    app: {{ include "eric-log-shipper.name" . | quote }}
+    chart: {{ include "eric-log-shipper.chart" . | quote }}
   annotations:
-    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+    {{- include "eric-log-shipper.annotations" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -24,28 +21,15 @@ spec:
   template:
     metadata:
       labels:
-        {{- $podTempLabels := dict -}}
-        {{- $_ := set $podTempLabels "app" (include "eric-log-shipper.name" .) -}}
-        {{- $_ := set $podTempLabels "component" "filebeat" -}}
-        {{- $_ := set $podTempLabels "release" .Release.Name -}}
-        {{- $_ := set $podTempLabels "role" "logger" -}}
-
-        {{- $baseLabels := include "eric-log-shipper.labels" . | fromYaml -}}
-        {{- include "eric-log-shipper.mergeLabels" (dict "location" .Template.Name "sources" (list $podTempLabels $baseLabels)) | trim | nindent 8 }}
+{{- include "eric-log-shipper.labels" . | indent 8 }}
+        release: {{ .Release.Name }}
+        app: {{ include "eric-log-shipper.name" . | quote }}
+        component: filebeat
+        role: logger
       annotations:
-	{{- include "eric-log-shipper.appArmorProfileAnnotation" . | indent 8 -}}
-        {{- $podTempAnn := dict -}}
-        {{- $_ := set $podTempAnn "checksum/config" (include (print $.Template.BasePath "/filebeat-configmap.yaml") . | sha256sum) -}}
-
-        {{- if .Values.bandwidth.maxEgressRate }}
-        {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
-        {{- end }}
-
-        {{- $baseAnn := include "eric-log-shipper.annotations" . | fromYaml -}}
-        {{- include "eric-log-shipper.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $baseAnn)) | trim | nindent 8 }}
+        {{- include "eric-log-shipper.annotations" . | indent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/filebeat-configmap.yaml") . | sha256sum }}
     spec:
-      securityContext:
-        {{- include "eric-log-shipper.podSeccompProfile" . | nindent 8 }}
       serviceAccountName: {{ include "eric-log-shipper.name" . | quote }}
       volumes:
       {{- if $g.security.tls.enabled }}
@@ -71,9 +55,6 @@ spec:
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}
-      {{- if $.Values.podPriority.logshipper.priorityClassName }}
-      priorityClassName: {{ $.Values.podPriority.logshipper.priorityClassName | quote }}
-      {{- end }}
       containers:
       - name: "logshipper"
         image: {{ template "eric-log-shipper.logshipperImagePath" . }}
@@ -95,9 +76,6 @@ spec:
           capabilities:
             drop:
               - all
-          {{- if .Values.seccompProfile.logshipper }}
-          {{- include "eric-log-shipper.contSeccompProfile" . | nindent 10 }}
-          {{- end }}
         livenessProbe:
           exec:
             command:

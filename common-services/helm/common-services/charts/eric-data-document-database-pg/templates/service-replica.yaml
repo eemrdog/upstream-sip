@@ -3,23 +3,23 @@ kind: Service
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}-replica
   labels:
-    {{- $labels := dict -}}
-    {{- $_ := set $labels "app" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $_ := set $labels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $commonLabels)) | nindent 4 }}
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $annotations := dict -}}
-    {{- if .Values.metrics.enabled }}
-      {{- if (eq (int .Values.highAvailability.replicaCount) 1) }}
-        {{- $_ := set $annotations "prometheus.io/scrape" "false" -}}
-      {{- else }}
-        {{- $_ := set $annotations "prometheus.io/scrape" "true" -}}
-      {{- end }}
-      {{- $_ := set $annotations "prometheus.io/port" (.Values.metrics.service.port | toString) -}}
-    {{- end }}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $annotations $commonAnn)) | nindent 4 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+{{- if .Values.metrics.enabled }}
+{{- if (eq (int .Values.highAvailability.replicaCount) 1) }}
+    prometheus.io/scrape: "false"
+{{- else }}
+    prometheus.io/scrape: "true"
+{{- end }}
+    prometheus.io/port: {{ .Values.metrics.service.port | quote }}
+{{- end }}
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   ports:

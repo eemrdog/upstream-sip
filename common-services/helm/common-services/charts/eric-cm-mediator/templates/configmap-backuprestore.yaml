@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}-br-agent
-  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
   labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
 data:
   brm_backup.yaml: |

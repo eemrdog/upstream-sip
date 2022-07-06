@@ -4,9 +4,15 @@ kind: StatefulSet
 metadata:
   name: {{ template "eric-data-object-storage-mn.fullname" . }}
   labels:
-    {{- include "eric-data-object-storage-mn.labels" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn.helm-labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-data-object-storage-mn.metrics-annotations" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 4 }}
+    {{- if .Values.metadata.annotations }}
+    {{ toYaml .Values.metadata.annotations | trim | nindent 4 }}
+    {{- end }}
+    {{- if $global.security.tls.enabled }}
+    prometheus.io/scheme: 'https'
+    {{- end }}
 spec:
   updateStrategy:
     type: {{ .Values.updateStrategy.server.type | quote }}
@@ -27,13 +33,16 @@ spec:
     metadata:
       name: {{ template "eric-data-object-storage-mn.fullname" . }}
       labels:
-        {{- include "eric-data-object-storage-mn.labels" . | nindent 8 }}
+        {{- include "eric-data-object-storage-mn.helm-labels" . | nindent 8 }}
       annotations:
-        {{- include "eric-data-object-storage-mn.metrics-annotations" . | nindent 8 }}
+        {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 8 }}
+        {{- if .Values.metadata.annotations }}
+        {{ toYaml .Values.metadata.annotations | trim | nindent 8 }}
+        {{- end }}
+        {{- if $global.security.tls.enabled }}
+        prometheus.io/scheme: 'https'
+        {{- end }}
     spec:
-      {{- if .Values.podPriority.eric_data_object_storage_mn.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.eric_data_object_storage_mn.priorityClassName | quote}}
-      {{- end }}
       securityContext:
         fsGroup: {{ template "eric-data-object-storage-mn.fsGroup.coordinated" . }}
       {{- if .Values.priorityClassName }}
@@ -50,8 +59,10 @@ spec:
       {{- end }}
         - name: {{ template "eric-data-object-storage-mn.fullname" . }}
           image: {{ template "eric-data-object-storage-mn.imagePath" . }}
-          imagePullPolicy: {{ .Values.imageCredentials.osmn.pullPolicy }}
+          imagePullPolicy: {{ .Values.imageCredentials.pullPolicy }}
           securityContext:
+            runAsUser: {{ .Values.server.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.server.securityContext.runAsGroup }}
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: false
@@ -138,7 +149,7 @@ spec:
             successThreshold: {{ .Values.probes.server.readinessProbe.successThreshold }}
             failureThreshold: {{ .Values.probes.server.readinessProbe.failureThreshold }}
           resources:
-{{ toYaml .Values.resources.server | indent 12 }}
+{{ toYaml .Values.server.resources | indent 12 }}
 
 {{- if or .Values.nodeSelector $global.nodeSelector }}
       nodeSelector:
@@ -208,11 +219,7 @@ spec:
       {{- end }}
   volumeClaimTemplates:
     - metadata:
-        {{- $name := include "eric-data-object-storage-mn.fullname" . -}}
-        {{- $vctName := .Values.persistentVolumeClaim.volumeNamePrefix }}
-        name: {{ $vctName }}
-        labels: {{- include "eric-data-object-storage-mn.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
-        annotations: {{- include "eric-data-object-storage-mn.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
+        name: {{ .Values.persistentVolumeClaim.volumeNamePrefix }}
       spec:
         accessModes: [ "ReadWriteOnce" ]
         {{- if .Values.persistentVolumeClaim.storageClassName }}

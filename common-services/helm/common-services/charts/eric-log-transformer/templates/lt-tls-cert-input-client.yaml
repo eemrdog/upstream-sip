@@ -8,9 +8,9 @@ kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-log-transformer.fullname" . }}-input-client-cert"
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-log-transformer.fullname" . }}-input-client-cert"
@@ -36,9 +36,9 @@ kind: "ClientCertificate"
 metadata:
   name: "{{ include "eric-log-transformer.fullname" . }}-input-client-cert"
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   generated-secret-name: "{{ include "eric-log-transformer.fullname" . }}-input-client-cert"
   common-name: localhost

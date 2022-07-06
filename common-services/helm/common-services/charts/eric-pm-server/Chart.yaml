@@ -7,4 +7,4 @@ maintainers:
 name: eric-pm-server
 sources:
 - https://gerrit.ericsson.se/plugins/gitiles/adp-gs/adp-gs-pm
-version: 10.0.0+14
+version: 6.6.0+23

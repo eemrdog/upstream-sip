@@ -1,6 +1,6 @@
 {{/*
 Template of Log Shipper sidecar
-Version: 9.2.0-13
+Version: 7.3.0-23
 */}}
 {{/*
 Create a map from ".Values.global" with defaults if missing in values file.
@@ -67,30 +67,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end }}
 {{/*
-Parameterize and service specific image path
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.logshipper-image" }}
-{{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") }}
-{{- $registry := default $productInfo.images.logshipper.registry (default (((.Values).global).registry).url (default (((.Values).imageCredentials).registry).url ((((.Values).imageCredentials).logshipper).registry).url)) }}
-{{- $repoPath := default $productInfo.images.logshipper.repoPath (default ((.Values).imageCredentials).repoPath (((.Values).imageCredentials).logshipper).repoPath) }}
-{{- $name := $productInfo.images.logshipper.name }}
-{{- $tag := default $productInfo.images.logshipper.tag (default (((.Values).images).logshipper).tag) }}
-{{- printf "%s/%s/%s:%s" $registry $repoPath $name $tag }}
-{{- end }}
-{{/*
-seccompProfile for logshipper container
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.LsSeccompProfile" -}}
-{{- $default := fromJson (include "eric-fh-snmp-alarm-provider.logshipper-default-value" .) }}
-{{- if and $default.seccompProfile.logshipper $default.seccompProfile.logshipper.type }}
-seccompProfile:
-  type: {{ $default.seccompProfile.logshipper.type }}
-  {{- if eq $default.seccompProfile.logshipper.type "Localhost" }}
-  localhostProfile: {{ $default.seccompProfile.logshipper.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-{{/*
 Log Shipper sidecar container spec
 */}}
 {{- define "eric-fh-snmp-alarm-provider.logshipper-container" -}}
@@ -98,7 +74,7 @@ Log Shipper sidecar container spec
 {{- $default := fromJson (include "eric-fh-snmp-alarm-provider.logshipper-default-value" .) }}
 - name: "logshipper"
   imagePullPolicy: {{ or $default.imageCredentials.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
-  image: {{ include "eric-fh-snmp-alarm-provider.logshipper-image" . }}
+  image: "{{ or $default.imageCredentials.logshipper.registry.url $g.registry.url }}/{{ $default.imageCredentials.logshipper.repoPath }}/{{ $default.images.logshipper.name }}:{{ $default.images.logshipper.tag }}"
   args:
     - /opt/filebeat/init.sh
   securityContext:
@@ -109,7 +85,6 @@ Log Shipper sidecar container spec
     capabilities:
       drop:
         - "all"
-    {{ include "eric-fh-snmp-alarm-provider.LsSeccompProfile" . | indent 4 }}
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
@@ -247,8 +222,10 @@ apiVersion: "siptls.sec.ericsson.com/v1"
 kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-fh-snmp-alarm-provider.logshipper-service-fullname" . }}-lt-client-cert"
-  labels: {{- include "eric-fh-snmp-alarm-provider.logshipper-labels" . | nindent 4 }}
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+  labels:
+    {{- include "eric-fh-snmp-alarm-provider.logshipper-labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-fh-snmp-alarm-provider.logshipper-service-fullname" . }}-lt-client-cert"
@@ -277,9 +254,9 @@ spec:
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" $productInfo.images.logshipper.name ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" $productInfo.images.logshipper.tag ))) -}}
   {{- else -}}
-    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "IMAGE_PATH" ))) -}}
+    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" "eric-log-shipper" ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "9.2.0-13" ))) -}}
+    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "7.3.0-23" ))) -}}
   {{- end -}}
   {{- $default := merge $default (dict "logshipper" (dict "runAndExit" false )) -}}
   {{- $default := merge $default (dict "logshipper" (dict "shutdownDelay" 10 )) -}}
@@ -290,8 +267,9 @@ spec:
   {{- $default := merge $default (dict "logshipper" (dict "logtransformer" (dict "host" "eric-log-transformer" ))) -}}
   {{- $default := merge $default (dict "logshipper" (dict "logplane" "adp-app-logs")) -}}
   {{- $default := merge $default (dict "log" (dict "logshipper" (dict "level" "info" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "type" "" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "localhostProfile" "" ))) -}}
   {{- $default := mergeOverwrite $default .Values -}}
+  {{- if ((.Values.livenessProbe).logshipper) }}
+     {{- $default := mergeOverwrite $default.probes.logshipper.livenessProbe .Values.livenessProbe.logshipper -}}
+  {{- end }}
   {{- $default | toJson -}}
 {{- end -}}

@@ -6,27 +6,20 @@ kind: Service
 metadata:
   name: eric-pm-bulk-reporter-service-ipv4
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations:
-    {{- $IPv4Ann := dict -}}
-    {{- $_ := set $IPv4Ann "prometheus.io/scrape" "false" -}}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
+    prometheus.io/scrape: "false"
     {{- range $key, $value := .Values.service.externalIPv4.annotations }}
       {{- if and (eq $key "sharedVIPLabel") (not (empty $value)) }}
-        {{- $_ := set $IPv4Ann "metallb.universe.tf/allow-shared-ip" $value -}}
+    metallb.universe.tf/allow-shared-ip: {{ $value | quote }}
       {{- else if and (eq $key "addressPoolName") (not (empty $value)) }}
-        {{- $_ := set $IPv4Ann "metallb.universe.tf/address-pool" $value -}}
-      {{- else if and (eq $key "cloudProviderLB") (not (empty $value)) }}
-        {{- range $key, $cloudValue := $value -}}
-          {{- $_ := set $IPv4Ann $key $cloudValue -}}
-        {{- end }}
+    metallb.universe.tf/address-pool: {{ $value | quote }}
       {{- else if not (empty $value) }}
-        {{- $_ := set $IPv4Ann $key $value -}}
+    {{ $key }}: {{ $value | quote }}
       {{- end }}
-    {{- end }}
-    {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-    {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $IPv4Ann $defaultAnn)) | trim | nindent 4 }}
+    {{ end }}
 spec:
   ipFamilies: ["IPv4"] # ipFamilies was introduced in K8s v1.20
-  type: {{ .Values.service.type }}
+  type: LoadBalancer
 {{- if .Values.service.externalIPv4.loadBalancerIP }}
   loadBalancerIP: {{ .Values.service.externalIPv4.loadBalancerIP }}
 {{- end }}
@@ -47,27 +40,20 @@ kind: Service
 metadata:
   name: eric-pm-bulk-reporter-service-ipv6
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations:
-    {{- $IPv6Ann := dict -}}
-    {{- $_ := set $IPv6Ann "prometheus.io/scrape" "false" -}}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
+    prometheus.io/scrape: "false"
     {{- range $key, $value := .Values.service.externalIPv6.annotations }}
       {{- if and (eq $key "sharedVIPLabel") (not (empty $value)) }}
-        {{- $_ := set $IPv6Ann "metallb.universe.tf/allow-shared-ip" $value -}}
+    metallb.universe.tf/allow-shared-ip: {{ $value | quote }}
       {{- else if and (eq $key "addressPoolName") (not (empty $value)) }}
-        {{- $_ := set $IPv6Ann "metallb.universe.tf/address-pool" $value -}}
-      {{- else if and (eq $key "cloudProviderLB") (not (empty $value)) }}
-        {{- range $key, $cloudValue := $value -}}
-          {{- $_ := set $IPv6Ann $key $cloudValue -}}
-        {{- end }}
+    metallb.universe.tf/address-pool: {{ $value | quote }}
       {{- else if not (empty $value) }}
-        {{- $_ := set $IPv6Ann $key $value -}}
+    {{ $key }}: {{ $value | quote }}
       {{- end }}
-    {{- end }}
-    {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-    {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $IPv6Ann $defaultAnn)) | trim | nindent 4 }}
+    {{ end }}
 spec:
   ipFamilies: ["IPv6"] # ipFamilies was introduced in K8s v1.20
-  type: {{ .Values.service.type }}
+  type: LoadBalancer
 {{- if .Values.service.externalIPv6.loadBalancerIP }}
   loadBalancerIP: {{ .Values.service.externalIPv6.loadBalancerIP }}
 {{- end }}
@@ -87,26 +73,17 @@ kind: Service
 metadata:
   name: {{ template "eric-pm-bulk-reporter.name" . }}
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations:
-    {{- $serviceAnn := dict -}}
-    {{- $_ := set $serviceAnn "prometheus.io/scrape" "false" -}}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
     {{- range $key, $value := .Values.service.annotations }}
       {{- if and (eq $key "sharedVIPLabel") (not (empty $value)) }}
-        {{- $_ := set $serviceAnn "metallb.universe.tf/allow-shared-ip" $value -}}
+    metallb.universe.tf/allow-shared-ip: {{ $value | quote }}
       {{- else if and (eq $key "addressPoolName") (not (empty $value)) }}
-        {{- $_ := set $serviceAnn "metallb.universe.tf/address-pool" $value -}}
-      {{- else if and (eq $key "cloudProviderLB") (not (empty $value)) }}
-        {{- if (eq $.Values.service.type "LoadBalancer") }}
-          {{- range $key, $cloudValue := $value -}}
-            {{- $_ := set $serviceAnn $key $cloudValue -}}
-          {{- end }}
-        {{- end }}
+    metallb.universe.tf/address-pool: {{ $value | quote }}
       {{- else if not (empty $value) }}
-        {{- $_ := set $serviceAnn $key $value -}}
+    {{ $key }}: {{ $value | quote }}
       {{- end }}
-    {{- end }}
-    {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-    {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $serviceAnn $defaultAnn)) | trim | nindent 4 }}
+    {{ end }}
+    prometheus.io/scrape: "false"
 spec:
   type: {{ .Values.service.type }}
 {{- if .Values.service.loadBalancerIP }}

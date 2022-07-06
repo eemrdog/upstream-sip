@@ -6,9 +6,10 @@ metadata:
   name: {{ include "eric-data-search-engine.fullname" .root }}-transport-ingest-tls
   {{- else }}
   name: {{ include "eric-data-search-engine.fullname" .root }}-transport-ingest
-  {{- end }}
-  labels: {{- include "eric-data-search-engine.helm-labels" .root | nindent 4 }}
-  annotations: {{- include "eric-data-search-engine.annotations" .root | nindent 4 }}
+  {{- end -}}
+  {{- include "eric-data-search-engine.helm-labels" .root | indent 2 }}
+  annotations:
+  {{- include "eric-data-search-engine.annotations" .root | indent 4 }}
 spec:
   publishNotReadyAddresses: true
   selector:

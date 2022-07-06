@@ -10,7 +10,7 @@
 #pullSecret: armdocker_secret_name
   #registry:
     # Global image registry
-    #url: armdocker.rnd.ericsson.se
+    #url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
   # Backup and Restore Orchestrator service configuration that Data Coordinator ZK BrAgent communicates with
   #adpBR:
     #service name
@@ -45,7 +45,7 @@ productInfo:
   # R-State of the product. R State should match helm chart version (3.1.0 -> R2A)
   # To automate it when packaging the helm chart rstate can be generated
   # and below value replaced with correct R-State
-  rstate: "R29A"
+  rstate: "R25A"
 
 # Additional labels allow a list of key/values to be appended to the list of labels of the resource object.
 labels: {}
@@ -89,12 +89,6 @@ probes:
       initialDelaySeconds: 15
       periodSeconds: 10
       successThreshold: 1
-      timeoutSeconds: 15
-  logshipper:
-    livenessProbe:
-      failureThreshold: 3
-      initialDelaySeconds: 300
-      periodSeconds: 30
       timeoutSeconds: 15
 
 ## Tolerations to influence scheduling decisions made by Kubernetes scheduler
@@ -385,9 +379,6 @@ metricsexporter:
   enabled: false
   port: 9087
 
-bandwidth:
-  maxEgressRate: # maximum outgoing traffic rate from DCZK
-
 brAgent:
    enabled: false
    brLabelValue:
@@ -434,51 +425,3 @@ brAgent:
        dataChannelTimeoutSecs: 30
        # Maximum Size, in KiB, of fragment chunk to send with each backup data message
        fragmentChunkSize: 512
-
-# Pod priority configuration for deployments DR-1126-030
-podPriority:
-  eric-data-coordinator-zk:
-    priorityClassName: "" # No priority set to eric-data-coordinator-zk
-  eric-data-coordinator-zk-agent:
-    priorityClassName: "" # No priority set to eric-data-coordinator-zk-agent
-
-#Default ciphers + ciphers for TLS1.3 including CHACHA which comes from Java11
-tlsCiphers: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256
-
-## The AppArmor profile for pod level annotations
-## Type values are 'unconfined', 'runtime/default', 'localhost', ''
-## Default value is '' for backward compatibility
-#appArmorProfile:
-#  type: ""
-#  localhostProfile: ""
-#  datacoordinatorzk:
-#    type: ""
-#    localhostProfile:
-#  metricsexporter:
-#    type: ""
-#    localhostProfile:
-#  logshipper:
-#    type: ""
-#    localhostProfile:
-#  brAgent:
-#    type: ""
-#    localhostProfile:
-
-## The Seccomp profile for container level security context
-## Type values are 'Unconfined', 'RuntimeDefault', 'Localhost', ''
-## Default value is '' for backward compatibility
-#seccompProfile:
-#  type: ""
-#  localhostProfile: ""
-#  datacoordinatorzk:
-#    type: ""
-#    localhostProfile:
-#  metricsexporter:
-#    type: ""
-#    localhostProfile:
-#  logshipper:
-#    type: ""
-#    localhostProfile:
-#  brAgent:
-#    type: ""
-#    localhostProfile:

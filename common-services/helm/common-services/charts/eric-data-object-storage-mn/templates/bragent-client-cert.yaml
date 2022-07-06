@@ -5,8 +5,10 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-data-object-storage-mn.fullname" . }}-server-certificate
-  annotations: {{- include "eric-data-object-storage-mn.annotations" . | nindent 4 }}
-  labels: {{- include "eric-data-object-storage-mn-mgt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 4 }}
+  labels:
+    {{- include "eric-data-object-storage-mn-mgt.helm-labels" . | nindent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-data-object-storage-mn.fullname" . }}-server-secret
@@ -28,9 +30,9 @@ kind: InternalCertificate
 metadata:
   name: {{ template "eric-data-object-storage-mn.fullname" . }}-bra-cert
   labels:
-    {{- include "eric-data-object-storage-mn-mgt.labels" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn-mgt.helm-labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-data-object-storage-mn.annotations" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-data-object-storage-mn.fullname" . }}-bra-cert

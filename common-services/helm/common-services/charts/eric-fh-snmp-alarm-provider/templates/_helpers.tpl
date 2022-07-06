@@ -25,11 +25,24 @@ Expand the name of the chart.
 Create chart name and version as used by the chart label.
 */}}
 {{- define "eric-fh-snmp-alarm-provider.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" | quote -}}
 {{- end -}}
 
 {{- define "eric-fh-snmp-alarm-provider.version" -}}
 {{- printf "%s" .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" | quote -}}
+{{- end -}}
+
+{{/*
+Define Service Name
+*/}}
+{{- define "eric-fh-snmp-alarm-provider.servicename" -}}
+{{- if eq (include "eric-fh-snmp-alarm-provider.enabled-IPv4" .) "true" -}}
+    {{ template "eric-fh-snmp-alarm-provider.name" . }}-ipv4
+{{- else if eq (include "eric-fh-snmp-alarm-provider.enabled-IPv6" .) "true" -}}
+    {{ template "eric-fh-snmp-alarm-provider.name" . }}-ipv6
+{{- else -}}
+    {{ template "eric-fh-snmp-alarm-provider.name" . }}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -232,42 +245,55 @@ Create IPv6 boolean service/global/<notset>
 
 {{/*
 Create a merged set of nodeSelectors from global and service level.
-WARNING: if nodeSelector is empty list, it won't appear in the template
 */}}
 {{ define "eric-fh-snmp-alarm-provider.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-fh-snmp-alarm-provider.nodeSelector" -}}
-  {{- include "eric-fh-snmp-alarm-provider.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $global $service)) | trim -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+        {{- $nodeSelector := .Values.global.nodeSelector -}}
+        {{- if .Values.nodeSelector -}}
+            {{- range $key, $localValue := .Values.nodeSelector -}}
+                {{- if hasKey $nodeSelector $key -}}
+                    {{- $globalValue := index $nodeSelector $key -}}
+                    {{- if ne $globalValue $localValue -}}
+                        {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+                    {{- end -}}
+                {{- end -}}
+            {{- end -}}
+            {{- toYaml (merge $nodeSelector .Values.nodeSelector) | trim -}}
+        {{- else -}}
+            {{- toYaml $nodeSelector | trim -}}
+        {{- end -}}
+    {{- else -}}
+        {{- toYaml .Values.nodeSelector -}}
+    {{- end -}}
+{{- else -}}
+    {{- toYaml .Values.nodeSelector -}}
+{{- end -}}
 {{ end }}
 
 {{/*
-Merge user-defined annotations (DR-D1121-065, DR-D1121-060)
+DR-D1121-065. Support .Values.annotations, custom annotations set by application engineer.
+Need the range statement to avoid printing '{}' if all custom annotations are empty.
 */}}
-{{ define "eric-fh-snmp-alarm-provider.config-annotations" }}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $global $service)) }}
+{{- define "eric-fh-snmp-alarm-provider.custom-annotations" }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
 {{- end }}
+{{- end -}}
 
 {{/*
-Define annotations
+Annotations containing both product info and custom annotations
 */}}
-{{- define "eric-fh-snmp-alarm-provider.annotations" -}}
-  {{- $securityPolicy := dict -}}
-  {{- if .Values.oamVIP.enabled -}}
-    {{- range $key, $value := (include "eric-fh-snmp-alarm-provider.roleBinding.customAnnotations" . | fromYaml) -}}
-      {{- $_ := set $securityPolicy $key $value -}}
-    {{- end -}}
-  {{- else -}}
-    {{- range $key, $value := (include "eric-fh-snmp-alarm-provider.roleBinding.defaultAnnotations" . | fromYaml) -}}
-      {{- $_ := set $securityPolicy $key $value -}}
-    {{- end -}}
-  {{- end -}}
-  {{- $productInfo := include "eric-fh-snmp-alarm-provider.product-info" . | fromYaml -}}
-  {{- $config := include "eric-fh-snmp-alarm-provider.config-annotations" . | fromYaml -}}
-  {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $securityPolicy $productInfo $config)) | trim }}
+{{- define "eric-fh-snmp-alarm-provider.annotations" }}
+{{- template "eric-fh-snmp-alarm-provider.product-info" . }}
+{{- template "eric-fh-snmp-alarm-provider.custom-annotations" . }}
+{{ if .Values.oamVIP.enabled -}}
+    {{- template "eric-fh-snmp-alarm-provider.roleBinding.customAnnotations" -}}
+{{- else -}}
+    {{- template "eric-fh-snmp-alarm-provider.roleBinding.defaultAnnotations" -}}
 {{- end -}}
+{{- end -}}
+
 
 {{/*----------------------------------------------------------------*/}}
 {{/*-----Defining security policy name---------------------*/}}
@@ -301,24 +327,6 @@ ericsson.com/security-policy.capabilities: ""
 ericsson.com/security-policy.type: "restricted/custom"
 ericsson.com/security-policy.capabilities: "net_admin net_raw"
 {{- end -}}
-
-{{/*
-Standard labels of Helm and Kubernetes.
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.standard-logshipper-labels" }}
-app.kubernetes.io/name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
-app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" | quote }}
-app.kubernetes.io/instance: {{ .Release.Name | quote }}
-{{- end -}}
-
-{{/*
-Merged Logshipper labels
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.logshipper-labels" }}
-  {{- $config := include "eric-fh-snmp-alarm-provider.config-labels" . | fromYaml -}}
-  {{- $standard := include "eric-fh-snmp-alarm-provider.standard-logshipper-labels" . | fromYaml -}}
-  {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $config $standard)) | trim }}
-{{- end }}
 
 {{/*
 Log redirect mapping for logshipper
@@ -409,127 +417,3 @@ Java virtual machine memory heap options
 {{- end -}}
 {{/*------------------------Ending line----------------------------------------*/}}
 {{/*----- Helper functions for supporting both old and new probe parameters.---------------------*/}}
-
-{{/*
-Define podPriority check
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.podpriority" }}
-{{- if index .Values "podPriority" }}
-  {{- if index .Values "podPriority" "snmpAP" }}
-    {{- if index .Values "podPriority" "snmpAP" "priorityClassName" }}
-      priorityClassName: {{ index .Values "podPriority" "snmpAP" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/* Name of the secret holding Redis ACL username and password */}}
-{{- define "eric-fh-snmp-alarm-provider.messageBusRd.acl.secret" }}
-    {{- printf "%s-secret-%s" .Values.messageBusRd.host .Values.messageBusRd.acl.user -}}
-{{- end }}
-
-{{/* App armor annotations for SNMP container */}}
-{{- define "eric-fh-snmp-alarm-provider.snmpAP.appArmorProfileAnnotations" -}}
-  {{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-  {{- $commonProfile := dict -}}
-  {{- if .Values.appArmorProfile.type -}}
-    {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-    {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-      {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-    {{- end -}}
-  {{- end -}}
-  {{- $snmpApProfile := $commonProfile -}}
-  {{- if and (hasKey $.Values.appArmorProfile "snmpAP") (index $.Values.appArmorProfile "snmpAP" "type") -}}
-    {{- $snmpApProfile = (index $.Values.appArmorProfile "snmpAP") -}}
-  {{- end -}}
-  {{- if $snmpApProfile.type -}}
-    {{- if not (has $snmpApProfile.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $snmpApProfile.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $snmpApProfile.type "localhost") (empty $snmpApProfile.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-    {{- if eq $snmpApProfile.type "localhost" }}
-      {{- $localhostProfileList := splitList "/" $snmpApProfile.localhostProfile -}}
-      {{- if last $localhostProfileList }}
-container.apparmor.security.beta.kubernetes.io/eric-fh-snmp-alarm-provider: "localhost/{{ last $localhostProfileList }}"
-      {{- end }}
-    {{- else }}
-container.apparmor.security.beta.kubernetes.io/eric-fh-snmp-alarm-provider: {{ $snmpApProfile.type }}
-    {{- end }}
-  {{- end -}}
-{{- end -}}
-
-{{/* App armor annotations for VIP container */}}
-{{- define "eric-fh-snmp-alarm-provider.vip.appArmorProfileAnnotations" -}}
-  {{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-  {{- $commonProfile := dict -}}
-  {{- if .Values.appArmorProfile.type -}}
-    {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-    {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-      {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-    {{- end -}}
-  {{- end -}}
-  {{- $vipProfile := $commonProfile -}}
-  {{- if and (hasKey $.Values.appArmorProfile "vip") (index $.Values.appArmorProfile "vip" "type") -}}
-    {{- $vipProfile = (index $.Values.appArmorProfile "vip") -}}
-  {{- end -}}
-  {{- if $vipProfile.type -}}
-    {{- if not (has $vipProfile.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $vipProfile.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $vipProfile.type "localhost") (empty $vipProfile.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-    {{- if eq $vipProfile.type "localhost" }}
-      {{- $localhostProfileList := splitList "/" $vipProfile.localhostProfile -}}
-      {{- if last $localhostProfileList }}
-container.apparmor.security.beta.kubernetes.io/eric-fh-snmp-alarm-provider-daemonset-vip: "localhost/{{ last $localhostProfileList }}"
-      {{- end }}
-    {{- else }}
-container.apparmor.security.beta.kubernetes.io/eric-fh-snmp-alarm-provider-daemonset-vip: {{ $vipProfile.type }}
-    {{- end }}
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Define seccompProfile for SNMP Alarm Provider container
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.snmpAP.seccompProfile" -}}
-{{- if .Values.seccompProfile -}}
-{{- if and .Values.seccompProfile.snmpAP .Values.seccompProfile.snmpAP.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.snmpAP.type }}
-{{- if eq .Values.seccompProfile.snmpAP.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.snmpAP.localhostProfile }}
-{{- end }}
-{{- else if .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-{{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define seccompProfile for VIP
-*/}}
-{{- define "eric-fh-snmp-alarm-provider.vip.seccompProfile" -}}
-{{- if .Values.seccompProfile -}}
-{{- if and .Values.seccompProfile.vip .Values.seccompProfile.vip.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.vip.type }}
-{{- if eq .Values.seccompProfile.vip.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.vip.localhostProfile }}
-{{- end }}
-{{- else if .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-{{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}

@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-headless
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
   annotations:
     {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
 

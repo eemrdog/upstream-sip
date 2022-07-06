@@ -3,8 +3,11 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-data-coordinator-zk.agentName" . }}-zk-client-cert
-  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
-  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+  labels:
+{{- include "eric-data-coordinator-zk.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 4 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-data-coordinator-zk.agentName" . }}-zk-client-cert

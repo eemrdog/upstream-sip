@@ -4,7 +4,7 @@ images:
   backupAndRestore:
     productName: "Backup and Restore Orchestrator"
     productNumber: "CXC 201 2181"
-    registry: armdocker.rnd.ericsson.se
+    registry: 451278531435.dkr.ecr.us-east-1.amazonaws.com
     repoPath: proj-adp-eric-ctrl-bro-drop
     name: eric-ctrl-bro
-    tag: 5.5.0-49
+    tag: 5.1.0-18

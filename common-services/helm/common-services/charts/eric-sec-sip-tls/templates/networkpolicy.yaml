@@ -1,6 +1,5 @@
 {{- $globals := fromJson (include "eric-sec-sip-tls.global" .) -}}
-{{- if and $globals.networkPolicy .Values.networkPolicy -}}
-{{- if and $globals.networkPolicy.enabled .Values.networkPolicy.enabled -}}
+{{- if and $globals.networkPolicy.enabled .Values.networkPolicy.known.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -8,25 +7,20 @@ metadata:
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: {{ template "eric-sec-sip-tls.name" . }}
+      app: {{ template "eric-sec-sip-tls.name" . }}
   policyTypes:
   - Ingress
   ingress:
     # Allow inbound connections
-{{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
     - from:
       - podSelector:
           matchLabels:
-            app.kubernetes.io/name: {{ .Values.pm.serviceName }}
+            app: {{ .Values.pm.serviceName }}
       ports:
       - port: {{ template "eric-sec-sip-tls.metrics.server.port" . }}
-        protocol: TCP
-{{- else }}
-    - {}
-{{- end }}
-{{- end }}
+        protocol: tcp
 {{- end }}

@@ -1,19 +1,19 @@
 {{- $configMapName := include "eric-data-message-bus-kf.fullname" . -}}
 {{- $logRedirect := (include "eric-data-message-bus-kf.logRedirect" .) -}}
-{{- $defaultLabels := include "eric-data-message-bus-kf.labels" . | fromYaml  -}}
-{{- $selectorLabelsMBKF := include "eric-data-message-bus-kf.selector-labels-mbkf" . | fromYaml  -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ template "eric-data-message-bus-kf.fullname" . }}
   labels:
-    {{- include "eric-data-message-bus-kf.mergeLabels" (dict "location" .Template.Name "sources" (list $selectorLabelsMBKF $defaultLabels)) | trim | nindent 4 }}
+    {{- include "eric-data-message-bus-kf.selector-labels" . | indent 4 }}
+    {{- include "eric-data-message-bus-kf.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+    {{- include "eric-data-message-bus-kf.productinfo" . | indent 4 }}
+    {{- include "eric-data-message-bus-kf.config-annotations" . | indent 4}}
 spec:
   selector:
     matchLabels:
-      {{- include "eric-data-message-bus-kf.selector-labels-mbkf" . | trim | nindent 6 }}
+      {{- include "eric-data-message-bus-kf.selector-labels" . | indent 6 }}
   serviceName: {{ template "eric-data-message-bus-kf.fullname" . }}
   podManagementPolicy: "Parallel"
   replicas: {{ .Values.replicaCount | default 3 }}
@@ -22,33 +22,21 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "eric-data-message-bus-kf.mergeLabels" (dict "location" .Template.Name "sources" (list $selectorLabelsMBKF $defaultLabels)) | trim | nindent 8 }}
-        {{ template "eric-data-message-bus-kf.name" . }}-access: "true"
-        {{ .Values.pmServer.pmServiceName }}-access: "true"
-        {{ .Values.dataCoordinator.clientServiceName }}-access: "true"
-        {{- if has "stream" .Values.log.outputs }}
-        {{ .Values.logshipper.logtransformer.host }}-access: "true"
-        {{- end }}
+        {{- include "eric-data-message-bus-kf.selector-labels" . | indent 8 }}
+        {{- include "eric-data-message-bus-kf.labels" . | indent 8 }}
       annotations:
-        {{- $appArmorAnn := include "eric-data-message-bus-kf.appArmorProfile" . | fromYaml -}}
-        {{- $podTemplateAnnotations := dict -}}
-        {{- if .Values.bandwidth.maxEgressRate }}
-          {{- $_ := set $podTemplateAnnotations "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
+        {{- include "eric-data-message-bus-kf.productinfo" . | indent 8 }}
+        {{- include "eric-data-message-bus-kf.config-annotations" . | indent 8}}
+        {{- if .Values.jmx.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.jmx.servicePort | quote }}
         {{- end }}
-        {{- if .Values.jmx.enabled -}}
-          {{- $_ := set $podTemplateAnnotations "prometheus.io/scrape" "true" -}}
-          {{- $_ := set $podTemplateAnnotations "prometheus.io/port" (.Values.jmx.servicePort | toString) -}}
-        {{- end -}}
-        {{- $_ := set $podTemplateAnnotations "checksum/config" (.Values.configurationOverrides | toString | replace ":" "_" | replace "map[" "" | replace "]" "" | splitList " " | sortAlpha | toString |  sha256sum) -}}
-        {{- $defaultAnnotations := include "eric-data-message-bus-kf.annotations" . | fromYaml  -}}
-        {{- include "eric-data-message-bus-kf.mergeAnnotations" (dict "location" .Template.Name "sources" (list $appArmorAnn $podTemplateAnnotations $defaultAnnotations)) | trim | nindent 8 }}
+        checksum/config: {{ .Values.configurationOverrides | toString | replace ":" "_" | replace "map[" "" | replace "]" "" | splitList " " | sortAlpha | toString |  sha256sum }}
     spec:
-      {{- include "eric-data-message-bus-kf.podPriority" . }}
       serviceAccountName: {{ template "eric-data-message-bus-kf.fullname" . }}-sa
       {{ template "eric-data-message-bus-kf.serviceAccount" . }}
       securityContext:
         fsGroup: {{ include "eric-data-message-bus-kf.fsGroup.coordinated" . }}
-        {{- include "eric-data-message-bus-kf.SeccompProfile" . | nindent 8 }}
       {{- if include "eric-data-message-bus-kf.pullSecret" . }}
       imagePullSecrets:
         - name: {{ include "eric-data-message-bus-kf.pullSecret" . | quote}}
@@ -94,7 +82,7 @@ spec:
         whenUnsatisfiable: {{ $constraints.whenUnsatisfiable }}
         labelSelector:
           matchLabels:
-            {{- include "eric-data-message-bus-kf.selector-labels-mbkf" $ | trim | nindent 12 }}
+            {{- include "eric-data-message-bus-kf.selector-labels" $ | indent 12 }}
       {{- end }}
       {{- end }}
 
@@ -114,10 +102,6 @@ spec:
             ephemeral-storage: {{ index .Values.resources.checkzkready.limits "ephemeral-storage" | quote }}
             {{- end }}
         securityContext:
-          {{- with (index .Values "seccompProfile" "checkzkready") }}
-          seccompProfile:
-          {{- toYaml . | nindent 12 }}
-          {{- end }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
@@ -139,16 +123,12 @@ spec:
         - name: KAFKA_LOG4J_OPTS
           value: "-Dlog4j.configurationFile=/etc/confluent/docker/tools-log4j.properties"
         image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "messagebuskf") .) }}
-{{- if eq $logRedirect "stdout" }}
-        command: ['sh', '-c','/etc/confluent/docker/initcontainer.sh {{ .Values.dataCoordinator.clientServiceName }} {{ include "eric-data-message-bus-kf.dataCoordinator.clientPort" . }}']
-{{- else }}
         command: [ "/bin/bash" ]
         args:
         - -c
         - /usr/bin/stdout-redirect -redirect={{$logRedirect}} -logfile=/logs/check-zk-ready.log -run="sh /etc/confluent/docker/initcontainer.sh {{ .Values.dataCoordinator.clientServiceName }} {{ include "eric-data-message-bus-kf.dataCoordinator.clientPort" . }}"
-{{- end }}
         volumeMounts:
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: /etc/kafka
         - name: tmpdir
           mountPath: /tmp
@@ -166,10 +146,6 @@ spec:
         image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "messagebuskf") .) }}
         imagePullPolicy: {{ template "eric-data-message-bus-kf.mbkf.imagePullPolicy" . }}
         securityContext:
-          {{- with (index .Values "seccompProfile" "messagebuskf") }}
-          seccompProfile:
-          {{- toYaml . | nindent 12 }}
-          {{- end }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
@@ -275,6 +251,8 @@ spec:
         - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
           value: "PLAIN"
        {{- end }}
+        - name: KAFKA_ADD_SLEEP
+          value: {{ .Values.sleepTimer }}
         livenessProbe:
           tcpSocket:
             {{- if and ( eq (include "eric-data-message-bus-kf.tls" .) "true" ) ( eq .Values.service.endpoints.messagebuskf.tls.enforced "optional" ) }}
@@ -318,30 +296,22 @@ spec:
 {{- if has "stream" .Values.log.outputs }}
 {{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
 {{- end }}
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: /etc/kafka
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: /var/lib/kafka/data
         - name: tmpdir
           mountPath: /tmp
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: {{ .Values.dataDirectory | quote }}
           {{- include "eric-data-message-bus-kf.secretsMountPath" . | nindent 6 }}
-{{- if eq $logRedirect "stdout" }}
-        command: ['sh', '-c','/etc/confluent/docker/entrypoint']
-{{- else }}
         command: ["sh"]
         args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/eric-data-message-bus-kf.log -redirect {{$logRedirect}} -run=/etc/confluent/docker/entrypoint"]
-{{- end }}
       {{- if .Values.jmx.enabled }}
       - name: jmxexporter
         image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "jmxexporter") .) }}
         imagePullPolicy: {{ template "eric-data-message-bus-kf.mbkf.imagePullPolicy" . }}
         securityContext:
-          {{- with (index .Values "seccompProfile" "jmxexporter") }}
-          seccompProfile:
-          {{- toYaml . | nindent 12 }}
-          {{- end }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
@@ -387,17 +357,8 @@ spec:
             {{- if (include "eric-data-message-bus-kf.jmx.limits.ephemeral-storage.istrue" .) }}
             ephemeral-storage: {{ template "eric-data-message-bus-kf.jmx.limits.ephemeral-storage" . }}
             {{- end }}
-{{- if eq $logRedirect "stdout" }}
-        command: ["sh", "-c","/opt/jmx_exporter/start.sh -service-id=eric-data-message-bus-kf -container-name=jmxsexporter"]
-{{- else }}
-        command: ["/bin/bash"]
-        args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/jmxexporter.log -redirect {{$logRedirect}} -run=\"/opt/jmx_exporter/start.sh -service-id=eric-data-message-bus-kf -container-name=jmxsexporter\""]
-{{- end }}
         volumeMounts:
-{{- if has "stream" .Values.log.outputs }}
-{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
-{{- end }}
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: /opt/jmx_exporter/config
         - name: tmpdir
           mountPath: /tmp
@@ -418,17 +379,16 @@ spec:
             {{- if index .Values.resources.metricsexporter.requests "ephemeral-storage" }}
             ephemeral-storage: {{ index .Values.resources.metricsexporter.requests "ephemeral-storage" | quote }}
             {{- end }}
-{{- if eq $logRedirect "stdout" }}
-        command: ["sh", "-c","/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter"]
-{{- else }}
-        command: ["/bin/bash"]
-        args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/metricsexporter.log -redirect {{$logRedirect}} -run=\"/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter\""]
-{{- end }}
-        securityContext:
-          {{- with (index .Values "seccompProfile" "metricsexporter") }}
-          seccompProfile:
-          {{- toYaml . | nindent 12 }}
+        {{- if has "stream" .Values.log.outputs }}
+          {{- if has "stdout" .Values.log.outputs }}
+          args: ["-c", "/usr/bin/stdout-redirect -service-id=eric-data-message-bus-kf -container=metricsexporter -redirect=all -logfile=/logs/metricsexporter.log -run=\"/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter\""]
+          {{- else }}
+          args: ["-c","/usr/bin/stdout-redirect -service-id=eric-data-message-bus-kf -container=metricsexporter -redirect=file -logfile=/logs/metricsexporter.log -run=\"/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter\""]
           {{- end }}
+        {{- else }}
+        args: ["-c","/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter"]
+        {{- end }}
+        securityContext:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: false
@@ -493,10 +453,7 @@ spec:
           periodSeconds: {{ .Values.probes.metricsexporter.livenessProbe.periodSeconds }}
           timeoutSeconds: {{ .Values.probes.metricsexporter.livenessProbe.timeoutSeconds }}
         volumeMounts:
-{{- if has "stream" .Values.log.outputs }}
-{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
-{{- end }}
-        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+        - name: datadir
           mountPath: /etc/kafka
     {{- if (eq (include "eric-data-message-bus-kf.tls" .) "true") }}
       {{- include "eric-data-message-bus-kf.secretsMountPath" . | nindent 6 }}
@@ -516,19 +473,7 @@ spec:
   {{- if ( .Values.persistence.persistentVolumeClaim.enabled )}}
   volumeClaimTemplates:
   - metadata:
-      {{- $vctName := include "eric-data-message-bus-kf.persistence.volumeMount.name" . -}}
-      {{- $name := include "eric-data-message-bus-kf.fullname" . }}
-      {{- $copiedVCTLabels := include "eric-data-message-bus-kf.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) }}
-      {{- $copiedVCTAnn := include "eric-data-message-bus-kf.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) }}
-      {{- if $copiedVCTLabels }}
-      labels:
-        {{- $copiedVCTLabels | nindent 8 }}
-      {{- end }}
-      {{- if $copiedVCTAnn }}
-      annotations:
-        {{- $copiedVCTAnn | nindent 8 }}
-      {{- end }}
-      name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+      name: datadir
     spec:
       accessModes: ["ReadWriteOnce"]
       resources:

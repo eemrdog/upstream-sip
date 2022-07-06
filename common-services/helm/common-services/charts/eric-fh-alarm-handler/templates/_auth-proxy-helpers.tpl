@@ -1,6 +1,6 @@
 {{/*
     Template defining the Authorization Proxy sidecars
-    Version: eric-sec-authorization-proxy-oauth2-1.15.0-11
+    Version: eric-sec-authorization-proxy-oauth2-1.9.0-15
 */}}
 
 {{/*
@@ -8,7 +8,7 @@ Create template for auth proxy labels; version and app selector,
 template is included in SP _product_label and so attached to all k8s objects
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-labels" -}}
-{{ "authpxy.version: " -}}{{- "eric-sec-authorization-proxy-oauth2-1.15.0-11" | trunc 63 | trimSuffix "-" }}
+{{ "authpxy.version: " -}}{{- "eric-sec-authorization-proxy-oauth2-1.9.0-15" | trunc 63 | trimSuffix "-" }}
 authpxy.app: "authz-proxy-library"
 {{- end -}}
 
@@ -18,11 +18,10 @@ This hides defaults from values file.
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-global" -}}
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "oamNodeID" "node-id-not-set") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "log" (dict "outputs" (list "k8sLevel"))) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- if .Values.global -}}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
   {{- else -}}
@@ -40,7 +39,6 @@ Note default values for ".resources" are handled in separate template "eric-fh-a
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "protectedPaths" (list "/ah/api/")) -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIamServiceName" "eric-sec-access-mgmt") -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIccrServiceName" "eric-tm-ingress-controller-cr") -}}
-  {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIccrCaSecret" "") -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIamServicePort" "") -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIamAdminConsolePort" "8444") -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "adpIamRealm" "oam") -}}
@@ -60,7 +58,6 @@ Note default values for ".resources" are handled in separate template "eric-fh-a
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "spRequestTimeout" "8") -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "authzLog" (dict "logtransformer" (dict "host" "eric-log-transformer"))) -}}
   {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "metrics" (dict "enabled" true )) -}}
-  {{- $authzproxyDefaults := merge $authzproxyDefaults (dict "sipoauth2" (dict "enabled" false )) -}}
   {{- if .Values.authorizationProxy -}}
     {{/*
     The two following lines is to take service values from
@@ -79,11 +76,15 @@ Create a map from ".Values.probes" with defaults if missing from value file.
 This hides defaults from values file.
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-probes" -}}
-  {{- $probeDefaults := dict dict "ericsecoauthproxy" (dict "startupProbe" (dict "failureThreshold" "25")) -}}
+  {{- $probeDefaults := dict "ericsecoauthproxy" (dict "startupProbe" (dict "initialDelaySeconds" "1")) -}}
+  {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "startupProbe" (dict "failureThreshold" "25"))) -}}
   {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "startupProbe" (dict "periodSeconds" "5"))) -}}
   {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "startupProbe" (dict "timeoutSeconds" "5"))) -}}
   {{- $startupProbe := semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) }}
-  {{- if not $startupProbe }}
+  {{- if $startupProbe }}
+  {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "livenessProbe" (dict "initialDelaySeconds" "1"))) -}}
+  {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "readinessProbe" (dict "initialDelaySeconds" "1"))) -}}
+  {{- else }}
   {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "livenessProbe" (dict "initialDelaySeconds" "125"))) -}}
   {{- $probeDefaults := merge $probeDefaults (dict "ericsecoauthproxy" (dict "readinessProbe" (dict "initialDelaySeconds" "125"))) -}}
   {{- end }}
@@ -127,9 +128,9 @@ This hides defaults from values file.
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-images" -}}
   {{- $imagesDefaults := dict "ericsecoauthproxy" (dict "name" "eric-sec-authorization-proxy-oauth2") -}}
-  {{- $imagesDefaults := merge $imagesDefaults (dict "ericsecoauthproxy" (dict "tag" "1.15.0-11")) -}}
+  {{- $imagesDefaults := merge $imagesDefaults (dict "ericsecoauthproxy" (dict "tag" "1.9.0-15")) -}}
   {{- $imagesDefaults := merge $imagesDefaults (dict "ericsecoauthsap" (dict "name" "eric-sec-authorization-proxy-oauth2-sap")) -}}
-  {{- $imagesDefaults := merge $imagesDefaults (dict "ericsecoauthsap" (dict "tag" "1.15.0-11")) -}}
+  {{- $imagesDefaults := merge $imagesDefaults (dict "ericsecoauthsap" (dict "tag" "1.9.0-15")) -}}
   {{- if .Values.images -}}
     {{- mergeOverwrite $imagesDefaults .Values.images | toJson -}}
   {{- else -}}
@@ -259,6 +260,7 @@ ImagePullPolicy for proxy sidecar container
   {{- end -}}
 {{- end -}}
 
+
 {{/*
 Authorization Proxy sidecar service port definition
 To be used in the k8s service that publishes Authorization Proxy service port.
@@ -278,7 +280,6 @@ To be used in the k8s service that publishes Authorization Proxy service port.
   targetPort: http-apo2
 {{- end -}}
 {{- end -}}
-
 {{/*
 Authorization Proxy k8s service name
 */}}
@@ -286,15 +287,6 @@ Authorization Proxy k8s service name
 {{- $serviceprovidername := default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
 {{- printf "%s-%s" $serviceprovidername $authorizationProxy.suffixOverride }}
-{{- end -}}
-
-{{/*
-Authorization Proxy IAM access label
-Access to IAM according to pattern 2 network policy configurations
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-iam-access-label" -}}
-{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-  {{- printf "%s-access" ($authorizationProxy.adpIamServiceName) -}}
 {{- end -}}
 
 {{/*
@@ -371,7 +363,7 @@ Create a map for authorization proxy container resources
 {{- $isAuthorizationProxyResources := false -}}
 {{- if .Values.resources -}}
     {{- $isTopLevelResouces = true -}}
-{{- end -}}
+{{- end -}}    
 {{- if .Values.authorizationProxy -}}
     {{- if .Values.authorizationProxy.resources -}}
         {{- $isAuthorizationProxyResources = true -}}
@@ -384,7 +376,7 @@ Create a map for authorization proxy container resources
     {{- mergeOverwrite $resources .Values.resources | toJson -}}
 {{- else if $isAuthorizationProxyResources -}}
     {{- mergeOverwrite $resources .Values.authorizationProxy.resources | toJson -}}
-{{- else -}}
+{{- else -}}  
     {{- $resources | toJson -}}
 {{- end -}}
 {{- end -}}
@@ -400,11 +392,11 @@ requests:
   cpu: {{ $resources.ericsecoauthsap.requests.cpu | quote }}
   {{- end }}
   {{- if $resources.ericsecoauthsap.requests.memory }}
-  memory: {{ $resources.ericsecoauthsap.requests.memory | quote }}
+  memory: {{ $resources.ericsecoauthsap.requests.memory | quote }}  
   {{- end }}
   {{- if index $resources.ericsecoauthsap.requests "ephemeral-storage" }}
   ephemeral-storage: {{ index $resources.ericsecoauthsap.requests "ephemeral-storage" | quote }}
-  {{- end }}
+  {{- end }}  
 limits:
   {{- if $resources.ericsecoauthsap.limits.cpu }}
   cpu: {{ $resources.ericsecoauthsap.limits.cpu | quote }}
@@ -438,138 +430,22 @@ limits:
   {{- end }}
   {{- if $resources.ericsecoauthproxy.limits.memory }}
   memory: {{ $resources.ericsecoauthproxy.limits.memory | quote }}
-  {{- end }}
+  {{- end }}  
   {{- if index $resources.ericsecoauthproxy.limits "ephemeral-storage" }}
   ephemeral-storage: {{ index $resources.ericsecoauthproxy.limits "ephemeral-storage" | quote }}
   {{- end }}
 {{- end -}}
 
 {{/*
-Is IAM Server's sip-oauth2 API used for creating SAP client or not.
-*/}}
-{{- define "eric-fh-alarm-handler.sap-cli-used" -}}
-{{- $sipOauth2Beta      := .Capabilities.APIVersions.Has "iam.sec.ericsson.com/v1beta1/InternalOAuth2Identity" -}}
-{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-{{- if and $authorizationProxy.sipoauth2.enabled $sipOauth2Beta }}
-true
-{{- else }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-The name of the SAP client in IAM Server.
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-sap-cli-name" -}}
-{{- printf "%s-%s" (include "eric-fh-alarm-handler.authz-proxy-service-name" .) "iam-sap-cli" -}}
-{{- end -}}
-
-
-{{/*
-Define the apparmor annotation creation based on input profile and container name
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-getApparmorAnnotation" -}}
-{{- $profile := index . "profile" -}}
-{{- $containerName := index . "ContainerName" -}}
-{{- if $profile.type -}}
-{{- if eq "runtime/default" (lower $profile.type) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "runtime/default"
-{{- else if eq "unconfined" (lower $profile.type) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "unconfined"
-{{- else if eq "localhost" (lower $profile.type) }}
-{{- if $profile.localhostProfile }}
-{{- $localhostProfileList := (splitList "/" $profile.localhostProfile) -}}
-{{- if (last $localhostProfileList) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "localhost/{{ (last $localhostProfileList ) }}"
-{{- end }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for authorization proxy SAP Init container
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-sap-container.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile -}}
-{{- if index .Values.appArmorProfile "ericsecoauthsap" -}}
-{{- $profile = index .Values.appArmorProfile "ericsecoauthsap" }}
-{{- end -}}
-{{- include "eric-fh-alarm-handler.authz-proxy-getApparmorAnnotation" (dict "profile" $profile "ContainerName" "ericsecoauthsap") }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for authorization proxy server container
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-container.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile }}
-{{- if index .Values.appArmorProfile "ericsecoauthproxy" -}}
-{{- $profile = index .Values.appArmorProfile "ericsecoauthproxy" }}
-{{- end -}}
-{{- include "eric-fh-alarm-handler.authz-proxy-getApparmorAnnotation" (dict "profile" $profile "ContainerName" "ericsecoauthproxy") }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context creation based on input profile (no container name needed since it is already in the containers security profile)
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-getSeccompSecurityContext" -}}
-{{- $profile := index . "profile" -}}
-{{- if $profile.type -}}
-{{- if eq "runtimedefault" (lower $profile.type) }}
-seccompProfile:
-  type: RuntimeDefault
-{{- else if eq "unconfined" (lower $profile.type) }}
-seccompProfile:
-  type: Unconfined
-{{- else if eq "localhost" (lower $profile.type) }}
-seccompProfile:
-  type: Localhost
-  localhostProfile: {{ $profile.localhostProfile }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for authorization proxy SAP Init container
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-sap-container.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "ericsecoauthsap" }}
-{{- $profile = index .Values.seccompProfile "ericsecoauthsap" }}
-{{- end }}
-{{- include "eric-fh-alarm-handler.authz-proxy-getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for authorization proxy server container
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-container.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "ericsecoauthproxy" }}
-{{- $profile = index .Values.seccompProfile "ericsecoauthproxy" }}
-{{- end }}
-{{- include "eric-fh-alarm-handler.authz-proxy-getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}
-
-
-{{/*
 Authorization Proxy SAP init container spec
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-sap-container.spec" -}}
 {{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-{{- if $authorizationProxy.enabled }}
-{{- $global            := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
-{{- $imageCredentials  := fromJson (include "eric-fh-alarm-handler.authz-proxy-imageCreds" .) -}}
-{{- $images            := fromJson (include "eric-fh-alarm-handler.authz-proxy-images" .) -}}
-{{- $useSapImagePath   := .Files.Get "eric-product-info.yaml" -}}
-{{- $sapClientUsed     := include "eric-fh-alarm-handler.sap-cli-used" . -}}
+{{- if (and $authorizationProxy.enabled .Values.ingress.enabled) }}
+{{- $global           := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
+{{- $imageCredentials := fromJson (include "eric-fh-alarm-handler.authz-proxy-imageCreds" .) -}}
+{{- $images           := fromJson (include "eric-fh-alarm-handler.authz-proxy-images" .) -}}
+{{- $useSapImagePath  := .Files.Get "eric-product-info.yaml" -}}
 - name: ericsecoauthsap
   {{- if $useSapImagePath }}
   image: {{ template "eric-fh-alarm-handler.authz-proxy-sap-imagePath" . }}
@@ -577,14 +453,12 @@ Authorization Proxy SAP init container spec
   image: {{ template "eric-fh-alarm-handler.authz-proxy-sap-registryUrl" . }}/{{ $imageCredentials.ericsecoauthsap.repoPath }}/{{ $images.ericsecoauthsap.name }}:{{ $images.ericsecoauthsap.tag }}
   {{- end }}
   imagePullPolicy: {{ template "eric-fh-alarm-handler.authz-proxy-sap-imagePullPolicy" . }}
-  command: ["catatonit", "--"]
-  args: ["/sap/sap.py"]
+  command: ["/sap/sap.py"]
   securityContext:
     allowPrivilegeEscalation: false
     privileged: false
     readOnlyRootFilesystem: true
     runAsNonRoot: true
-{{- include "eric-fh-alarm-handler.authz-proxy-sap-container.seccompProfile" . | indent 4 }}
     capabilities:
       drop:
         - all
@@ -625,58 +499,29 @@ Authorization Proxy SAP init container spec
     value: {{ $authorizationProxy.adpIamAdminConsolePort | quote }}
   - name: ERIC_SEC_AUTHZ_PROXY_SP_NAME
     value: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}
-  - name: TZ
-    value: {{ $global.timezone }}
-  {{- if $sapClientUsed }}
-  - name: IAM_AAPXY_SAP_CLIENT_NAME
-    # Note: The value must match with the name of the InternalOAuth2Identity resource
-    value: {{ template "eric-fh-alarm-handler.authz-proxy-sap-cli-name" . }}
-    {{- if not $global.security.tls.enabled }}
-  - name: IAM_AAPXY_SAP_SECRET_FILE
-    value: /run/secrets/iam-sap-client-secret/client-secret
-    {{- end }}
-  {{- else }}
-  - name: IAM_ADMIN_USER_ID_FILE
-    value: /run/secrets/iam-admin-creds/kcadminid
-  - name: IAM_ADMIN_PASSWORD_FILE
-    value: /run/secrets/iam-admin-creds/kcpasswd
-  {{- end }}
-  {{- if not $global.security.tls.enabled }}
-  - name: CLIENT_SECRET_FILE
-    value: /run/secrets/aa-proxy-client-secret/aapxysecret
-  {{- end }}
   volumeMounts:
   - name: ericsecoauthsap-tmp
     mountPath: "/tmp"
-  - name: authz-proxy-authorizationrules
-    mountPath: /sap/config
-    readOnly: true
 {{- if $global.security.tls.enabled }}
   - name: authz-proxy-iam-client-certificates
     mountPath: /run/secrets/iam-client-certificates
-  - name: authz-proxy-sip-tls-root-ca
-    mountPath: /run/secrets/sip-tls-root-ca
-  {{- if has "applicationLevel" $global.log.outputs }}
+    {{- if has "applicationLevel" $global.log.outputs }}
   - name: authz-proxy-lt-client-certificates
     mountPath: /run/secrets/lt-client-certificates
-  {{- end }}
+    {{- end }}
+  - name: authz-proxy-sip-tls-root-ca
+    mountPath: /run/secrets/sip-tls-root-ca
 {{- else }}
   - name: authz-proxy-client-secret
     mountPath: /run/secrets/aa-proxy-client-secret
 {{- end }}
-{{- if $sapClientUsed }}
-  {{- if $global.security.tls.enabled }}
-  - name: authz-proxy-iam-sap-client-certificates
-    mountPath: /run/secrets/iam-sap-certificates
-  {{- else }}
-  - name: authz-proxy-sap-client-secret
-    mountPath: /run/secrets/iam-sap-client-secret
-  {{- end }}
-{{- else }}
+  - name: authz-proxy-authorizationrules
+    mountPath: /sap/config
+    readOnly: true
   - name: authz-proxy-admin-creds
-    mountPath: /run/secrets/iam-admin-creds
-{{- end }}
-{{- end }}
+    mountPath: /run/secrets/admin-creds
+    readOnly: true
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -685,13 +530,15 @@ The container port number can be changed by adding parameter ".Values.authorizat
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-container.spec" -}}
 {{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-{{- if $authorizationProxy.enabled }}
+{{- if (and $authorizationProxy.enabled .Values.ingress.enabled) }}
 {{- $global            := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
 {{- $imageCredentials  := fromJson (include "eric-fh-alarm-handler.authz-proxy-imageCreds" .) -}}
 {{- $images            := fromJson (include "eric-fh-alarm-handler.authz-proxy-images" .) -}}
 {{- $probes           := fromJson (include "eric-fh-alarm-handler.authz-proxy-probes" .) -}}
 {{- $useOauthImagePath := .Files.Get "eric-product-info.yaml" -}}
 {{- $isAuthzServerTls  := and $global.security.tls.enabled (ne $authorizationProxy.service.endpoints.authorizationProxy.tls.enforced "optional") -}}
+{{/* Add custom localSpPort since we don't want to expose it in the values file */}}
+{{- $localSpPort      := (include "eric-fh-alarm-handler.restapi.server.single.port" .) -}}
 - name: ericsecoauthproxy
   {{- if $useOauthImagePath }}
   image: {{ template "eric-fh-alarm-handler.authz-proxy-proxy-imagePath" . }}
@@ -699,14 +546,12 @@ The container port number can be changed by adding parameter ".Values.authorizat
   image: {{ template "eric-fh-alarm-handler.authz-proxy-proxy-registryUrl" . }}/{{ $imageCredentials.ericsecoauthproxy.repoPath }}/{{ $images.ericsecoauthproxy.name }}:{{ $images.ericsecoauthproxy.tag }}
   {{- end }}
   imagePullPolicy: {{ template "eric-fh-alarm-handler.authz-proxy-proxy-imagePullPolicy" . }}
-  command: ["catatonit", "--"]
-  args: ["/authorization-proxy/authz_proxy_server.py"]
+  command: ["/authorization-proxy/authz_proxy_server.py"]
   securityContext:
     allowPrivilegeEscalation: false
     privileged: false
     readOnlyRootFilesystem: true
     runAsNonRoot: true
-{{- include "eric-fh-alarm-handler.authz-proxy-container.seccompProfile" . | indent 4 }}
     capabilities:
       drop:
         - all
@@ -722,6 +567,7 @@ The container port number can be changed by adding parameter ".Values.authorizat
       - http://localhost:{{ $authorizationProxy.port }}/authzproxy/watchdog
       {{- end }}
       - {{ $probes.ericsecoauthproxy.startupProbe.timeoutSeconds | quote }}
+    initialDelaySeconds: {{ $probes.ericsecoauthproxy.startupProbe.initialDelaySeconds }}
     failureThreshold: {{ $probes.ericsecoauthproxy.startupProbe.failureThreshold }}
     timeoutSeconds: {{ $probes.ericsecoauthproxy.startupProbe.timeoutSeconds }}
     periodSeconds: {{ $probes.ericsecoauthproxy.startupProbe.periodSeconds }}
@@ -736,9 +582,7 @@ The container port number can be changed by adding parameter ".Values.authorizat
       - http://localhost:{{ $authorizationProxy.port }}/authzproxy/watchdog
       {{- end }}
       - {{ $probes.ericsecoauthproxy.livenessProbe.timeoutSeconds | quote }}
-    {{- if not $startupProbe }}
     initialDelaySeconds: {{ $probes.ericsecoauthproxy.livenessProbe.initialDelaySeconds }}
-    {{- end }}
     timeoutSeconds: {{ $probes.ericsecoauthproxy.livenessProbe.timeoutSeconds }}
     failureThreshold: {{ $probes.ericsecoauthproxy.livenessProbe.failureThreshold }}
     periodSeconds: {{ $probes.ericsecoauthproxy.livenessProbe.periodSeconds }}
@@ -752,9 +596,7 @@ The container port number can be changed by adding parameter ".Values.authorizat
       - http://localhost:{{ $authorizationProxy.port }}/authzproxy/readiness
       {{- end }}
       - {{ $probes.ericsecoauthproxy.readinessProbe.timeoutSeconds | quote }}
-    {{- if not $startupProbe }}
     initialDelaySeconds: {{ $probes.ericsecoauthproxy.readinessProbe.initialDelaySeconds }}
-    {{- end }}
     timeoutSeconds: {{ $probes.ericsecoauthproxy.readinessProbe.timeoutSeconds }}
     failureThreshold: {{ $probes.ericsecoauthproxy.readinessProbe.failureThreshold }}
     successThreshold: {{ $probes.ericsecoauthproxy.readinessProbe.successThreshold }}
@@ -821,15 +663,13 @@ The container port number can be changed by adding parameter ".Values.authorizat
   - name: ERIC_SEC_AUTHZ_PROXY_PORT
     value: {{ $authorizationProxy.port | quote }}
   - name: ERIC_SEC_AUTHZ_PROXY_LOCALHOST_SERVICE_URI
-    value: "http://localhost:{{ template "eric-fh-alarm-handler.restapi.server.single.port" . }}{{/*Add custom localSpPort since we don't want to expose it in the values file*/}}"
+    value: "http://localhost:{{ $localSpPort }}"
   - name: ERIC_SEC_AUTHZ_PROXY_SP_NAME
     value: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}
     {{- if $authorizationProxy.localSpClientCertVolumeName }}
   - name: ERIC_SEC_AUTHZ_PROXY_SP_TLS_CERTS
     value: /run/secrets/local-sp-client-certs
     {{- end }}
-  - name: TZ
-    value: {{ $global.timezone }}
   ports:
   - containerPort: {{ $authorizationProxy.port }}
     name: http-apo2
@@ -875,10 +715,9 @@ Authorization Proxy volumes, contains the certificates for ingress, log transfor
 */}}
 {{- define "eric-fh-alarm-handler.authz-proxy-volume.spec" -}}
 {{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-{{- if $authorizationProxy.enabled }}
-{{- $global             := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
-{{- $isAuthzServerTls   := and $global.security.tls.enabled (ne $authorizationProxy.service.endpoints.authorizationProxy.tls.enforced "optional") -}}
-{{- $sapClientUsed      := include "eric-fh-alarm-handler.sap-cli-used" . -}}
+{{- if (and $authorizationProxy.enabled .Values.ingress.enabled) }}
+{{- $global := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
+{{- $isAuthzServerTls := and $global.security.tls.enabled (ne $authorizationProxy.service.endpoints.authorizationProxy.tls.enforced "optional") -}}
 - name: ericsecoauthsap-tmp
   emptyDir:
     sizeLimit: "10Mi"
@@ -894,53 +733,13 @@ Authorization Proxy volumes, contains the certificates for ingress, log transfor
 - name: ericsecoauthproxy-metrics
   emptyDir:
     medium: "Memory"
+- name: authz-proxy-admin-creds
+  secret:
+    secretName: {{ $authorizationProxy.adpIamAdminSecret }}
 - name: authz-proxy-authorizationrules
   configMap:
     name: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-authorizationrules
-{{- if $global.security.tls.enabled }}
-- name: authz-proxy-iam-client-certificates
-  secret:
-    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-iam-client-cert
-- name: authz-proxy-sip-tls-root-ca
-  secret:
-    secretName: eric-sec-sip-tls-trusted-root-cert
-- name: authz-proxy-iam-ca-certificates
-  secret:
-    secretName: {{ $authorizationProxy.adpIamServiceName }}-aaproxy-ca-cert
-  {{- if $sapClientUsed }}
-- name: authz-proxy-iam-sap-client-certificates
-  secret:
-    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-sap-client-cert
-  {{- else }}
-- name: authz-proxy-admin-creds
-  secret:
-    secretName: {{ $authorizationProxy.adpIamAdminSecret }}
-  {{- end }}
-  {{- if has "applicationLevel" $global.log.outputs }}
-- name: authz-proxy-lt-client-certificates
-  secret:
-    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-lt-client-cert
-    optional: true
-  {{- end }}
-- name: authz-proxy-pm-server-ca
-  secret:
-    secretName: eric-pm-server-ca
-    optional: true
-{{- else }}
-- name: authz-proxy-client-secret
-  secret:
-    secretName: {{ $authorizationProxy.adpIamClientCredentialSecret }}
-  {{- if $sapClientUsed }}
-- name: authz-proxy-sap-client-secret
-  secret:
-    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-sap-client-secret
-  {{- else }}
-- name: authz-proxy-admin-creds
-  secret:
-    secretName: {{ $authorizationProxy.adpIamAdminSecret }}
-  {{- end }}
-{{- end }}
-{{- if $isAuthzServerTls }}
+  {{- if $isAuthzServerTls }}
 - name: authz-proxy-server-certificates
   secret:
     secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-server-cert
@@ -948,7 +747,33 @@ Authorization Proxy volumes, contains the certificates for ingress, log transfor
   secret:
     secretName: {{ $authorizationProxy.adpIccrServiceName }}-client-ca
     optional: true
-{{- end }}
+  {{- end }}
+  {{- if $global.security.tls.enabled }}
+- name: authz-proxy-iam-client-certificates
+  secret:
+    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-client-cert
+- name: authz-proxy-iam-ca-certificates
+  secret:
+    secretName: {{ $authorizationProxy.adpIamServiceName }}-aaproxy-ca-cert
+    {{- if has "applicationLevel" $global.log.outputs }}
+- name: authz-proxy-lt-client-certificates
+  secret:
+    secretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-lt-client-cert
+    optional: true
+    {{- end }}
+- name: authz-proxy-sip-tls-root-ca
+  secret:
+    secretName: eric-sec-sip-tls-trusted-root-cert
+- name: authz-proxy-pm-server-ca
+  secret:
+    secretName: eric-pm-server-ca
+    optional: true
+  {{- else }}
+- name: authz-proxy-client-secret
+  secret:
+    secretName: {{ $authorizationProxy.adpIamClientCredentialSecret }}
+    optional: true
+  {{- end }}
 {{- end -}}
 {{- end -}}
 
@@ -1054,7 +879,7 @@ that is used for mutual TLS between authorization proxy/sap and IAM server.
 {{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
 {{- if $authorizationProxy.enabled }}
 kubernetes:
-  generatedSecretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-iam-client-cert
+  generatedSecretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-client-cert
   certificateName: clicert.pem
   privateKeyName: cliprivkey.pem
 certificate:
@@ -1091,52 +916,4 @@ certificate:
     tlsServerAuth: true
     tlsClientAuth: false
 {{- end }}
-{{- end -}}
-
-{{/*
-Authorization Proxy IAM SAP client TLS certificate
-
-To be included by the sip-tls CR manifest that creates SAP client certificate
-that is used for mutual TLS between SAP and IAM server.
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-sap-cli-cert-spec" -}}
-{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-kubernetes:
-  generatedSecretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-sap-client-cert
-  certificateName: clicert.pem
-  privateKeyName: cliprivkey.pem
-certificate:
-  subject:
-    cn: {{ template "eric-fh-alarm-handler.authz-proxy-sap-cli-name" . }}
-  extendedKeyUsage:
-    tlsServerAuth: false
-    tlsClientAuth: true
-  issuer:
-    reference: {{ $authorizationProxy.adpIamServiceName }}-iam-client-ca
-{{- end -}}
-
-{{/*
-Authorization Proxy IAM SAP client
-
-To be included by the sip-oauth2 CR manifest that creates SAP client in IAM server.
-(SAP uses this client when making configuration in IAM server)
-*/}}
-{{- define "eric-fh-alarm-handler.authz-proxy-sap-cli-spec" -}}
-{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
-{{- $globals := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
-realm: {{ $authorizationProxy.adpIamRealm }}
-{{- if $globals.security.tls.enabled }}
-internalCertificateDnRegex: CN={{ template "eric-fh-alarm-handler.authz-proxy-sap-cli-name" . }}
-{{- else }}
-kubernetes:
-  generatedSecretName: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}-sap-client-secret
-{{- end }}
-clientRoles:
-  - clientId: realm-management
-    roles:
-      - query-groups
-      - query-clients
-      - manage-realm
-      - manage-clients
-      - manage-authorization
 {{- end -}}

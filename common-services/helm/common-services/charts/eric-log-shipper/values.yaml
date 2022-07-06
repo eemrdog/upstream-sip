@@ -4,7 +4,7 @@
 #global:
 #  registry:
 #    imagePullPolicy: "IfNotPresent"
-#    url: "armdocker.rnd.ericsson.se"
+#    url: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
 #  timezone: "UTC"
 #  nodeSelector: {}
 #  security:
@@ -23,9 +23,6 @@ labels: {}
 
 tolerations: []
 
-bandwidth:
-  maxEgressRate: ""
-
 imageCredentials:
   repoPath:  # see default in eric-product-info.yaml
   registry: {}
@@ -38,6 +35,7 @@ updateStrategy:
 
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
+useFullCfg: false
 logLevel: "info"
 
 logshipper:
@@ -129,24 +127,3 @@ rbac:
   automountServiceAccountToken: false
   createClusterRole: false
   createClusterRoleBinding: false
-
-podPriority:
-  logshipper:
-    # Priority class name for the logshipper Pod. Priority classes are used to determine the priority of Pods when scheduling them on nodes.
-    priorityClassName:
-
-seccompProfile:
-  type: ""
-  localhostProfile:
-  logshipper:
-    type: ""
-    localhostProfile:
-
-# The setting applies to all container when the container name is omitted.
-appArmorProfile:
-  type:
-  localhostProfile:
-  # The setting could be applied to a specific container if specified.
-  logshipper:
-    type:
-    localhostProfile:

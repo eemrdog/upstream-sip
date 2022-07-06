@@ -6,9 +6,10 @@ kind: ConfigMap
 metadata:
   name: {{ template "eric-data-message-bus-kf.fullname" . }}
   labels:
-    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.labels" . | indent 4}}
   annotations:
-    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.productinfo" . | indent 4 }}
+{{- include "eric-data-message-bus-kf.config-annotations" . | indent 4}}
 data:
   logDirs: "{{ printf "%s/%s" .Values.dataDirectory .Values.logSubPath }}"
   dataCoordinatorConnect: "{{ template "eric-data-message-bus-kf.dataCoordinator.connect" . }}"

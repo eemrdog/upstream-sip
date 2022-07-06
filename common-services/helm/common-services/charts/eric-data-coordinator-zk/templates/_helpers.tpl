@@ -118,6 +118,17 @@ Returns image path of provided imageName.
     {{- if $repoPath -}}
         {{- $repoPath = printf "%s/" $repoPath -}}
     {{- end -}}
+    {{- if .Values.images -}}
+      {{- if hasKey .Values.images .imageName -}}
+          {{- $deprecatedImageParam := get .Values.images .imageName }}
+          {{- if $deprecatedImageParam.name }}
+              {{- $name = $deprecatedImageParam.name -}}
+          {{- end -}}
+          {{- if $deprecatedImageParam.tag }}
+              {{- $tag = $deprecatedImageParam.tag -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
     {{- printf "%s/%s%s:%s" $registryUrl $repoPath $name $tag -}}
 {{- end -}}
 
@@ -327,15 +338,6 @@ ericsson.com/product-revision: {{regexReplaceAll "(.*)[+|-].*" .Chart.Version "$
 {{- end }}
 
 {{/*
-Merged annotations for Default, which includes productInfo and config.
-*/}}
-{{- define "eric-data-coordinator-zk.annotations" -}}
-  {{- $productInfo := include "eric-data-coordinator-zk.productinfo" . | fromYaml -}}
-  {{- $config := include "eric-data-coordinator-zk.config-annotations" . | fromYaml -}}
-  {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $productInfo $config)) | trim }}
-{{- end -}}
-
-{{/*
 serviceAccount - will be deprecated from k8 1.22.0 onwards, supporting it for older versions
 */}}
 
@@ -346,23 +348,15 @@ serviceAccount - will be deprecated from k8 1.22.0 onwards, supporting it for ol
 {{- end -}}
 
 {{/*
-Create a user defined annotation (DR-D1121-065, DR-D1121-060).
+Create a user defined annotation (DR-D1121-065)
 */}}
 {{ define "eric-data-coordinator-zk.config-annotations" }}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $global $service)) -}}
-{{- end }}
-
-{{/*
-Traffic shaping bandwidth limit annotation (DR-D1125-040-AD)
-*/}}
-{{ define "eric-data-coordinator-zk.bandwidth-annotations" }}
-{{- if .Values.bandwidth.maxEgressRate }}
-kubernetes.io/egress-bandwidth: {{ .Values.bandwidth.maxEgressRate }}
+{{- if .Values.annotations -}}
+{{- range $name, $config := .Values.annotations }}
+{{ $name }}: {{ tpl $config $ | quote }}
 {{- end }}
 {{- end }}
-
+{{- end}}
 
 {{/*
 Client CA Secret Name
@@ -386,27 +380,18 @@ Client Cert Secret Name
 {{- end -}}
 
 {{/*
-Create a user defined label (DR-D1121-068, DR-D1121-060).
-*/}}
-{{ define "eric-data-coordinator-zk.config-labels" }}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-data-coordinator-zk.mergeLabels" (dict "location" (.Template.Name) "sources" (list $global $service)) -}}
-{{- end }}
-
-{{/*
 Labels.
 */}}
 {{- define "eric-data-coordinator-zk.labels" }}
-  {{- $base := dict -}}
-  {{- $_ := set $base "app.kubernetes.io/name" (include "eric-data-coordinator-zk.name" .) -}}
-  {{- $_ := set $base "app.kubernetes.io/version" (include "eric-data-coordinator-zk.chart" .) -}}
-  {{- $_ := set $base "app.kubernetes.io/managed-by" (.Release.Service | toString) -}}
-
-  {{- $config := include "eric-data-coordinator-zk.config-labels" . | fromYaml -}}
-  {{- $selector := include "eric-data-coordinator-zk.selectorLabels" . | fromYaml -}}
-  {{- include "eric-data-coordinator-zk.mergeLabels" (dict "location" (.Template.Name) "sources" (list $selector $base $config)) | trim }}
-{{- end -}}
+{{- include "eric-data-coordinator-zk.selectorLabels" . }}
+app.kubernetes.io/version: {{ include "eric-data-coordinator-zk.chart" . | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+app.kubernetes.io/name: {{ include "eric-data-coordinator-zk.name" . | quote }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
+{{- end }}
 
 {{/*
 Selector labels.
@@ -442,17 +427,16 @@ Allow for override of agent name
 {{- end -}}
 
 {{/*
-Agent Labels.
+Labels.
 */}}
 {{- define "eric-data-coordinator-zk.agent.labels" }}
-  {{- $base := dict -}}
-  {{- $_ := set $base "app.kubernetes.io/version" (include "eric-data-coordinator-zk.chart" .) -}}
-  {{- $_ := set $base "app.kubernetes.io/managed-by" (.Release.Service | toString) -}}
-
-  {{- $config := include "eric-data-coordinator-zk.config-labels" . | fromYaml -}}
-  {{- $selector := include "eric-data-coordinator-zk.agent.selectorLabels" . | fromYaml -}}
-  {{- include "eric-data-coordinator-zk.mergeLabels" (dict "location" (.Template.Name) "sources" (list $selector $config $base)) | trim }}
-{{- end -}}
+{{- include "eric-data-coordinator-zk.agent.selectorLabels" . }}
+app.kubernetes.io/version: {{ include "eric-data-coordinator-zk.chart" . | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
+{{- end }}
 
 {{/*
 brLabelValues.
@@ -594,17 +578,6 @@ Semi-colon separated list of backup types
 {{- end -}}
 
 {{/*
-Annotation for brAgent.backupType.
-*/}}
-{{- define "eric-data-coordinator-zk.agent_deployment.annotations.backupType"}}
-{{- if .Values.brAgent.backupTypeList }}
-  {{- if (index .Values.brAgent.backupTypeList 0) }}
-    backupType: {{- include "eric-data-coordinator-zk.agent.backupTypes" . }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
 DNS LIST.
 */}}
 {{- define "eric-data-coordinator-zk.dns" -}}
@@ -621,19 +594,55 @@ Quorum DNS
 {{/*
 Create a merged set of nodeSelectors from global and service level -dczk.
 */}}
-{{ define "eric-data-coordinator-zk.dczkNodeSelector" }}
-  {{- $global := .Values.global.nodeSelector -}}
-  {{- $service := .Values.nodeSelector.datacoordinatorzk -}}
-  {{- include "eric-data-coordinator-zk.aggregatedMerge" (dict "context" "nodeSelector" "location" (.Template.Name) "sources" (list $global $service)) | trim -}}
-{{ end }}
+{{- define "eric-data-coordinator-zk.dczkNodeSelector" -}}
+{{- $globalValue := (dict) -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+         {{- $globalValue = .Values.global.nodeSelector -}}
+    {{- end -}}
+{{- end -}}
+{{- if .Values.nodeSelector.datacoordinatorzk -}}
+  {{- range $key, $localValue := .Values.nodeSelector.datacoordinatorzk -}}
+    {{- if hasKey $globalValue $key -}}
+         {{- $Value := index $globalValue $key -}}
+         {{- if ne $Value $localValue -}}
+           {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+         {{- end -}}
+     {{- end -}}
+    {{- end -}}
+    nodeSelector: {{- toYaml (merge $globalValue .Values.nodeSelector.datacoordinatorzk) | trim | nindent 2 -}}
+{{- else -}}
+  {{- if not ( empty $globalValue ) -}}
+    nodeSelector: {{- toYaml $globalValue | trim | nindent 2 -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
 {{/*
 Create a merged set of nodeSelectors from global and service level - brAgent.
 */}}
 {{- define "eric-data-coordinator-zk.brAgentNodeSelector" -}}
-  {{- $global := .Values.global.nodeSelector -}}
-  {{- $service := .Values.nodeSelector.brAgent -}}
-  {{- include "eric-data-coordinator-zk.aggregatedMerge" (dict "context" "nodeSelector" "location" (.Template.Name) "sources" (list $global $service)) | trim -}}
-{{ end }}
+{{- $globalValue := (dict) -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+         {{- $globalValue = .Values.global.nodeSelector -}}
+    {{- end -}}
+{{- end -}}
+{{- if .Values.nodeSelector.brAgent -}}
+  {{- range $key, $localValue := .Values.nodeSelector.brAgent -}}
+    {{- if hasKey $globalValue $key -}}
+         {{- $Value := index $globalValue $key -}}
+         {{- if ne $Value $localValue -}}
+           {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+         {{- end -}}
+     {{- end -}}
+    {{- end -}}
+    nodeSelector: {{- toYaml (merge $globalValue .Values.nodeSelector.brAgent) | trim | nindent 2 -}}
+{{- else -}}
+  {{- if not ( empty $globalValue ) -}}
+    nodeSelector: {{- toYaml $globalValue | trim | nindent 2 -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
 {{/*
 Get DCZK Replicas Count
 */}}
@@ -680,193 +689,3 @@ ZK readinessProbeConfig
 {{ printf "failureThreshold: %v"  $failThreshold }}
 {{ printf "successThreshold: %v"  $successfulThreshold }}
 {{- end }}
-
-{{/*
-Define DCZK podPriority
-*/}}
-{{- define "eric-data-coordinator-zk.podPriority" }}
-{{- if .Values.podPriority }}
-  {{- if index .Values.podPriority "eric-data-coordinator-zk" -}}
-    {{- if (index .Values.podPriority "eric-data-coordinator-zk" "priorityClassName") }}
-      priorityClassName: {{ index .Values.podPriority "eric-data-coordinator-zk" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Define DCZK-Agent podPriority
-*/}}
-{{- define "eric-data-coordinator-zk-agent.podPriority" }}
-{{- if .Values.podPriority }}
-  {{- if index .Values.podPriority "eric-data-coordinator-zk-agent" -}}
-    {{- if (index .Values.podPriority "eric-data-coordinator-zk-agent" "priorityClassName") }}
-      priorityClassName: {{ index .Values.podPriority "eric-data-coordinator-zk-agent" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Logshipper labels
-*/}}
-{{- define "eric-data-coordinator-zk.logshipper-labels" }}
-{{- println "" -}}
-{{- include "eric-data-coordinator-zk.labels" . -}}
-{{- end }}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-data-coordinator-zk.logshipper-annotations" }}
-{{- println "" -}}
-{{- include "eric-data-coordinator-zk.annotations" . -}}
-{{- end }}
-
-{{/*
-Define the apparmor annotation creation based on input profile and container name
-*/}}
-{{- define "eric-data-coordinator-zk.getApparmorAnnotation" -}}
-{{- $profile := index . "profile" -}}
-{{- $containerName := index . "ContainerName" -}}
-{{- if $profile.type -}}
-{{- if eq "runtime/default" (lower $profile.type) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "runtime/default"
-{{- else if eq "unconfined" (lower $profile.type) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "unconfined"
-{{- else if eq "localhost" (lower $profile.type) }}
-{{- if $profile.localhostProfile }}
-{{- $localhostProfileList := (splitList "/" $profile.localhostProfile) -}}
-{{- if (last $localhostProfileList) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "localhost/{{ (last $localhostProfileList ) }}"
-{{- end }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for datacoordinatorzk container
-*/}}
-{{- define "eric-data-coordinator-zk.datacoordinatorzk.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile -}}
-{{- if index .Values.appArmorProfile "datacoordinatorzk" -}}
-{{- $profile = index .Values.appArmorProfile "datacoordinatorzk" }}
-{{- end -}}
-{{- include "eric-data-coordinator-zk.getApparmorAnnotation" (dict "profile" $profile "ContainerName" "datacoordinatorzk") }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for metricsexporter container
-*/}}
-{{- define "eric-data-coordinator-zk.metricsexporter.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile -}}
-{{- if index .Values.appArmorProfile "metricsexporter" -}}
-{{- $profile = index .Values.appArmorProfile "metricsexporter" }}
-{{- end -}}
-{{- include "eric-data-coordinator-zk.getApparmorAnnotation" (dict "profile" $profile "ContainerName" "metricsexporter") }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for logshipper container
-*/}}
-{{- define "eric-data-coordinator-zk.logshipper.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile -}}
-{{- if index .Values.appArmorProfile "logshipper" -}}
-{{- $profile = index .Values.appArmorProfile "logshipper" }}
-{{- end -}}
-{{- include "eric-data-coordinator-zk.getApparmorAnnotation" (dict "profile" $profile "ContainerName" "logshipper") }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the apparmor annotation for brAgent container
-*/}}
-{{- define "eric-data-coordinator-zk.brAgent.appArmorAnnotations" -}}
-{{- if .Values.appArmorProfile -}}
-{{- $profile := .Values.appArmorProfile -}}
-{{- if index .Values.appArmorProfile "brAgent" -}}
-{{- $profile = index .Values.appArmorProfile "brAgent" }}
-{{- end -}}
-{{- $bragentcontainer := (printf "%s%s" .Chart.Name "-agent") }}
-{{- include "eric-data-coordinator-zk.getApparmorAnnotation" (dict "profile" $profile "ContainerName" $bragentcontainer) }}
-{{- end -}}
-{{- end -}}
-
-
-{{/*
-Define the seccomp security context creation based on input profile (no container name needed since it is already in the containers security profile)
-*/}}
-{{- define "eric-data-coordinator-zk.getSeccompSecurityContext" -}}
-{{- $profile := index . "profile" -}}
-{{- if $profile.type -}}
-{{- if eq "runtimedefault" (lower $profile.type) }}
-seccompProfile:
-  type: RuntimeDefault
-{{- else if eq "unconfined" (lower $profile.type) }}
-seccompProfile:
-  type: Unconfined
-{{- else if eq "localhost" (lower $profile.type) }}
-seccompProfile:
-  type: Localhost
-  localhostProfile: {{ $profile.localhostProfile }}
-{{- end }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for datacoordinatorzk container
-*/}}
-{{- define "eric-data-coordinator-zk.datacoordinatorzk.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "datacoordinatorzk" }}
-{{- $profile = index .Values.seccompProfile "datacoordinatorzk" }}
-{{- end }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for metricsexporter container
-*/}}
-{{- define "eric-data-coordinator-zk.metricsexporter.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "metricsexporter" }}
-{{- $profile = index .Values.seccompProfile "metricsexporter" }}
-{{- end }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for logshipper container
-*/}}
-{{- define "eric-data-coordinator-zk.logshipper.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "logshipper" }}
-{{- $profile = index .Values.seccompProfile "logshipper" }}
-{{- end }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define the seccomp security context for brAgent container
-*/}}
-{{- define "eric-data-coordinator-zk.brAgent.seccompProfile" -}}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- if index .Values.seccompProfile "brAgent" }}
-{{- $profile = index .Values.seccompProfile "brAgent" }}
-{{- end }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profile) }}
-{{- end -}}
-{{- end -}}

@@ -1,8 +1,0 @@
-{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
-{{- if $g.security.tls.enabled -}}
-  {{- if eq .Values.service.endpoints.rest.tls.enforced "optional" -}}
-    {{- include "eric-data-search-engine.os-service" (dict "context" "ingest-notls" "root" .) }}
-  {{- end -}}
-{{- else -}}
-  {{- include "eric-data-search-engine.os-service" (dict "context" "ingest-notls" "root" .) }}
-{{- end -}}

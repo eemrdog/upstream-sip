@@ -2,10 +2,10 @@
 {{- if $currentPGVersion -}}
   {{- if $currentPGVersion.annotations -}}
     {{- if $currentPGVersion.annotations.currentPGVersion -}}
-      {{- if (not (eq ("13" | toString) $currentPGVersion.annotations.currentPGVersion)) -}}
+      {{- if (not (eq (.Values.targetPGversion | toString) $currentPGVersion.annotations.currentPGVersion)) -}}
         {{- include "eric-data-document-database-pg.upgradeHookPVC" .}}
       {{- end -}}
-    {{- else -}}
+    {{- else if (eq "13" (.Values.targetPGversion | toString) ) -}}
       {{- include "eric-data-document-database-pg.upgradeHookPVC" .}}
     {{- end -}}
   {{- end -}}

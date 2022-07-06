@@ -48,7 +48,6 @@ data:
   PROBES_SERVER_TLS_ONLY: {{ include "eric-fh-alarm-handler.probes.server.tlsOnly" . | quote }}
   PROBES_SERVER_CERT_PATH: {{ template "eric-fh-alarm-handler.probes.server.certPath" . }}
   PROBES_SERVER_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.probes.server.keyPath" . }}
-  PROBES_READINESS_FAILURE_THRESHOLD: {{ .Values.probes.alarmHandler.readinessProbe.failureThreshold | quote }}
 
   #####################################################
   ###### Restapi-related environments variables #######
@@ -81,6 +80,8 @@ data:
   POSTGRES_HOST: {{ .Values.backend.hostname | quote }}
   POSTGRES_PORT: {{ .Values.backend.port | quote }}
   POSTGRES_DB_NAME: {{ .Values.backend.dbname | quote }}
+  POSTGRES_USERNAME_PATH: {{ template  "eric-fh-alarm-handler.pg.client.certPath" . }}
+  POSTGRES_PASSWORD_PATH: {{ template "eric-fh-alarm-handler.pg.client.keyPath" . }}
   POSTGRES_CLIENT_CERT_PATH: {{ template "eric-fh-alarm-handler.pg.client.certPath" . }}
   POSTGRES_CLIENT_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.pg.client.keyPath" . }}
 

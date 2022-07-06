@@ -6,14 +6,13 @@ This hides defaults from values file.
 */}}
 {{ define "eric-sec-access-mgmt.global" }}
   {{- $globalDefaults := (dict "timezone" "UTC") -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret" "") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "tls" (dict "enabled" "true"))) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "internalIPFamily" "") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "policyBinding" (dict "create" false))) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "networkPolicy" ((dict "enabled" false)) ) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "policyReferenceMap" (dict "default-restricted-security-policy" "default-restricted-security-policy"))) -}}
   {{ if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
@@ -46,39 +45,22 @@ Create chart version as used by the chart label.
 {{- end -}}
 
 {{/*
-Check to enable sipoauth2 is enabled and crds are installed
-*/}}
-{{- define "eric-sec-access-mgmt.sipoauth2.enabled" -}}
-{{- $crdInstalled := .Capabilities.APIVersions.Has "iam.sec.ericsson.com/v1beta1/InternalOAuth2Identity" -}}
-{{- $enabled := and $crdInstalled .Values.sipoauth2.enabled -}}
-{{- print $enabled -}}
-{{- end -}}
-
-{{/*
-Create a user defined annotation (DR-D1121-065, DR-D1121-060)
-*/}}
-{{ define "eric-sec-access-mgmt.config-annotations" }}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $global $service)) }}
-{{- end }}
-
-{{/*
 Common annotations added to all resources
 */}}
 {{- define "eric-sec-access-mgmt.common-annotations" }}
-  {{- $productInfo := include "eric-sec-access-mgmt.product-info" . | fromYaml -}}
-  {{- $config := include "eric-sec-access-mgmt.config-annotations" . | fromYaml -}}
-  {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $productInfo $config)) | trim }}
+{{- template "eric-sec-access-mgmt.product-info" . }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations | }}
+{{- end }}
 {{- end }}
 
 {{/*
 Create annotation for the product information (DR-D1121-064)
 */}}
 {{- define "eric-sec-access-mgmt.product-info" }}
-  ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName }}
-  ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber }}
-  ericsson.com/product-revision: {{ regexReplaceAll "(.*)[+|-].*" .Chart.Version "${1}" }}
+ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
+ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
+ericsson.com/product-revision: {{ regexReplaceAll "(.*)[+|-].*" .Chart.Version "${1}" | quote }}
 {{- end}}
 
 {{/*
@@ -213,18 +195,31 @@ Create the ports used by KC.
 {{- define "eric-sec-access-mgmt.serviceAdminConsolePort" -}}
 8444
 {{- end -}}
-{{- define "eric-sec-access-mgmt.authProxyPort" -}}
-6443
-{{- end -}}
 {{- define "eric-sec-access-mgmt.serverCertMountPath" -}}
 /run/secrets/tls-int-cert
 {{- end -}}
 
 {{/*
 LDAP url
+After deprecation ADPPRG-64514, hard code the ldap port
+and scheme to 389 and ldap
 */}}
 {{- define "eric-sec-access-mgmt.ldapUrl" -}}
-{{ printf "ldap://%s:389" .Values.ldap.server }}
+{{- $ldapPort := 389 }}
+{{- if .Values.ldap -}}
+  {{- if .Values.ldap.port -}}
+    {{- $ldapPort = int .Values.ldap.port }}
+  {{- end -}}
+{{- end -}}
+
+{{- $ldapScheme := "ldap" }}
+{{- if .Values.ldap -}}
+  {{- if .Values.ldap.scheme -}}
+    {{- $ldapScheme = .Values.ldap.scheme }}
+  {{- end -}}
+{{- end -}}
+
+{{ printf "%s://%s:%d" $ldapScheme .Values.ldap.server $ldapPort }}
 {{- end -}}
 
 {{/*
@@ -385,14 +380,14 @@ Create environment variables for TLS configuration for IAM container.
 Create imagePullPolicy
 */}}
 {{- define "eric-sec-access-mgmt.imagePullPolicy" -}}
-  {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
-  {{- $imagePullPolicy := $global.registry.imagePullPolicy -}}
-  {{- if .Values.imageCredentials.registry -}}
-    {{- if .Values.imageCredentials.registry.imagePullPolicy -}}
-      {{- $imagePullPolicy = .Values.imageCredentials.registry.imagePullPolicy -}}
-    {{- end -}}
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if .Values.imageCredentials.registry -}}
+  {{- if .Values.imageCredentials.registry.imagePullPolicy -}}
+    {{- print .Values.imageCredentials.registry.imagePullPolicy -}}
+  {{- else -}}
+    {{- print $global.registry.imagePullPolicy -}}
   {{- end -}}
-  {{- print $imagePullPolicy -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -404,12 +399,10 @@ Set environment variables for timezone
   value: {{ $global.timezone }}
 {{- end -}}
 
-{{- define "eric-sec-access-mgmt.adminUserCredentialsMountPath" }}/run/secrets/kc-admin{{- end }}
 {{/*
-Set environment variables for Keycloak admin user credentials
+Set environment variables for Keycloak credentials
 */}}
 {{- define "eric-sec-access-mgmt.credentials" -}}
-{{- if not .Values.adminSecret }}
 - name: KEYCLOAK_USER
   valueFrom:
     secretKeyRef:
@@ -420,18 +413,6 @@ Set environment variables for Keycloak admin user credentials
     secretKeyRef:
       name:  {{ .Values.statefulset.adminSecret | quote }}
       key: {{ .Values.statefulset.passwdkey | quote }}
-{{- else }}
-# The below environment variable needs to be set for custom Expire password policy to exclude this admin user.
-# See ExpirePassword.java from /src/keycloak-custom for more details. Hence, the secrets cannot be made optional yet
-# until we go through a deprecation process to deprecate excluding admin user by default.
-- name: KEYCLOAK_USER
-  valueFrom:
-    secretKeyRef:
-      name: {{ .Values.adminSecret | quote }}
-      key: "username"
-- name: ADM_USR_CREDS_MNT_PATH
-  value: {{ include "eric-sec-access-mgmt.adminUserCredentialsMountPath" . | quote }}
-{{- end }}
 {{- end -}}
 
 {{/*
@@ -473,7 +454,7 @@ LDAP federator password mount path
 HA cluster tls mount path
 */}}
 {{- define "eric-sec-access-mgmt.haCertPath" }}/run/secrets/ha-cert-path{{- end }}
-{{- define "eric-sec-access-mgmt.haKeystorePath" }}/opt/jboss/rundir-safe/ha.keystore{{- end }}
+{{- define "eric-sec-access-mgmt.haKeystorePath" }}/opt/jboss/keycloak/standalone/configuration/ha.keystore{{- end }}
 {{- define "eric-sec-access-mgmt.IntCACertPath" }}/run/secrets/int-ca-cert-path{{- end }}
 
 {{/*
@@ -481,9 +462,25 @@ AA Proxy tls mount path
 */}}
 {{- define "eric-sec-access-mgmt.aaproxyCAcertPath" }}/run/secrets/aaproxy-ca-cert-path{{- end }}
 
-{{- define "eric-sec-access-mgmt.sipOauth2ClientSecretPath" }}/run/secrets/sip-oauth2-client-secret{{- end }}
-
-{{- define "eric-sec-access-mgmt.authnProxyClientSecretPath" }}/run/secrets/authn-proxy-client-secret{{- end }}
+{{/*
+Create a merged set of nodeSelectors from global, stateful and service level.
+*/}}
+{{ define "eric-sec-access-mgmt.nodeSelector" }}
+  {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $global.nodeSelector $key -}}
+          {{- $globalValue := index $global.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $global.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $global.nodeSelector | trim -}}
+  {{- end -}}
+{{ end }}
 
 {{/*
 Allowed values for HTTP host validation. Valid hosts are all
@@ -515,12 +512,10 @@ hostnames specified. Outputs a comma separated list of hostnames
 {{- end -}}
 
 {{- define "eric-sec-access-mgmt.securityPolicy.annotations" }}
-  {{- $securityPolicy := dict -}}
-  {{- $_ := set $securityPolicy "ericsson.com/security-policy.name" "restricted/default" -}}
-  {{- $_ := set $securityPolicy "ericsson.com/security-policy.privileged" "false" -}}
-  {{- $_ := set $securityPolicy "ericsson.com/security-policy.capabilities" "N/A" -}}
-  {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-  {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $securityPolicy $common)) | trim }}
+{{- template "eric-sec-access-mgmt.common-annotations" .}}
+ericsson.com/security-policy.name: "restricted/default"
+ericsson.com/security-policy.privileged: "false"
+ericsson.com/security-policy.capabilities: "N/A"
 {{- end -}}
 
 {{- define "eric-sec-access-mgmt.IAMintCACertPath" }}/run/secrets/iam-int-ca-cert-path{{- end }}
@@ -533,145 +528,33 @@ hostnames specified. Outputs a comma separated list of hostnames
 {{- define "eric-sec-access-mgmt.iamClientCACertPath1" }}/run/secrets/iam-client-ca-cert-1{{- end }}
 
 {{/*
-Writable emptyDir volume definitions for files that need write access in the iam-init, iam and authProxy containers.
+Tolerations for IAM statefulset. .Values.tolerations is deprecated (ADPPRG-74264)
+If set, use .Values.tolerations.iam, otherwise use .Values.tolerations.
 */}}
-{{- define "eric-sec-access-mgmt.initRunDirSafeMountPath" }}/opt/iam/rundir-safe{{- end }}
-{{- define "eric-sec-access-mgmt.runDirSafeMountPath" }}/opt/jboss/rundir-safe{{- end }}
-{{- define "eric-sec-access-mgmt.tempDirMountPath" }}/tmp{{- end }}
-{{- define "eric-sec-access-mgmt.authProxyRunDirSafeMountPath" }}/rundir-safe{{- end }}
-{{- define "eric-sec-access-mgmt.sipoauth2RunDirMountPath" }}/rundir{{- end }}
-
-# DR-D1125-056-AD - Declaration of access to peer services
-{{- define "eric-sec-access-mgmt.peerServiceAccess" -}}
-{{ .Values.persistence.dbHost }}-access: "true"
-{{ template "eric-sec-access-mgmt.name" . }}-access: "true"
-{{ .Values.keyManagement.server }}-access: "true"
-{{ .Values.ldap.server }}-access: "true"
-{{- end -}}
-
-# DR-D1125-056-AD - Declaration of access to peer services
-{{- define "eric-sec-access-mgmt.peerServiceAccess.sipoauth2" -}}
-eric-sec-access-mgmt-access: "true"
-{{- end -}}
-
-{{/*
-terminationGracePeriodSeconds for iam statefulset. .Values.terminationGracePeriodSeconds is deprecated (ADPPRG-81960)
-If set, use .Values.terminationGracePeriodSeconds.iam, otherwise .Values.terminationGracePeriodSeconds.
-*/}}
-{{- define "eric-sec-access-mgmt.terminationGracePeriodSeconds.iam" -}}
-  {{- if kindIs "map" .Values.terminationGracePeriodSeconds -}}
-    {{- if hasKey .Values.terminationGracePeriodSeconds "iam" -}}
-      {{.Values.terminationGracePeriodSeconds.iam }}
+{{- define "eric-sec-access-mgmt.tolerations.iam" -}}
+  {{- if kindIs "map" .Values.tolerations -}}
+    {{- if hasKey .Values.tolerations "iam" -}}
+      {{- toYaml .Values.tolerations.iam }}
     {{- else -}}
-      {{.Values.terminationGracePeriodSeconds }}
+      {{- toYaml .Values.tolerations }}
     {{- end }}
   {{- else -}}
-    {{.Values.terminationGracePeriodSeconds }}
+    {{- toYaml .Values.tolerations }}
   {{- end }}
 {{- end }}
 
 {{/*
-terminationGracePeriodSeconds for sipoauth2 deployment. .Values.terminationGracePeriodSeconds is deprecated (ADPPRG-81960)
-If set, use .Values.terminationGracePeriodSeconds.sipoauth2, otherwise otherwise .Values.terminationGracePeriodSeconds.
+Tolerations for preupgrade job. .Values.tolerations is deprecated (ADPPRG-74264)
+If set, use .Values.tolerations.preupgrade, otherwise .Values.tolerations.
 */}}
-{{- define "eric-sec-access-mgmt.terminationGracePeriodSeconds.sipoauth2" -}}
-  {{- if kindIs "map" .Values.terminationGracePeriodSeconds -}}
-    {{- if hasKey .Values.terminationGracePeriodSeconds "sipoauth2" -}}
-      {{.Values.terminationGracePeriodSeconds.sipoauth2 }}
+{{- define "eric-sec-access-mgmt.tolerations.preupgrade" -}}
+  {{- if kindIs "map" .Values.tolerations -}}
+    {{- if hasKey .Values.tolerations "preupgrade" -}}
+      {{- toYaml .Values.tolerations.preupgrade }}
     {{- else -}}
-      {{.Values.terminationGracePeriodSeconds }}
+      {{- toYaml .Values.tolerations }}
     {{- end }}
   {{- else -}}
-    {{.Values.terminationGracePeriodSeconds }}
+    {{- toYaml .Values.tolerations }}
   {{- end }}
-{{- end }}
-
-{{/*
-updateStrategy.type for iam statefulset. .Values.updateStrategy.type is deprecated (ADPPRG-81960)
-If set, use .Values.updateStrategy.iam.type, otherwise .Values.updateStrategy.type.
-*/}}
-{{- define "eric-sec-access-mgmt.updateStrategy.iam" -}}
-  {{- if hasKey .Values.updateStrategy "type" -}}
-    {{.Values.updateStrategy.type }}
-  {{- else -}}
-    {{.Values.updateStrategy.iam.type }}
-  {{- end }}
-{{- end }}
-
-{{/*
-Create a merged set of nodeSelectors from global, stateful and service level.
-*/}}
-{{ define "eric-sec-access-mgmt.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-sec-access-mgmt.nodeSelector" -}}
-  {{- include "eric-sec-access-mgmt.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $global $service)) | trim -}}
-{{ end }}
-
-{{/*
-Create a merged set of nodeSelectors from global and service level. Local helm parameter nodeSelector has been deprecated and
-replaced with nodeSelector.iam (ADPPRG-81960)
-*/}}
-{{ define "eric-sec-access-mgmt.nodeSelector.iam" }}
-  {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
-  {{- if hasKey .Values.nodeSelector "iam" -}}
-    {{- if .Values.nodeSelector.iam -}}
-      {{- range $key, $localValue := .Values.nodeSelector.iam -}}
-        {{- if hasKey $global.nodeSelector $key -}}
-            {{- $globalValue := index $global.nodeSelector $key -}}
-            {{- if ne $globalValue $localValue -}}
-              {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
-            {{- end -}}
-        {{- end -}}
-      {{- end -}}
-      {{- toYaml (merge $global.nodeSelector .Values.nodeSelector.iam) | trim -}}
-    {{- else -}}
-      {{- toYaml $global.nodeSelector | trim -}}
-    {{- end -}}
-  {{- else if .Values.nodeSelector -}}
-    {{- $temp := omit .Values.nodeSelector "sipoauth2" -}}
-    {{- range $key, $localValue := $temp -}}
-      {{- if hasKey $global.nodeSelector $key -}}
-          {{- $globalValue := index $global.nodeSelector $key -}}
-          {{- if ne $globalValue $localValue -}}
-            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
-          {{- end -}}
-      {{- end -}}
-    {{- end -}}
-    {{- toYaml (merge $global.nodeSelector $temp) | trim -}}
-  {{- else -}}
-    {{- toYaml $global.nodeSelector | trim -}}
-  {{- end -}}
-{{ end }}
-
-{{/*
-Create a merged set of nodeSelectors from global and service level for sipoauth2.
-*/}}
-{{ define "eric-sec-access-mgmt.nodeSelector.sipoauth2" }}
-  {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
-  {{- if hasKey .Values.nodeSelector "sipoauth2" -}}
-    {{- if .Values.nodeSelector.sipoauth2 -}}
-      {{- range $key, $localValue := .Values.nodeSelector.sipoauth2 -}}
-        {{- if hasKey $global.nodeSelector $key -}}
-            {{- $globalValue := index $global.nodeSelector $key -}}
-            {{- if ne $globalValue $localValue -}}
-              {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
-            {{- end -}}
-        {{- end -}}
-      {{- end -}}
-      {{- toYaml (merge $global.nodeSelector .Values.nodeSelector.sipoauth2) | trim -}}
-    {{- else -}}
-      {{- toYaml $global.nodeSelector | trim -}}
-    {{- end -}}
-  {{- else -}}
-    {{- toYaml $global.nodeSelector | trim -}}
-  {{- end -}}
-{{ end }}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-sec-access-mgmt.logshipper-annotations" }}
-{{- println "" -}}
-{{- include "eric-sec-access-mgmt.common-annotations" . -}}
 {{- end }}

@@ -7,25 +7,24 @@ Installs following components
 ---------------------------------------------------------------
 | Component                                | Version          |
 |------------------------------------------|------------------|
-| eric-cm-mediator                         | 7.16.0+29        |
-| eric-ctrl-bro                            | 5.5.0+49         |
-| eric-data-coordinator-zk                 | 1.28.0+12        |
-| eric-data-distributed-coordinator-ed     | 3.3.0+13         |
-| eric-data-document-database-pg           | 7.4.0+44         |
-| eric-data-message-bus-kf                 | 1.27.0+21        |
-| eric-data-search-engine                  | 10.1.0+22        |
-| eric-data-search-engine-curator          | 2.9.0+22         |
-| eric-fh-alarm-handler                    | 8.3.0+63         |
-| eric-fh-snmp-alarm-provider              | 6.3.0+49         |
-| eric-log-shipper                         | 9.3.0+24         |
-| eric-log-transformer                     | 8.2.0+17         |
-| eric-sec-access-mgmt                     | 12.0.0+39        |
-| eric-sec-key-management                  | 3.4.0+15         |
-| eric-sec-sip-tls                         | 4.2.0+32         |
-| eric-pm-server                           | 10.0.0+14        |
-| eric-pm-bulk-reporter                    | 7.5.0+19         |
-| eric-lm-combined-server                  | 6.0.0+38         |
-| eric-data-object-storage-mn              | 1.23.0+22        |
+| eric-cm-mediator                         | 7.11.0+17        |
+| eric-ctrl-bro                            | 5.1.0+18         |
+| eric-data-coordinator-zk                 | 1.24.0+5         |
+| eric-data-distributed-coordinator-ed     | 3.0.0+9          |
+| eric-data-document-database-pg           | 6.4.0+9          |
+| eric-data-message-bus-kf                 | 1.23.0+17        |
+| eric-data-search-engine                  | 8.2.0+28         |
+| eric-data-search-engine-curator          | 2.6.0+18         |
+| eric-fh-alarm-handler                    | 7.5.0+23         |
+| eric-fh-snmp-alarm-provider              | 6.0.0+5          |
+| eric-log-shipper                         | 8.0.0+19         |
+| eric-log-transformer                     | 7.0.1+2          |
+| eric-sec-access-mgmt                     | 9.1.0+36         |
+| eric-sec-key-management                  | 2.24.0+10        |
+| eric-sec-sip-tls                         | 3.0.0+46         |
+| eric-pm-server                           | 6.6.0+23         |
+| eric-pm-bulk-reporter                    | 6.7.0+51         |
+| eric-lm-combined-server                  | 5.0.0+15         |
 ---------------------------------------------------------------
 
 Uninstall/delete steps

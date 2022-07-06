@@ -173,21 +173,6 @@ Define SASL, note: returns boolean as string
 {{- end -}}
 
 {{/*
-Define Network Policy, note: returns boolean as string
-*/}}
-{{- define "eric-data-message-bus-kf.networkPolicy" -}}
-{{- $networkPolicy := false -}}
-{{- if .Values.global -}}
-    {{- if and .Values.global.networkPolicy .Values.networkPolicy -}}
-      {{- if and .Values.global.networkPolicy.enabled .Values.networkPolicy.enabled -}}
-        {{- $networkPolicy = .Values.global.networkPolicy.enabled -}}
-      {{- end -}}
-    {{- end -}}
-{{- end -}}
-{{- $networkPolicy -}}
-{{- end -}}
-
-{{/*
 Return the fsgroup set via global parameter if it's set, otherwise 10000
 */}}
 {{- define "eric-data-message-bus-kf.fsGroup.coordinated" -}}
@@ -293,32 +278,30 @@ Expand the name of the chart.
 {{- end -}}
 
 {{/*
-Common labels
+Labels.
 */}}
 {{- define "eric-data-message-bus-kf.labels" }}
-  {{- $selectorLabelsK8s := include "eric-data-message-bus-kf.selector-labels-k8s" . | fromYaml -}}
-  {{- $k8sLabels := dict -}}
-  {{- $_ := set $k8sLabels "app.kubernetes.io/version" (include "eric-data-message-bus-kf.chart" . | toString) -}}
-  {{- $_ := set $k8sLabels "app.kubernetes.io/managed-by" (.Release.Service | toString) -}}
-  {{- $globalLabels := (.Values.global).labels -}}
-  {{- $serviceLabels := .Values.labels -}}
-  {{- include "eric-data-message-bus-kf.mergeLabels" (dict "location" .Template.Name "sources" (list $k8sLabels $selectorLabelsK8s $globalLabels $serviceLabels)) | trim }}
+{{- include "eric-data-message-bus-kf.selectorLabels" . }}
+app.kubernetes.io/version: {{ include "eric-data-message-bus-kf.chart" . | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
 {{- end }}
 
 {{/*
-Selector labels for Kubernetes
+Selector labels.
 */}}
-{{- define "eric-data-message-bus-kf.selector-labels-k8s" }}
+{{- define "eric-data-message-bus-kf.selectorLabels" }}
 app.kubernetes.io/name: {{ include "eric-data-message-bus-kf.name" . | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
 {{- end }}
 
 {{/*
-Logshipper labels
+logshipper labels.
 */}}
 {{- define "eric-data-message-bus-kf.logshipper-labels" }}
-{{- println "" -}}
-{{- include "eric-data-message-bus-kf.labels" . -}}
+{{- include "eric-data-message-bus-kf.labels" . }}
 {{- end }}
 
 {{/*
@@ -384,21 +367,14 @@ serviceAccount - will be deprecated from k8 1.22.0 onwards, supporting it for ol
 {{- end -}}
 
 {{/*
-Common annotations
+Create a user defined annotation (DR-D1121-065)
 */}}
-{{- define "eric-data-message-bus-kf.annotations" }}
-  {{- $productInfoAnnotations := include "eric-data-message-bus-kf.productinfo" . | fromYaml -}}
-  {{- $globalAnnotations := (.Values.global).annotations -}}
-  {{- $serviceAnnotations := .Values.annotations -}}
-  {{- include "eric-data-message-bus-kf.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfoAnnotations $globalAnnotations $serviceAnnotations)) | trim }}
+{{ define "eric-data-message-bus-kf.config-annotations" }}
+{{- if .Values.annotations -}}
+{{- range $name, $config := .Values.annotations }}
+{{ $name }}: {{ tpl $config $ | quote }}
 {{- end }}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-data-message-bus-kf.logshipper-annotations" }}
-{{- println "" -}}
-{{- include "eric-data-message-bus-kf.annotations" . -}}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -488,12 +464,6 @@ sasl-plaintext port
 {{- .Values.security.saslplaintext.messagebuskf.port -}}
 {{- end -}}
 
-{{/*
-Volume mount name used for Statefulset
-*/}}
-{{- define "eric-data-message-bus-kf.persistence.volumeMount.name" -}}
-  {{- printf "%s" "datadir" -}}
-{{- end -}}
 
 {{/*
 volume Mount information.
@@ -695,7 +665,7 @@ Mapping between log.outputs and logshipper redirect parameter
 {{/*
 Selector labels for MBKF
 */}}
-{{- define "eric-data-message-bus-kf.selector-labels-mbkf" }}
+{{- define "eric-data-message-bus-kf.selector-labels" }}
 app: {{ template "eric-data-message-bus-kf.name" . }}
 release: {{ .Release.Name | quote }}
 {{- end }}
@@ -963,64 +933,4 @@ Parallel support for jmxExporter and jmxexporter
 */}}
 {{- define "eric-data-message-bus-kf.pmCaSecretName" -}}
         {{- .Values.pmServer.pmServiceName -}}-ca
-{{- end -}}
-
-
-{{/*
-Define podPriority
-*/}}
-{{- define "eric-data-message-bus-kf.podPriority" }}
-{{- if .Values.podPriority }}
-  {{- if index .Values.podPriority "eric-data-message-bus-kf" -}}
-    {{- if (index .Values.podPriority "eric-data-message-bus-kf" "priorityClassName") }}
-      priorityClassName: {{ index .Values.podPriority "eric-data-message-bus-kf" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Define eric-data-message-bus-kf.podSeccompProfile
-*/}}
-{{- define "eric-data-message-bus-kf.SeccompProfile" -}}
-{{- if and .Values.seccompProfile .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-data-message-bus-kf.appArmorProfile
-*/}}
-{{- define "eric-data-message-bus-kf.appArmorProfile" -}}
-{{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-{{- $commonProfile := dict -}}
-{{- if .Values.appArmorProfile.type -}}
-  {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-  {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-    {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- $profiles := dict -}}
-{{- range $container := list "messagebuskf" "jmxexporter" "logshipper" "checkzkready" "metricsexporter" -}}
-  {{- if and (hasKey $.Values.appArmorProfile $container) (index $.Values.appArmorProfile $container "type") -}}
-    {{- $_ := set $profiles $container (index $.Values.appArmorProfile $container) -}}
-  {{- else -}}
-    {{- $_ := set $profiles $container $commonProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- range $key, $value := $profiles -}}
-  {{- if $value.type -}}
-    {{- if not (has $value.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $value.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $value.type "localhost") (empty $value.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-container.apparmor.security.beta.kubernetes.io/{{ $key }}: {{ $value.type }}{{ eq $value.type "localhost" | ternary (printf "/%s" $value.localhostProfile) ""  }}
-  {{- end -}}
-{{- end -}}
 {{- end -}}

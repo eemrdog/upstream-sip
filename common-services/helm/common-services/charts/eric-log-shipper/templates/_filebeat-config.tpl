@@ -120,7 +120,7 @@ output.logstash:
   ssl.key: "/run/secrets/certificates/cliprivkey.pem"
   ssl.verification_mode: "full"
   ssl.renegotiation: "freely"
-  ssl.supported_protocols: ["TLSv1.2", "TLSv1.3"]
+  ssl.supported_protocols: ["TLSv1.2"]
   ssl.cipher_suites: []
   {{- else }}
   hosts: "{{ .Values.logtransformer.host }}:{{ .Values.logtransformer.port }}"

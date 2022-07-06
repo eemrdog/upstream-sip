@@ -4,10 +4,10 @@ apiVersion: v1
 metadata:
   name: {{ template "eric-pm-bulk-reporter.name" . }}
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations:
-    {{- $persistentAnn := (.Values.persistentVolumeClaim.annotations) -}}
-    {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-    {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $persistentAnn $defaultAnn)) | trim | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
+{{- if .Values.persistentVolumeClaim.annotations }}
+{{ toYaml .Values.persistentVolumeClaim.annotations | indent 4 }}
+{{- end }}
 spec:
   accessModes:
     - {{ .Values.persistentVolumeClaim.accessMode | quote }}

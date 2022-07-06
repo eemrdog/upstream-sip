@@ -6,7 +6,7 @@ This hides defaults from values file.
 */}}
 {{ define "eric-pm-server.global" }}
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{ if .Values.global }}
@@ -119,41 +119,28 @@ Create a merged set of nodeSelectors from global and service level.
     {{- end -}}
 {{- end -}}
 
-{{/*
-Merged labels for common
-*/}}
 {{- define "eric-pm-server.labels" -}}
-  {{- $selector := include "eric-pm-server.selectorLabels" . | fromYaml -}}
-  {{- $static := include "eric-pm-server.static-labels" . | fromYaml -}}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-pm-server.mergeLabels" (dict "location" .Template.Name "sources" (list $selector $static $global $service)) | trim }}
-{{- end -}}
-
-{{/*
-Logshipper labels
-*/}}
-{{- define "eric-pm-server.logshipper-labels" }}
-{{- include "eric-pm-server.labels" . -}}
-{{- end }}
-
-{{/*
-Static labels
-*/}}
-{{- define "eric-pm-server.static-labels" -}}
+{{- include "eric-pm-server.selectorLabels" . }}
 app.kubernetes.io/name: {{ template "eric-pm-server.name" . }}
 app.kubernetes.io/version: {{ template "eric-pm-server.version" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app: {{ template "eric-pm-server.name" . }}
 chart: {{ template "eric-pm-server.chart" . }}
-heritage: {{ .Release.Service | quote }}
+component: {{ .Values.server.name | quote }}
+heritage: {{ .Release.Service }}
+release: {{ .Release.Name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
 {{- end -}}
 
 {{/*
 Selector labels.
 */}}
-{{- define "eric-pm-server.selectorLabels" -}}
+{{- define "eric-pm-server.selectorLabels" }}
 component: {{ .Values.server.name | quote }}
 app: {{ template "eric-pm-server.name" . }}
-release: {{ .Release.Name | quote }}
+release: {{ .Release.Name }}
 {{- if eq (include "eric-pm-server.needInstanceLabelSelector" .) "true" }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- end -}}
@@ -204,9 +191,9 @@ app.kubernetes.io/instance: {{ .Release.Name | quote }}
 {{- end -}}
 
 {{/*
-Define product-info
+Define helm-annotations
 */}}
-{{- define "eric-pm-server.product-info" }}
+{{- define "eric-pm-server.helm-annotations" }}
   ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
   ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
   ericsson.com/product-revision: {{regexReplaceAll "(.*)[+].*" .Chart.Version "${1}" }}
@@ -216,18 +203,11 @@ Define product-info
 Define annotations
 */}}
 {{- define "eric-pm-server.annotations" -}}
-  {{- $productInfo := include "eric-pm-server.product-info" . | fromYaml -}}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-pm-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $global $service)) | trim }}
-{{- end -}}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-pm-server.logshipper-annotations" }}
-{{- include "eric-pm-server.annotations" . -}}
+{{- include "eric-pm-server.helm-annotations" . }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations | indent 2 }}
 {{- end }}
+{{- end -}}
 
 {{- define "eric-pm-server.imagePath" }}
     {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
@@ -342,159 +322,4 @@ Define eric-pm-server.resources
     memory: {{ .requests.memory | quote }}
   {{- end -}}
 {{- end -}}
-{{- end -}}
-
-{{/*
-Define eric-pm-server.appArmorProfileAnnotation
-*/}}
-{{- define "eric-pm-server.appArmorProfileAnnotation" -}}
-{{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-{{- $commonProfile := dict -}}
-{{- if .Values.appArmorProfile.type -}}
-  {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-  {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-    {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- $profiles := dict -}}
-{{- range $container := list "eric-pm-server" "eric-pm-reverseproxy" "eric-pm-configmap-reload" "eric-pm-exporter" "logshipper" -}}
-  {{- if and (hasKey $.Values.appArmorProfile $container) (index $.Values.appArmorProfile $container "type") -}}
-    {{- $_ := set $profiles $container (index $.Values.appArmorProfile $container) -}}
-  {{- else -}}
-    {{- $_ := set $profiles $container $commonProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- range $key, $value := $profiles -}}
-  {{- if $value.type -}}
-    {{- if not (has $value.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $value.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $value.type "localhost") (empty $value.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-container.apparmor.security.beta.kubernetes.io/{{ $key }}: {{ $value.type }}{{ eq $value.type "localhost" | ternary (printf "/%s" $value.localhostProfile) ""  }}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the metrics port.
-*/}}
-{{- define "eric-pm-server.metrics-port" -}}
-  {{- $g := fromJson (include "eric-pm-server.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    9089
-  {{- else -}}
-    9090
-  {{- end -}}
-{{- end -}}
-
-{{/*
-PM Server Labels for Network Policies
-*/}}
-{{- define "eric-pm-server.peer.labels" -}}
-{{- if (has "stream" .Values.log.outputs) -}}
-{{ .Values.logshipper.logtransformer.host }}-access: "true"
-{{- end }}
-{{- end -}}
-
-{{/*
-Define podPriority check
-*/}}
-{{- define "eric-pm-server.podpriority" }}
-{{- if .Values.podPriority }}
-  {{- if index .Values.podPriority "eric-pm-server" -}}
-    {{- if (index .Values.podPriority "eric-pm-server" "priorityClassName") }}
-      priorityClassName: {{ index .Values.podPriority "eric-pm-server" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Define eric-pm-server.podSeccompProfile
-*/}}
-{{- define "eric-pm-server.podSeccompProfile" -}}
-{{- if and .Values.seccompProfile .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Volume mount name used for Statefulset
-*/}}
-{{- define "eric-pm-server.persistence.volumeMount.name" -}}
-  {{- printf "%s" "storage-volume" -}}
-{{- end -}}
-
-{{/*
-The filebeat processor to transform Prometheus json's log to log event that
-is complied with ADP JSON schema
-*/}}
-{{- define "eric-pm-server.3pp-to-adp-json" -}}
-{{- $serviceId := include "eric-pm-server.logshipper-service-fullname" . | quote }}
-{{- $default := fromJson (include "eric-pm-server.logshipper-default-value" .) -}}
-{{- $closeTimeout := $default.logshipper.harvester.closeTimeout | quote }}
-{{- $storagePath := $default.logshipper.storagePath }}
-- type: log
-  paths:
-    - {{ $storagePath }}/pm-server.log
-  fields:
-    logplane: {{ $default.logshipper.logplane }}
-    kubernetes:
-      pod:
-        uid: ${POD_UID}
-        name: ${POD_NAME}
-      node:
-        name: ${NODE_NAME}
-      namespace: ${NAMESPACE}
-      labels:
-        app:
-          kubernetes:
-            io/name: {{ $serviceId }}
-  close_timeout: {{ $closeTimeout }}
-  fields_under_root: true
-  processors:
-    - decode_json_fields:
-        fields:
-          - "message"
-        target: "copy"
-        overwrite_keys: true
-    - add_fields:
-        target: "json"
-        fields:
-          service_id: {{ $serviceId }}
-          version: "1.0.0"
-    - rename:
-        fields:
-          - from: "copy.level"
-            to: "json.severity"
-          - from: "copy.ts"
-            to: "json.timestamp"
-          - from: "copy.msg"
-            to: "json.message"
-          - from: "copy"
-            to: "json.extra_data"
-          - from: "json.extra_data"
-            to: "json.extra_data.prometheus"
-        ignore_missing: true
-    - rename:
-        when:
-          not:
-            has_fields:
-              - 'json.message'
-        fields:
-          - from: "message"
-            to: "json.message"
-    - add_fields:
-        when:
-          equals:
-           json.severity: "warn"
-        target: ""
-        fields:
-          json.severity: "warning"
 {{- end -}}

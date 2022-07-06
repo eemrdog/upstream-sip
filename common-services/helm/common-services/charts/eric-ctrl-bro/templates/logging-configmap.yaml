@@ -2,12 +2,15 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ template "eric-ctrl-bro.name" . }}-logging
-  labels: {{- include "eric-ctrl-bro.labels" . | nindent 4 }}
-  annotations: {{- include "eric-ctrl-bro.annotations" . | nindent 4 }}
+  labels:
+{{ include "eric-ctrl-bro.k8sLabels" . | indent 4 }}
+{{- include "eric-ctrl-bro.prodInfoLabels" . | indent 4}}
+  annotations:
+{{ include "eric-ctrl-bro.prodInfoAnnotations" . | indent 4 }}
 data:
   {{ .Values.bro.logging.log4j2File }}: |
     <?xml version="1.0" encoding="UTF-8"?>
-    <Configuration name="BROLog4j" status="off" monitorInterval="5">
+    <Configuration status="{{ include "eric-ctrl-bro.log.log4j2Level" . }}" monitorInterval="5">
       <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
           {{- if eq .Values.bro.logging.consoleFormat "json" }}
@@ -30,18 +33,14 @@ data:
                   certAlias="LT"/>
           {{- end }}
           <!-- Really we should use the json layout defined below but that's an interface change-->
-          <RFC5424Layout appName="eric-ctrl-bro" newLine="true" newLineEscape="\n"/>
+          <RFC5424Layout appName="eric-ctrl-bro" newLine="true"/>
           <RegexFilter regex=".*(Error reading request, ignored|Error running socket processor).*" onMatch="DENY" onMismatch="ACCEPT"/>
         </BufferedSocketAppender>
         {{- end }}
         {{- end }}
-
       </Appenders>
       <Loggers>
         <Logger name="com.ericsson.adp.mgmt.backupandrestore" level="{{ include "eric-ctrl-bro.log.level" . }}">
-        </Logger>
-        <Logger name="org.apache" level="{{ .Values.bro.logging.log4j2Level }}" additivity="false">
-          <AppenderRef ref="Console"/>
         </Logger>
         <Root level="{{ include "eric-ctrl-bro.log.rootLevel" . }}">
           {{- with . }}
@@ -60,10 +59,7 @@ data:
     {
       "version" : "1.1.0",
       "timestamp" : {
-        "$resolver": "timestamp",
-        "pattern": {
-          "format": "YYYY-MM-dd'T'HH:mm:ss.SSSXXX"
-        }
+        "$resolver": "timestamp"
       },
       "severity" : {
         "$resolver": "pattern",

@@ -8,9 +8,9 @@ kind: InternalUserCA
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-syslog-input-ca-cert
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ include "eric-log-transformer.fullname" . }}-syslog-input-ca-cert
@@ -26,9 +26,9 @@ kind: CertificateAuthority
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-syslog-input-ca-cert
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   common-name: "{{ include "eric-log-transformer.fullname" . }} CA"
   generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-syslog-input-ca-cert

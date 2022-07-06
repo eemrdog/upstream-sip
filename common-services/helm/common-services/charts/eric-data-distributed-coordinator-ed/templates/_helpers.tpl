@@ -283,7 +283,7 @@ Advertised peer url
 */}}
 {{- define "eric-data-distributed-coordinator-ed.initialAdvertisePeerUrl" -}}
 	{{ $chartName := include "eric-data-distributed-coordinator-ed.name" . }}
-	{{- printf "https://$(ETCD_NAME).%s-peer.%s.svc.%s:%d" $chartName .Release.Namespace .Values.clusterDomain (int64 (include "eric-data-distributed-coordinator-ed.ports.peer" . )) -}}
+	{{- printf "https://$(ETCD_NAME).%s-peer.%s.svc.cluster.local:%d" $chartName .Release.Namespace (int64 (include "eric-data-distributed-coordinator-ed.ports.peer" . )) -}}
 {{- end -}}
 
 

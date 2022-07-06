@@ -4,14 +4,12 @@
 # Global parameters shall be defined in the top level values.yaml
 # They are kept here for indicating which are supported and their default values.
 # global:
-#   annotations: {}
 #   internalIPFamily: null
-#   labels: {}
 #   timezone: UTC
 #   pullSecret: ""
 #   registry:
 #     imagePullPolicy: IfNotPresent
-#     url: "armdocker.rnd.ericsson.se"
+#     url: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
 #   security:
 #     policyBinding:
 #       create: false
@@ -19,9 +17,7 @@
 #       default-restricted-security-policy: "default-restricted-security-policy"
 #     tls:
 #       enabled: true
-#   nodeSelector: {}
-#   networkPolicy:
-#     enabled: false
+#   nodeSelector:
 
 replicaCount: 2
 
@@ -36,8 +32,6 @@ cmm:
   configReloadTimer: 120
   debug: false
   gunicornLogLevel: "Info"
-  gunicornAccessLogLevel: "Info"
-  accessLogging: false
   kafkaLogLevel: "Info"
   kafkaProducerConfig: ""
   logFormat: "adpjson"
@@ -85,9 +79,6 @@ redis:
   port: 6379
   tlsPort: 6380
 
-pmserver:
-  hostname: "eric-pm-server"
-
 annotations: {}
 
 affinity:
@@ -99,12 +90,6 @@ autoScaling:
     minReplicas: 2
     maxReplicas: 5
 
-bandwidth:
-  eric-cm-mediator:
-    maxEgressRate: ""
-  eric-cm-mediator-notifier:
-    maxEgressRate: ""
-
 imageCredentials:
   pullSecret: ""
   registry:
@@ -114,26 +99,10 @@ imageCredentials:
 
 labels: {}
 
-networkPolicy:
-    enabled: true
-
-nodeSelector:
-  eric-cm-mediator: {}
-  eric-cm-mediator-notifier: {}
-  eric-cm-key-init: {}
-
 podDisruptionBudget:
   eric-cm-mediator:
     minAvailable: 50%
     #maxUnavailable:
-
-podPriority:
-    eric-cm-mediator:
-        priorityClassName: ""
-    eric-cm-mediator-notifier:
-        priorityClassName: ""
-    eric-cm-key-init:
-      priorityClassName: ""
 
 probes:
   eric-cm-mediator:
@@ -193,28 +162,6 @@ resources:
       cpu: "100m"
       ephemeral-storage: "10Mi"
 
-appArmorProfile:
-  eric-cm-mediator-init:
-    type: ""
-  eric-cm-mediator:
-    type: ""
-  eric-cm-mediator-notifier-init:
-    type: ""
-  eric-cm-mediator-notifier:
-    type: ""
-  eric-cm-key-init-init:
-    type: ""
-  eric-cm-key-init:
-    type: ""
-
-seccompProfile:
-  eric-cm-mediator:
-    type: ""
-  eric-cm-mediator-notifier:
-    type: ""
-  eric-cm-key-init:
-    type: ""
-
 terminationGracePeriodSeconds:
   eric-cm-mediator: 30
   eric-cm-mediator-notifier: 30
@@ -252,6 +199,10 @@ cmkey:
 
 # Alpha feature for using Exilis CM as CM backend.
 #
+# credentials.kubernetesSecretName must be set and the user and
+# and password in the secret must correspond to
+# storage.credentials.local.dbUser and storage.password or
+# storage.credentials.kubernetesSecretName in eric-cm-backend.
 # Parameter features.cmm_notifications.enabled must be set to true
 # in eric-cm-backend.
 # Parameter newCMArch must be set to true in eric-cm-yang-provider.
@@ -270,9 +221,7 @@ exilis:
       hostname: eric-data-transformer-json
       port: 80
       tlsPort: 443
-      stateDataProviderApiEnabled: false
     yangprovider:
       hostname: eric-cm-yang-provider
       port: 80
       tlsPort: 443
-      dynamicValidationApiEnabled: false

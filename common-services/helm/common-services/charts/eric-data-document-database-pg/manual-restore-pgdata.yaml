@@ -7,14 +7,12 @@ spec:
     - name: manual-restore-pgdata
       # change here to appropriate value
       # change the label at the end to the corresponding document-database-pg release version
-      image: armdocker.rnd.ericsson.se/proj-document-database-pg-dev/data/eric-data-document-database-kube-client:6.2.0-40
+      image: 451278531435.dkr.ecr.us-east-1.amazonaws.com/proj-document-database-pg-dev/data/eric-data-document-database-kube-client:6.2.0-40
       # change here to appropriate value
       imagePullPolicy: # {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
       env:
       - name: KUBERNETES_NAMESPACE
         valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
-      - name: BR_LOG_LEVEL
-        value: "info"
       # IF tls is enabled this part should be kept
       - name: ENABLE_SIPTLS
         value: "true"

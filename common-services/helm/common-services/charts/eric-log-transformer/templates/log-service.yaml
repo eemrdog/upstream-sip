@@ -5,21 +5,18 @@ apiVersion: v1
 metadata:
   name: {{ include "eric-log-transformer.fullname" . | quote }}
   labels:
-    {{- $labels := dict -}}
-    {{- $_ := set $labels "chart" (include "eric-log-transformer.chart" .) -}}
-    {{- $_ := set $labels "release" .Release.Name -}}
-    {{- $_ := set $labels "heritage" .Release.Service -}}
-    {{- $defaultLabels := fromYaml (include "eric-log-transformer.labels" .) -}}
-    {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-log-transformer.labels" . | indent 4 }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
   annotations:
-    {{- $metricsTLS := dict -}}
-    {{- if and (.Values.metrics.enabled) $g.security.tls.enabled }}
-    {{- $_ := set $metricsTLS "prometheus.io/scrape" (.Values.metrics.enabled | toString) }}
-    {{- $_ := set $metricsTLS "prometheus.io/port" "9115" }}
-    {{- $_ := set $metricsTLS "prometheus.io/scheme" "https" }}
-    {{- end }}
-    {{- $defaultAnn := fromYaml (include "eric-log-transformer.annotations" .) -}}
-    {{- include "eric-log-transformer.mergeAnnotations" (dict "location" .Template.Name "sources" (list $metricsTLS $defaultAnn)) | trim | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
+  {{- if and (.Values.metrics.enabled) $g.security.tls.enabled }}
+    prometheus.io/scrape: {{ .Values.metrics.enabled | quote }}
+    prometheus.io/port: "9115"
+    prometheus.io/scheme: "https"
+  {{- end }}
+
 spec:
   {{- if $g.internalIPFamily }}
   ipFamilies: [{{ $g.internalIPFamily | quote }}]
@@ -40,9 +37,6 @@ spec:
   - name: "json-tls"
     port: 5024
     protocol: "TCP"
-  - name: "http-tls"
-    port: 9443
-    protocol: TCP
   {{- end }}
   {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.syslogIn.tls.enforced "optional") }}
   - name: syslog
@@ -57,23 +51,9 @@ spec:
     port: 5025
     protocol: "TCP"
   {{- end }}
-  {{- if or (or (not $g.security.tls.enabled) (eq .Values.service.endpoints.filebeat.tls.enforced "optional")) (or $d.security.tls.logshipper.enabled $d.security.tls.eda) }}
+  {{- if or (or (not $g.security.tls.enabled) (eq .Values.service.endpoints.filebeat.tls.enforced "optional")) $d.security.tls.logshipper.enabled }}
   - name: beats
     port: 5045
-    protocol: TCP
-  {{- end }}
-  {{- if .Values.input }}
-  {{- if .Values.input.tcp }}
-  {{- if .Values.input.tcp.enable }}
-  - name: "eda-json"
-    port: 5018
-    protocol: TCP
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.httpIn.tls.enforced "optional") }}
-  - name: http
-    port: 9080
     protocol: TCP
   {{- end }}
 {{- if .Values.metrics.enabled }}

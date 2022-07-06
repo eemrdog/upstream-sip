@@ -8,10 +8,6 @@
 {{- if index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
 {{- $port:= index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
 {{- end }}
-{{- $controllerAnnotations := printf "%s" "annotations" -}}
-{{- if ne .Values.global.ingress.controllerType "nginx" -}}
-  {{- $controllerAnnotations = printf "%s%s" .Values.global.ingress.controllerType "_annotations" -}}
-{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -19,17 +15,11 @@ metadata:
   labels:
     {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
   annotations:
-  {{- with index .Values.global.ingress $controllerAnnotations }}
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with index .Values "eric-sec-access-mgmt" "ingress" $controllerAnnotations }}
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/use-regex: "true"
     {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
 spec:
-{{- if .Values.global.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.global.ingress.ingressClassName }}
-{{- end }}
   rules:
     - host: {{ index .Values "eric-sec-access-mgmt" "ingress" "inghostname" | quote }}
       http:

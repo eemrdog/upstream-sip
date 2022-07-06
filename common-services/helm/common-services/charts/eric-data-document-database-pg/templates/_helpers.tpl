@@ -21,7 +21,7 @@ Return the appropriate apiVersion for networkpolicy.
 
 
 {{ define "eric-data-document-database-pg.global" }}
-  {{- $globalDefaults := dict "registry" (dict "url" "armdocker.rnd.ericsson.se") -}}
+  {{- $globalDefaults := dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "adpBR" (dict "broServiceName" "eric-ctrl-bro")) -}}
@@ -95,6 +95,60 @@ Create image registry url
 {{- else -}}
 {{- print $g.registry.url -}}
 {{- end -}}
+{{- end -}}
+
+
+{{/*
+The targetPGversion
+*/}}
+{{- define "eric-data-document-database-pg.targetPGversion" }}
+    {{- if .Values.targetPGversion -}}
+        {{- printf (.Values.targetPGversion | toString) -}}
+    {{- else -}}
+        {{- printf "10" -}}
+    {{- end -}}
+{{- end -}}
+
+{{/*
+The postgresImage path
+*/}}
+{{- define "eric-data-document-database-pg.postgresImagePath" }}
+    {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
+    {{- $registryUrl := $productInfo.images.postgres.registry -}}
+    {{- $repoPath := $productInfo.images.postgres.repoPath -}}
+    {{- $name := $productInfo.images.postgres.name -}}
+    {{- $tag := $productInfo.images.postgres.tag -}}
+    {{- if .Values.global -}}
+        {{- if .Values.global.registry -}}
+            {{- if .Values.global.registry.url -}}
+                {{- $registryUrl = .Values.global.registry.url -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if .Values.imageCredentials -}}
+        {{- if .Values.imageCredentials.registry -}}
+            {{- if .Values.imageCredentials.registry.url -}}
+                {{- $registryUrl = .Values.imageCredentials.registry.url -}}
+            {{- end -}}
+        {{- end -}}
+        {{- if not (kindIs "invalid" .Values.imageCredentials.repoPath) -}}
+            {{- $repoPath = .Values.imageCredentials.repoPath -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if .Values.images -}}
+        {{- if .Values.images.postgres -}}
+            {{- if .Values.images.postgres.name -}}
+                {{- $name = .Values.images.postgres.name -}}
+            {{- end -}}
+            {{- if .Values.images.postgres.tag -}}
+                {{- $tag = .Values.images.postgres.tag -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if $repoPath -}}
+        {{- $repoPath = printf "%s/" $repoPath -}}
+    {{- end -}}
+    {{- printf "%s/%s%s:%s" $registryUrl $repoPath $name $tag -}}
 {{- end -}}
 
 {{/*
@@ -451,144 +505,13 @@ Create Ericsson product specific annotations
 {{- print $ddbMajorVersion | quote }}
 {{- end -}}
 
-{/*
-DR-D1123-128 seccomp profile
-*/}}
-{{- define "eric-data-document-database-pg.seccompProfile" -}}
-{{- $containers := list "postgres" "hook-cleanup" "hook-cleanjob" "bra" "brm" "backup-pgdata" "restore-pgdata" "metrics" -}}
-{{- if .Values.seccompProfile -}}
-{{- if eq .Scope "Pod" -}}
-{{- if .Values.seccompProfile.type -}}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  {{- if not .Values.seccompProfile.localhostProfile }}
-  {{- fail "localhostProfile for seccompProfile must be spcified" }}
-  {{- end }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end -}}
-{{- end -}}
-{{- else if and (has .Scope $containers) (hasKey .Values.seccompProfile .Scope) -}}
-{{- $container_setting := (get .Values.seccompProfile .Scope) -}}
-{{- if $container_setting.type -}}
-seccompProfile:
-  type: {{ $container_setting.type }}
-  {{- if eq $container_setting.type "Localhost" }}
-  {{- if not $container_setting.localhostProfile }}
-  {{- fail "localhostProfile for seccompProfile must be spcified" }}
-  {{- end }}
-  localhostProfile: {{ $container_setting.localhostProfile }}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
 {{/*
-Create chart version as used by the chart label.
+Create Ericsson product app.kubernetes.io info
 */}}
-{{- define "eric-data-document-database-pg.version" -}}
-{{- printf "%s" .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- define "eric-data-document-database-pg_app_kubernetes_io_info" -}}
+app.kubernetes.io/name: {{ .Chart.Name | quote }}
+app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" | quote }}
 {{- end -}}
-
-{/*
-DR-D1123-127 appArmor profile
-*/}}
-{{- define "eric-data-document-database-pg.appArmorProfile" -}}
-{{- $containers := .containerList -}}
-{{- $rawNameContainers := list "hook-cleanup" "hook-cleanjob" "backup-pgdata" "restore-pgdata" "logshipper" -}}
-
-{{- if eq .Scope "BRAgent" -}}
-{{- if has "stream" $.root.Values.log.outputs}}
-{{ $containers = append $containers "logshipper" }}
-{{- end -}}
-{{- end -}}
-
-{{- if eq .Scope "STS" -}}
-{{- if $.root.Values.metrics.enabled }}
-{{ $containers = append $containers "metrics" }}
-{{- end -}}
-{{- if has "stream" $.root.Values.log.outputs}}
-{{ $containers = append $containers "logshipper" }}
-{{- end -}}
-{{- end -}}
-
-{{- if eq .Scope "Hook" -}}
-{{- if has "stream" $.root.Values.log.outputs}}
-{{ $containers = append $containers "logshipper" }}
-{{- end -}}
-{{- end -}}
-
-
-{{- range $name := $containers -}}
-{{- if $.root.Values.appArmorProfile -}}
-    {{- if hasKey $.root.Values.appArmorProfile $name -}}
-        {{- $container_setting := (get $.root.Values.appArmorProfile $name) -}}
-        {{- if $container_setting.type -}}
-            {{- if and (eq $container_setting.type "localhost") (not $container_setting.localhostProfile) }}
-            {{- fail "localhostProfile for appArmorProfile must be spcified" }}
-            {{- end }}
-{{- if eq $name "postgres" }}
-container.apparmor.security.beta.kubernetes.io/{{ template "eric-data-document-database-pg.name" $.root }}: {{ if eq $container_setting.type "localhost" }} localhost/{{ $container_setting.localhostProfile }} {{ else }} {{ $container_setting.type }} {{ end }}
-{{- else if has $name $rawNameContainers }}
-container.apparmor.security.beta.kubernetes.io/{{ $name }}: {{ if eq $container_setting.type "localhost" }} localhost/{{ $container_setting.localhostProfile }} {{ else }} {{ $container_setting.type }} {{ end }}
-{{- else }}
-container.apparmor.security.beta.kubernetes.io/{{ template "eric-data-document-database-pg.name" $.root }}-{{ $name }}: {{ if eq $container_setting.type "localhost" }} localhost/{{ $container_setting.localhostProfile }} {{ else }} {{ $container_setting.type }} {{ end }}
-{{- end }}
-    {{- end -}}
-{{ $containers = without $containers $name }}
-    {{- end -}}
-{{- end -}}
-{{- end -}}
-
-
-{{- range $name := $containers -}}
-{{- if $.root.Values.appArmorProfile -}}
-    {{- if $.root.Values.appArmorProfile.type -}}
-        {{- if and (eq $.root.Values.appArmorProfile.type "localhost") (not $.root.Values.appArmorProfile.localhostProfile) }}
-        {{- fail "localhostProfile for appArmorProfile must be spcified" }}
-        {{- end }}
-{{- if eq $name "postgres" }}
-container.apparmor.security.beta.kubernetes.io/{{ template "eric-data-document-database-pg.name" $.root }}: {{ if eq $.root.Values.appArmorProfile.type "localhost" }} localhost/{{ $.root.Values.appArmorProfile.localhostProfile }} {{ else }} {{ $.root.Values.appArmorProfile.type }} {{ end }}
-{{- else if has $name $rawNameContainers }}
-container.apparmor.security.beta.kubernetes.io/{{ $name }}: {{ if eq $.root.Values.appArmorProfile.type "localhost" }} localhost/{{ $.root.Values.appArmorProfile.localhostProfile }} {{ else }} {{ $.root.Values.appArmorProfile.type }} {{ end }}
-{{- else }}
-container.apparmor.security.beta.kubernetes.io/{{ template "eric-data-document-database-pg.name" $.root }}-{{ $name }}: {{ if eq $.root.Values.appArmorProfile.type "localhost" }} localhost/{{ $.root.Values.appArmorProfile.localhostProfile }} {{ else }} {{ $.root.Values.appArmorProfile.type }} {{ end }}
-{{- end }}
-    {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- end -}}
-
-
-{/*
-DR-D1126-010 JVM heap size 
-*/}}
-{{- define "eric-data-document-database-pg.JVMHeapSize" -}}
-    {{- $maxRAM := "" -}}
-    {{- $minRAM := "" -}}
-    {{- $initRAM := "" -}}
-    {{- if not .Values.resources.bra.limits.memory -}}
-    {{- fail "memory limit for bra is not specified" -}}
-    {{- end -}}
-    {{- if .Values.resources.bra.jvm -}}
-        {{- if .Values.resources.bra.jvm.initialMemoryAllocationPercentage -}}
-            {{- $initRAM = trimSuffix "%" .Values.resources.bra.jvm.initialMemoryAllocationPercentage | float64 -}}
-            {{- $initRAM = printf "-XX:InitialRAMPercentage=%f" $initRAM -}}
-        {{- end -}}
-        {{- if .Values.resources.bra.jvm.smallMemoryAllocationMaxPercentage -}}
-            {{- $minRAM = trimSuffix "%" .Values.resources.bra.jvm.smallMemoryAllocationMaxPercentage | float64 -}}
-            {{- $minRAM = printf "-XX:MinRAMPercentage=%f" $minRAM -}}
-        {{- end -}}
-        {{- if .Values.resources.bra.jvm.largeMemoryAllocationMaxPercentage -}}
-            {{- $maxRAM = trimSuffix "%" .Values.resources.bra.jvm.largeMemoryAllocationMaxPercentage | float64 -}}
-            {{- $maxRAM = printf "-XX:MaxRAMPercentage=%f" $maxRAM -}}
-        {{- end -}}
-    {{- end -}}
-{{- printf "%s %s %s" $initRAM $minRAM $maxRAM -}}
-{{- end -}}
-
 
 {{/*
 Define the secret that sip-tls produced
@@ -609,27 +532,6 @@ Define the mount path of brm-config
 {{- else }}
 {{- print "/opt/brm_backup" -}}
 {{- end }}
-{{- end -}}
-
-{{/*
-Define the backupType based on backupTypeList.
-*/}}
-{{- define "eric-data-document-database-pg.br-backuptypes" }}
-{{- .Values.brAgent.backupTypeList | join ";" -}}
-{{- end -}}
-
-{{/*
-Label for deployment-bragent.
-*/}}
-{{- define "eric-data-document-database-pg.br-labelkey" -}}
-{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
-{{ if .Values.brAgent }}
-  {{ if eq .Values.brAgent.enabled true }}
-    {{ if $globalValue.adpBR.brLabelKey }}
-      {{ $globalValue.adpBR.brLabelKey }}: {{ .Values.brAgent.brLabelValue | default .Chart.Name | quote }}
-    {{ end }}
-  {{ end }}
-{{ end }}
 {{- end -}}
 
 {{/*
@@ -907,63 +809,22 @@ Apply when allowPrivilegeEscalation is false.
   {{- end }}
 {{- end }}
 
-{{/*
-Volume mount name used for Statefulset
-*/}}
-{{- define "eric-data-document-database-pg.persistence.volumeMount.name" -}}
-  {{- printf "%s" "pg-data" -}}
-{{- end -}}
-
-{{/*
-Kubernetes labels
-*/}}
-{{- define "eric-data-document-database-pg.kubernetes-labels" -}}
-app.kubernetes.io/name: {{ include "eric-data-document-database-pg.name" . }}
+{{- define "eric-data-document-database-pg.labels" }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
-app.kubernetes.io/version: {{ include "eric-data-document-database-pg.version" . }}
-{{- end -}}
-
-{{/*
-Common labels
-*/}}
-{{- define "eric-data-document-database-pg.labels" -}}
-  {{- $kubernetesLabels := include "eric-data-document-database-pg.kubernetes-labels" . | fromYaml -}}
-  {{- $globalLabels := (.Values.global).labels -}}
-  {{- $serviceLabels := .Values.labels -}}
-  {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $kubernetesLabels $globalLabels $serviceLabels)) }}
-{{- end -}}
-
-{{/*
-Merged labels for extended defaults
-*/}}
-{{- define "eric-data-document-database-pg.labels.extended-defaults" -}}
-  {{- $extendedLabels := dict -}}
-  {{- $_ := set $extendedLabels "app" (include "eric-data-document-database-pg.name" .) -}}
-  {{- $_ := set $extendedLabels "chart" (include "eric-data-document-database-pg.chart" .) -}}
-  {{- $_ := set $extendedLabels "release" (.Release.Name) -}}
-  {{- $_ := set $extendedLabels "heritage" (.Release.Service) -}}
-  {{- $commonLabels := include "eric-data-document-database-pg.labels" . | fromYaml -}}
-  {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $extendedLabels)) | trim }}
-{{- end -}}
-
-{{/*
-Create a dict of annotations for the product information (DR-D1121-064, DR-D1121-067).
-*/}}
-{{- define "eric-data-document-database-pg.product-info" }}
-ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
-ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
-ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+{{- if .Values.labels -}}
+{{- range $name, $config := .Values.labels }}
+{{ $name }}: {{ tpl $config $ | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 
-{{/*
-Common annotations
-*/}}
-{{- define "eric-data-document-database-pg.annotations" -}}
-  {{- $productInfo := include "eric-data-document-database-pg.product-info" . | fromYaml -}}
-  {{- $globalAnn := (.Values.global).annotations -}}
-  {{- $serviceAnn := .Values.annotations -}}
-  {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $globalAnn $serviceAnn)) | trim }}
-{{- end -}}
+{{- define "eric-data-document-database-pg.annotations" }}
+{{- if .Values.annotations -}}
+{{- range $name, $config := .Values.annotations }}
+{{ $name }}: {{ tpl $config $ | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
 
 {{/*
 Align to DR-D1120-056
@@ -978,7 +839,7 @@ minAvailable: 50%
 {{- end }}
 {{- end -}}
 
-{{- define "eric-data-document-database-pg.preUpgradeHookBackup" }}
+{{- define "eric-data-document-database-pg.preUpgradeHook" }}
 {{- if or .Release.IsUpgrade .Release.IsInstall }}
 {{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
 {{- $defaultLogshipperValue := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) -}}
@@ -986,31 +847,30 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
-  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+  labels:
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-upgrade" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "hook-succeeded,before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-2" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | nindent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "-3"
 spec:
   backoffLimit: 0
   template:
     metadata:
       labels:
-        {{- $podTemplateLabels := dict -}}
-        {{- $_ := set $podTemplateLabels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "backup-pgdata") -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $podTemplateLabels)) | nindent 8 }}
+        app: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
       annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "Hook" "containerList" (list "backup-pgdata")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- if .Values.bandwidth.cleanuphook.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.cleanuphook.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+        ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+        ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
     spec:
       restartPolicy: Never
       serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-pgdata-hook
@@ -1020,7 +880,7 @@ spec:
       {{- end }}
       securityContext:
         fsGroup: {{ template "eric-data-document-database-pg.fsGroup.coordinated" . }}
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
+      
       {{- if or (not (empty .Values.nodeSelector.cleanuphook)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
       nodeSelector:
 {{- include "eric-data-document-database-pg.nodeSelector.cleanuphook" . | nindent 8 }}
@@ -1028,9 +888,6 @@ spec:
       tolerations:
       {{- if .Values.tolerations }}
 {{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.cleanuphook" . | indent 8 }}
-      {{- end }}
-      {{- if .Values.podPriority.cleanuphook.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.cleanuphook.priorityClassName | quote }}
       {{- end }}
       containers:
         - name: backup-pgdata
@@ -1043,18 +900,12 @@ spec:
             value: {{ .Values.highAvailability.replicaCount | quote }}
           - name: CLUSTER_NAME
             value: {{ template "eric-data-document-database-pg.name" . }}
-          - name: RELEASE_NAME
-            value: {{ .Release.Name | quote }}
           - name: KUBERNETES_NAMESPACE
             valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
           - name: TRANSIT_COMPONENT
             value: {{ template "eric-data-document-database-pg.name" . }}-transit-pvc
           - name: TARGET_PG_VERSION
-            value: "13"
-          - name: PHASE
-            value: "upgrading"
-          - name: BR_LOG_LEVEL
-            value: {{ .Values.brAgent.logLevel }}
+            value: {{ default "10" .Values.targetPGversion | quote }}
           {{- if (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false") }}
           - name: PGPASSWORD
             valueFrom:
@@ -1091,7 +942,7 @@ spec:
             - "
               /usr/bin/catatonit -- 
               {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
-              {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/backuppgdata.sh; RES=$?; sleep 3; exit ${RES}"
+              {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/backuppgdata.sh; sleep 3"
           {{- else }}
           command:
             - /bin/bash
@@ -1103,7 +954,6 @@ spec:
             "
           {{- end }}
           securityContext:
-            {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "backup-pgdata") | nindent 12 }}
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
@@ -1166,33 +1016,38 @@ spec:
 {{- end }}
 
 
-{{- define "eric-data-document-database-pg.restorePGDataJob" }}
+{{- define "eric-data-document-database-pg.postUpgradeHook" }}
 {{- if or .Release.IsUpgrade .Release.IsInstall }}
 {{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
 {{- $defaultLogshipperValue := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "eric-data-document-database-pg.name" . }}-restore-pgdatau
-  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
-  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+  name: {{ template "eric-data-document-database-pg.name" . }}-restore-pgdata
+  labels:
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
+  annotations:
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "-5"
 spec:
   backoffLimit: 0
   template:
     metadata:
       labels:
-        {{- $podTemplateLabels := dict -}}
-        {{- $_ := set $podTemplateLabels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "restore-pgdata") -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $podTemplateLabels)) | nindent 8 }}
+        app: {{ template "eric-data-document-database-pg.name" . }}-restore-pgdata
       annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "Hook" "containerList" (list "restore-pgdata")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- if .Values.bandwidth.cleanuphook.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.cleanuphook.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+        ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+        ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
     spec:
       restartPolicy: Never
       serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-pgdata-hook
@@ -1200,8 +1055,7 @@ spec:
       imagePullSecrets:
         - name: {{ template "eric-data-document-database-pg.pullSecrets" . }}
       {{- end }}
-      securityContext:
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
+      
       {{- if or (not (empty .Values.nodeSelector.cleanuphook)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
       nodeSelector:
 {{- include "eric-data-document-database-pg.nodeSelector.cleanuphook" . | nindent 8 }}
@@ -1209,9 +1063,6 @@ spec:
       tolerations:
       {{- if .Values.tolerations }}
 {{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.cleanuphook" . | indent 8 }}
-      {{- end }}
-      {{- if .Values.podPriority.cleanuphook.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.cleanuphook.priorityClassName | quote }}
       {{- end }}
       containers:
         - name: restore-pgdata
@@ -1229,19 +1080,7 @@ spec:
           - name: TRANSIT_COMPONENT
             value: {{ template "eric-data-document-database-pg.name" . }}-transit-pvc
           - name: TARGET_PG_VERSION
-            value: "13"
-          - name: PHASE
-            value: "upgrading"
-          - name: PG_TERM_PERIOD
-            {{- if .Values.terminationGracePeriodSeconds }}
-            value: {{ default "30" .Values.terminationGracePeriodSeconds.postgres | quote }}
-            {{- else }}
-            value: "30"
-            {{- end }}
-          - name: BR_LOG_LEVEL
-            value: {{ .Values.brAgent.logLevel }}
-          - name: NETWORK_POLICY_HOOK_NAME
-            value: {{ template "eric-data-document-database-pg.name" . }}-hook
+            value: {{ default "10" .Values.targetPGversion | quote }}
           {{- if (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false") }}
           - name: PGPASSWORD
             valueFrom:
@@ -1278,7 +1117,7 @@ spec:
             - "
               /usr/bin/catatonit -- 
               {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
-              /usr/bin/python {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/postupgrade_handler.py; RES=$?; sleep 3; exit ${RES}"
+              /usr/bin/python {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/postupgrade_handler.py; sleep 3"
           {{- else }}
           command:
             - /bin/bash
@@ -1290,7 +1129,6 @@ spec:
             "
           {{- end }}
           securityContext:
-            {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "restore-pgdata") | nindent 12 }}
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
@@ -1332,11 +1170,11 @@ spec:
               ephemeral-storage: {{ index .Values.resources.kube_client.limits "ephemeral-storage" | quote }}
             {{- end }}
       {{- if (has "stream" .Values.log.outputs) }}
-      {{- include "eric-data-document-database-pg.logshipper-container" . | indent 8 }}
+      {{- include "eric-data-document-database-pg.logshipper-container-hook" . | indent 8 }}
       {{- end }}
       volumes:
       {{- if (has "stream" .Values.log.outputs) }}
-      {{- include "eric-data-document-database-pg.logshipper-volume" . | indent 6 }}
+      {{- include "eric-data-document-database-pg.logshipper-volume-hook" . | indent 6 }}
       {{- end }}
       - name: tmp
         emptyDir: {}
@@ -1353,194 +1191,6 @@ spec:
 {{- end }}
 
 
-{{- define "eric-data-document-database-pg.cleanPGDataJob" }}
-{{- if or .Release.IsUpgrade .Release.IsInstall }}
-{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
-{{- $defaultLogshipperValue := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) -}}
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ template "eric-data-document-database-pg.name" . }}-hook-cleanjob
-  labels:
-    {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
-  annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "post-upgrade" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "hook-succeeded,before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-5" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
-spec:
-  template:
-    metadata:
-      labels:
-        {{- $appLabel := dict "app" (printf "%s-hook-cleanjob" (include "eric-data-document-database-pg.name" .)) -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- $_ := unset $commonLabels "app" -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $appLabel $commonLabels)) | trim | nindent 8 }}
-      annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "Hook" "containerList" (list "hook-cleanjob")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- if .Values.bandwidth.cleanuphook.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.cleanuphook.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
-    spec:
-      restartPolicy: Never
-      serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-hook
-      {{- if include "eric-data-document-database-pg.pullSecrets" . }}
-      imagePullSecrets:
-        - name: {{ template "eric-data-document-database-pg.pullSecrets" . }}
-      {{- end }}
-      securityContext:
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
-      {{- if or (not (empty .Values.nodeSelector.cleanuphook)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
-      nodeSelector:
-{{- include "eric-data-document-database-pg.nodeSelector.cleanuphook" . | nindent 8 }}
-      {{- end }}
-      tolerations:
-      {{- if .Values.tolerations }}
-{{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.cleanuphook" . | indent 8 }}
-      {{- end }}
-      {{- if .Values.podPriority.cleanuphook.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.cleanuphook.priorityClassName | quote }}
-      {{- end }}
-      containers:
-        - name: hook-cleanjob
-          image: {{ template "eric-data-document-database-pg.kubeclientImagePath" . }}
-          imagePullPolicy: {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
-          env:
-          - name: CLUSTER_NAME
-            value: {{ template "eric-data-document-database-pg.name" . }}
-          - name: KUBERNETES_NAMESPACE
-            valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
-          {{- if and (.Release.IsUpgrade) (has "stream" .Values.log.outputs) }}
-          - name: CONTAINER_NAME
-            value:  {{ template "eric-data-document-database-pg.name" . }}-hook
-          - name: LOG_REDIRECT
-            value: {{ template "eric-data-document-database-pg.logRedirect" . }}
-          - name: LOG_FORMAT
-            value: json
-          command:
-            - /bin/bash
-            - -c
-          args:
-            - "/usr/bin/catatonit --
-              {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
-              /usr/bin/python {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/cleanjob.py
-              --clean_upgrading_pgdata_job; sleep 3"
-          {{- else }}
-          command:
-            - /bin/bash
-            - -c
-          args:
-            - "/usr/bin/catatonit -- /usr/bin/python
-              {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/cleanjob.py
-              --clean_upgrading_pgdata_job"
-          {{- end }}
-          securityContext:
-            {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "hook-cleanjob") | nindent 12 }}
-            allowPrivilegeEscalation: false
-            privileged: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - all
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-          {{- if and (.Release.IsUpgrade) (has "stream" .Values.log.outputs) }}
-            {{- include "eric-data-document-database-pg.logshipper-storage-path" . | indent 12 }}
-          {{- end }}
-          resources:
-            requests:
-            {{- if .Values.resources.kube_client.requests.cpu }}
-              cpu: {{ .Values.resources.kube_client.requests.cpu  | quote }}
-            {{- end }}
-            {{- if .Values.resources.kube_client.requests.memory }}
-              memory: {{ .Values.resources.kube_client.requests.memory  | quote }}
-            {{- end }}
-            {{- if index .Values.resources.kube_client.requests "ephemeral-storage" }}
-              ephemeral-storage: {{ index .Values.resources.kube_client.requests "ephemeral-storage" | quote }}
-            {{- end }}
-            limits:
-            {{- if .Values.resources.kube_client.limits.cpu }}
-              cpu: {{ .Values.resources.kube_client.limits.cpu  | quote }}
-            {{- end }}
-            {{- if .Values.resources.kube_client.limits.memory }}
-              memory: {{ .Values.resources.kube_client.limits.memory  | quote }}
-            {{- end }}
-            {{- if index .Values.resources.kube_client.limits "ephemeral-storage" }}
-              ephemeral-storage: {{ index .Values.resources.kube_client.limits "ephemeral-storage" | quote }}
-            {{- end }}
-
-      {{- if and (.Release.IsUpgrade) (has "stream" .Values.log.outputs) }}
-      {{- include "eric-data-document-database-pg.logshipper-container-hook" . | indent 8 }}
-      {{- end }}
-      volumes:
-      {{- if and (.Release.IsUpgrade) (has "stream" .Values.log.outputs) }}
-      {{- include "eric-data-document-database-pg.logshipper-volume-hook" . | indent 6 }}
-      {{- end }}
-      - name: tmp
-        emptyDir: {}
-{{- end -}}
-{{- end }}
-
-{{- define "eric-data-document-database-pg.networkPolicyHook" }}
-{{- if or .Release.IsUpgrade .Release.IsInstall }}
-{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
-{{- $defaultLogshipperValue := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) -}}
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {{ template "eric-data-document-database-pg.name" . }}-hook
-  labels:
-    {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
-  annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-upgrade" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-3" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: {{ template "eric-data-document-database-pg.name" . }}
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app.kubernetes.io/name: {{ template "eric-data-document-database-pg.name" . }}
-    - podSelector:
-        matchLabels:
-          app: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
-    - podSelector:
-        matchLabels:
-          app: {{ template "eric-data-document-database-pg.name" . }}-restore-pgdata
-    - podSelector:
-        matchLabels:
-          {{ template "eric-data-document-database-pg.name" . }}-access: "true"
-    - podSelector:
-        matchLabels:
-          app.kubernetes.io/name: eric-pm-server
-{{- include "eric-data-document-database-pg.networkPolicy.matchLabels" . | indent 4 }}
-    ports:
-    - port: 8083
-      protocol: TCP
-    - port: {{ .Values.service.port }}
-      protocol: TCP
-{{- if .Values.metrics.enabled }}
-    - port: {{ .Values.metrics.service.port }}
-      protocol: TCP
-{{- end }}
-{{- end -}}
-{{- end }}
-
-
 {{- define "eric-data-document-database-pg.upgradeHookPVC" }}
 {{- if or .Release.IsUpgrade .Release.IsInstall }}
 apiVersion: v1
@@ -1548,22 +1198,20 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
   labels:
-    {{- $pvcLabels := dict -}}
-    {{- $_ := set $pvcLabels "app" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $_ := set $pvcLabels "release" .Release.Name -}}
-    {{- $_ := set $pvcLabels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-    {{- /*TODO: support overriding of heritage: Tiller ?*/ -}}
-    {{- $_ := set $pvcLabels "heritage" "Tiller" -}} {{- /* workaround after migrate from helm2 to helm3. Avoid upgrade fail. ADPPRG-26626 */ -}}
-    {{- $_ := set $pvcLabels "app.kubernetes.io/instance" .Release.Name -}}
-    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $pvcLabels)) | trim | nindent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    release: {{ .Release.Name | quote }}
+    cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+    ## workaround after migrate from helm2 to helm3. Avoid upgrade fail. ADPPRG-26626
+    heritage: Tiller
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $pvcAnnotations := dict -}}
-    {{- $_ := set $pvcAnnotations "helm.sh/hook" "pre-upgrade" -}}
-    {{- $_ := set $pvcAnnotations "helm.sh/hook-delete-policy" "before-hook-creation" -}}
-    {{- $_ := set $pvcAnnotations "helm.sh/hook-weight" "-5" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $pvcAnnotations)) | nindent 8 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "-5"
 spec:
   accessModes:
     - ReadWriteOnce
@@ -1577,24 +1225,32 @@ spec:
 {{/*
 check if a default value of max_slot_wal_keep_size needs to be set
 */}}
-{{- define "eric-data-document-database-pg.default-maxslotwalkeepsize-needed" -}}  
-  {{- if .Values.persistentVolumeClaim.housekeeping_threshold -}}
-    {{- if (eq "100" (.Values.persistentVolumeClaim.housekeeping_threshold | toString) ) -}}
-       {{- "false" -}}
-    {{- else -}}
-       {{- if (index .Values "postgresConfig") -}}
-         {{- if (index .Values "postgresConfig" "max_slot_wal_keep_size") -}}
-           {{- "false" -}}
+{{- define "eric-data-document-database-pg.default-maxslotwalkeepsize-needed" -}}
+{{- if .Values.targetPGversion -}}
+  {{- if (eq "13" (.Values.targetPGversion | toString) ) -}}
+    {{- if .Values.persistentVolumeClaim.housekeeping_threshold -}}
+      {{- if (eq "100" (.Values.persistentVolumeClaim.housekeeping_threshold | toString) ) -}}
+         {{- "false" -}}
+      {{- else -}}
+         {{- if (index .Values "postgresConfig") -}}
+           {{- if (index .Values "postgresConfig" "max_slot_wal_keep_size") -}}
+             {{- "false" -}}
+           {{- else -}}
+             {{- "true" -}}
+           {{- end -}}
          {{- else -}}
            {{- "true" -}}
          {{- end -}}
-       {{- else -}}
-         {{- "true" -}}
-       {{- end -}}
+      {{- end -}}
+    {{- else -}}
+       {{- "false" -}}
     {{- end -}}
   {{- else -}}
-     {{- "false" -}}
+    {{- "false" -}}
   {{- end -}}
+{{- else -}}
+{{- "false" -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -1618,16 +1274,4 @@ Define probes in ddb
 {{- define "eric-data-document-database-pg.probes" -}}
 {{- $default := .Values.probes -}}
 {{- $default | toJson -}}
-{{- end -}}
-
-
-{{/*
-Define networkpolicy know services
-*/}}
-{{- define "eric-data-document-database-pg.networkPolicy.matchLabels" -}}
-{{- range $index, $label := .Values.networkPolicy.matchLabels }}
-- podSelector:
-    matchLabels:
-      app.kubernetes.io/name: {{ $label }}
-{{- end -}}
 {{- end -}}
