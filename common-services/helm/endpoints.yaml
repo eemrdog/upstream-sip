@@ -1,4 +1,4 @@
 deploymentURIsLocal:
-  - "http://common-services.sip-dev:8080"
+  - "http://eric-data-distributed-coordinator-ed.sip-dev:2379"
 #deploymentURIsPublic:
 #  - "http://common-services.sip-dev.keptn.dmpnext.com:80/"
