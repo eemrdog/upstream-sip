@@ -57,7 +57,7 @@ eric-bss-notification-service-database-pg:
   persistentVolumeClaim:
     enabled: true
     size: 8Gi
-    storageClassName: local-storage
+    storageClassName: gp2
   postgresDatabase: bss-notification-service
   resources:
     bra:
@@ -159,7 +159,7 @@ eric-cm-database-pg:
   persistentVolumeClaim:
     enabled: true
     size: 2Gi
-    storageClassName: local-storage
+    storageClassName: gp2
   postgresDatabase: adp_gs_cm
   resources:
     bra:
@@ -303,7 +303,7 @@ eric-ctrl-bro:
   persistence:
     persistentVolumeClaim:
       size: 5Gi
-      storageClassName: local-storage
+      storageClassName: gp2
   resources:
     backupAndRestore:
       limits:
@@ -331,7 +331,7 @@ eric-data-coordinator-zk:
   persistence:
     persistentVolumeClaim:
       size: 5Gi
-      storageClassName: local-storage
+      storageClassName: gp2
   replicas: 3
   resources:
     brAgent:
@@ -379,7 +379,7 @@ eric-data-distributed-coordinator-ed:
   persistence:
     persistentVolumeClaim:
       size: 1Gi
-      storageClassName: local-storage
+      storageClassName: gp2
   pods:
     etcd:
       replicas: 2
@@ -448,7 +448,7 @@ eric-data-message-bus-kf:
     persistentVolumeClaim:
       enabled: true
       size: 5Gi
-      storageClassName: local-storage
+      storageClassName: gp2
   readynessProbeTimeoutSeconds: 10
   replicas: 3
   security:
@@ -506,7 +506,7 @@ eric-data-object-storage-mn:
   mountPath: /export
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-storage
+    storageClassName: gp2
     storageConnectivity: local
     subPath: ""
     volumeNamePrefix: export
@@ -533,15 +533,15 @@ eric-data-search-engine:
     backup:
       persistentVolumeClaim:
         size: 1Gi
-        storageClassName: local-storage
+        storageClassName: gp2
     data:
       persistentVolumeClaim:
         size: 1Gi
-        storageClassName: local-storage
+        storageClassName: gp2
     master:
       persistentVolumeClaim:
         size: 64Mi
-        storageClassName: local-storage
+        storageClassName: gp2
   replicaCount:
     data: 2
     ingest: 1
@@ -859,7 +859,7 @@ eric-fm-database-pg:
   persistentVolumeClaim:
     enabled: true
     size: 2Gi
-    storageClassName: local-storage
+    storageClassName: gp2
   postgresDatabase: adp_gs_ah
   resources:
     bra:
@@ -958,7 +958,7 @@ eric-idam-database-pg:
   persistentVolumeClaim:
     enabled: true
     size: 2Gi
-    storageClassName: local-storage
+    storageClassName: gp2
   postgresDatabase: idam
   resources:
     bra:
@@ -1307,7 +1307,7 @@ eric-nels-database-pg:
   persistentVolumeClaim:
     enabled: true
     size: 8Gi
-    storageClassName: local-storage
+    storageClassName: gp2
   postgresDatabase: licensemanager_db
   resources:
     bra:
