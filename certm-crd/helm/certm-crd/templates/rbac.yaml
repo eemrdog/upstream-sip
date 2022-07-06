@@ -1,0 +1,79 @@
+{{ if or (.Values.waitForCustomResourcesPublished) (eq (.Values.waitForCustomResourcesPublished | toString) "<nil>" ) }}
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ template "eric-sec-certm-crd.name" . }}-service-account"
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+automountServiceAccountToken: true
+
+---
+
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "{{ template "eric-sec-certm-crd.name" . }}-role"
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+rules:
+  - apiGroups: ["com.ericsson.sec.certm"]
+    resources: ["externalcertificates"]
+    verbs: ["list"]
+
+  - apiGroups: ["certm.sec.ericsson.com"]
+    resources: ["externalcertificates"]
+    verbs: ["list"]
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "{{ template "eric-sec-certm-crd.name" . }}-rolebinding"
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ template "eric-sec-certm-crd.name" . }}-role"
+subjects:
+- kind: ServiceAccount
+  name: "{{ template "eric-sec-certm-crd.name" . }}-service-account"
+
+---
+
+{{- if .Values.global -}}
+{{- if .Values.global.security -}}
+{{- if .Values.global.security.policyBinding -}}
+{{- if .Values.global.security.policyBinding.create -}}
+{{- if eq (.Values.global.security.policyBinding.create | toString | lower) "true" -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ template "eric-sec-certm-crd.name" . }}-security-policy-rolebinding"
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.securityPolicy.annotations" . | nindent 4 }}
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: "{{ template "eric-sec-certm-crd.securityPolicy.reference" . }}"
+subjects:
+- kind: ServiceAccount
+  name: "{{ template "eric-sec-certm-crd.name" . }}-service-account"
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- end }}
