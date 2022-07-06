@@ -1,4 +1,4 @@
-#deploymentURIsLocal:
-#  - "<my-local-url>" # e.g. http://my-service.sockshop-dev:8080
-deploymentURIsPublic:
-  - "http://common-services.sip-dev.keptn.dmpnext.com:80/"
+deploymentURIsLocal:
+  - "http://common-services.sip-dev:8080"
+#deploymentURIsPublic:
+#  - "http://common-services.sip-dev.keptn.dmpnext.com:80/"
