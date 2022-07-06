@@ -5,7 +5,7 @@ kind: InternalCertificate
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-ldap-client-certificate
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
   annotations:
     {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
 spec:
@@ -32,3 +32,4 @@ spec:
       # Whether Extended Key Usage flag TLS Web Server Authentication is set or not.
       tlsServerAuth: false
 {{- end }}
+

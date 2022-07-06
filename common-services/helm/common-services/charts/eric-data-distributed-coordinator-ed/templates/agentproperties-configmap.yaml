@@ -18,7 +18,7 @@ data:
 {{ else }}
     dced.agent.id=dc-etcd
 {{- end }}
-    dced.agent.apiVersion=4.0.10
+    dced.agent.apiVersion=4.0.7
     dced.agent.fragment.backup.data.path={{.Values.brAgent.backupFileName}}
     dced.endpoint.url={{ template "eric-data-distributed-coordinator-ed.agent.endpoint" . }}
     {{- if .Values.brAgent.backupTypeList }}

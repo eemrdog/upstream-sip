@@ -1,6 +1,6 @@
 {{/*
 Template of Log Shipper sidecar
-Version: 9.1.0+33
+Version: 7.3.0-23
 */}}
 
 {{/*
@@ -15,7 +15,7 @@ This hides defaults from values file.
   {{- if $productInfo -}}
     {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" $productInfo.images.logshipper.registry )) -}}
   {{- else -}}
-    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se" )) -}}
+    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com" )) -}}
   {{- end -}}
   {{- if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
@@ -72,17 +72,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end }}
 
-{{/*
-Parameterize and service specific image path
-*/}}
-{{- define "eric-data-object-storage-mn.logshipper-image" }}
-{{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") }}
-{{- $registry := default $productInfo.images.logshipper.registry (default (((.Values).global).registry).url (default (((.Values).images).registry).url ((((.Values).images).logshipper).registry).url)) }}
-{{- $repoPath := default $productInfo.images.logshipper.repoPath (default ((.Values).images).repoPath (((.Values).images).logshipper).repoPath) }}
-{{- $name := $productInfo.images.logshipper.name }}
-{{- $tag := default $productInfo.images.logshipper.tag (default (((.Values).images).logshipper).tag) }}
-{{- printf "%s/%s/%s:%s" $registry $repoPath $name $tag }}
-{{- end }}
 
 {{/*
 Log Shipper sidecar container spec
@@ -91,8 +80,8 @@ Log Shipper sidecar container spec
 {{- $g := fromJson (include "eric-data-object-storage-mn.logshipper-global" .) }}
 {{- $default := fromJson (include "eric-data-object-storage-mn.logshipper-default-value" .) }}
 - name: "logshipper"
-  imagePullPolicy: {{ or $default.images.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
-  image: {{ include "eric-data-object-storage-mn.logshipper-image" . }}
+  imagePullPolicy: {{ or $default.imageCredentials.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
+  image: "{{ or $default.imageCredentials.logshipper.registry.url $g.registry.url }}/{{ $default.imageCredentials.logshipper.repoPath }}/{{ $default.images.logshipper.name }}:{{ $default.images.logshipper.tag }}"
   args:
     - /opt/filebeat/init.sh
   securityContext:
@@ -217,7 +206,7 @@ Log Shipper sidecar related volumes
   {{- end }}
   {{- if $default.logshipper.storageMedium }}
     medium: {{ $default.logshipper.storageMedium | quote }}
-  {{- end }}
+    {{- end }}
 - name: "{{ include "eric-data-object-storage-mn.logshipper-service-fullname" . }}-logshipper-cfg"
   configMap:
     name: "{{ include "eric-data-object-storage-mn.logshipper-service-fullname" . }}-logshipper-cfg"
@@ -266,20 +255,20 @@ spec:
 
 {{- define "eric-data-object-storage-mn.logshipper-default-value" -}}
   {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
-  {{- $default := dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "initialDelaySeconds" 1 ))) -}}
-  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "timeoutSeconds" 10 )))) -}}
-  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "periodSeconds" 10 )))) -}}
-  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "failureThreshold" 3 )))) -}}
-  {{- $default := merge $default (dict "images" (dict "logshipper" (dict "registry" (dict "url" )))) -}}
-  {{- $default := merge $default (dict "images" (dict "logshipper" (dict "registry" (dict "imagePullPolicy" )))) -}}
+  {{- $default := dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "initialDelaySeconds" "1" ))) -}}
+  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "timeoutSeconds" "10" )))) -}}
+  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "periodSeconds" "10" )))) -}}
+  {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "failureThreshold" "3" )))) -}}
+  {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "registry" (dict "url" )))) -}}
+  {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "registry" (dict "imagePullPolicy" )))) -}}
   {{- if $productInfo -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "repoPath" $productInfo.images.logshipper.repoPath ))) -}}
+    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" $productInfo.images.logshipper.repoPath ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" $productInfo.images.logshipper.name ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" $productInfo.images.logshipper.tag ))) -}}
   {{- else -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
+    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" "eric-log-shipper" ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "9.1.0-33" ))) -}}
+    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "7.2.0-20" ))) -}}
   {{- end -}}
   {{- $default := merge $default (dict "logshipper" (dict "runAndExit" false )) -}}
   {{- $default := merge $default (dict "logshipper" (dict "shutdownDelay" 10 )) -}}
@@ -291,5 +280,8 @@ spec:
   {{- $default := merge $default (dict "logshipper" (dict "logplane" "adp-app-logs")) -}}
   {{- $default := merge $default (dict "log" (dict "logshipper" (dict "level" "info" ))) -}}
   {{- $default := mergeOverwrite $default .Values -}}
+  {{- if ((.Values.livenessProbe).logshipper) }}
+     {{- $default := mergeOverwrite $default.probes.logshipper.livenessProbe .Values.livenessProbe.logshipper -}}
+  {{- end }}
   {{- $default | toJson -}}
 {{- end -}}

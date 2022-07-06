@@ -13,9 +13,8 @@ metadata:
   annotations:
     {{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
   labels:
-    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
-    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
-    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels)) | indent 4}}
+    {{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+    {{- include "eric-fh-alarm-handler.authz-proxy-labels" . | nindent 4 }}
 spec:
 {{ include "eric-fh-alarm-handler.authz-proxy-server-cert-spec" . | indent 2 }}
 {{- end }}

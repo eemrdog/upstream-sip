@@ -3,7 +3,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ template "eric-pm-server.name" . }}
-  annotations: {{- include "eric-pm-server.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-server.annotations" . | nindent 2 }}
   labels: {{- include "eric-pm-server.labels" . | nindent 4 }}
 spec:
   podSelector:

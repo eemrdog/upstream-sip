@@ -1,5 +1,5 @@
 Ericsson object storage can be accessed via port {{ .Values.service.port }} on the following DNS name from within your cluster:
-{{ template "eric-data-object-storage-mn.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+{{ template "eric-data-object-storage-mn.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
 
 
 {{ if and (.Values.networkPolicy.enabled) (not .Values.networkPolicy.allowExternal) }}

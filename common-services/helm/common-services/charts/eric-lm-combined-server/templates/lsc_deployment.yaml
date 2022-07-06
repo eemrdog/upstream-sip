@@ -22,12 +22,7 @@ spec:
       labels:
         {{- include "eric-lm-combined-server.lsc-labels" . | nindent 8 }}
       annotations:
-        {{- $podTempAnn := dict -}}
-        {{- if index .Values "bandwidth" "eric-lm-license-server-client" "maxEgressRate" }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (index .Values "bandwidth" "eric-lm-license-server-client" "maxEgressRate") -}}
-        {{- end }}
-        {{- $commonAnn := include "eric-lm-combined-server.annotations" . | fromYaml -}}
-        {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        {{- include "eric-lm-combined-server.annotations" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "eric-lm-combined-server.name" . }}
       {{- if include "eric-lm-combined-server.pullSecrets" . }}
@@ -245,8 +240,6 @@ spec:
               value: {{ .Values.database.driverPath | quote }}
             - name: DATABASE_DIALECT
               value: {{ include "eric-lm-combined-server.database-dialect" . | quote }}
-            - name: LICENSE_SERVER_CLIENT_ID
-              value: {{ .Values.licenseServerClient.licenseServer.clientId | quote }}
             - name: LICENSE_SERVER_HOST
               value: {{ .Values.licenseServerClient.licenseServer.thrift.host | quote }}
             - name: LICENSE_SERVER_PORT
@@ -259,8 +252,10 @@ spec:
               value: {{ .Values.licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDown | quote }}
             - name: DELAY_AFTER_LICENSE_SERVER_DOWN_MAX_RANDOM_VALUE
               value: {{ .Values.licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDownMaxRandomValue | quote }}
+            - name: LICENSE_SERVER_CLIENT_ID
+              value: {{ .Values.licenseServerClient.licenseServer.clientId | quote }}
             - name: ASIH_SERVER_HOST
-              value: {{ .Values.licenseServerClient.asih.host | quote  }}
+              value: {{ .Values.licenseServerClient.asih.host | quote }}
             - name: ASIH_SERVER_PORT
               value: {{ .Values.licenseServerClient.asih.port | quote }}
             {{- if eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true" }}
@@ -271,8 +266,6 @@ spec:
             - name: ASIH_CLIENT_KEY_PATH
               value: {{ printf "%s/%s" "/opt/LicenseServerClient/asih/certs" (include "eric-lm-combined-server.asih.client-cert.key-file" .) | quote }}
             {{- end }}
-            - name: APPLICATION_ID_FALURE_RETRY_INTERVAL_MILLIS
-              value: {{ include "eric-lm-combined-server.asih.failureRetryInterval" . | quote }}
             - name: AGGREGATE_PEAK_REPORT_INTERVAL
               value: {{ .Values.licenseServerClient.timer.peakUsageReportAggregationPeriod | quote }}
             - name: AGGREGATE_CUMULATIVE_REPORT_INTERVAL
@@ -307,13 +300,6 @@ spec:
             - name: liveness-port
               containerPort: {{ include "eric-lm-combined-server.lsc-livenessProbePort" . }}
               protocol: TCP
-          startupProbe:
-            tcpSocket:
-              port: liveness-port
-            initialDelaySeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "initialDelaySeconds" }}
-            periodSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "periodSeconds" }}
-            failureThreshold: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "failureThreshold" }}
-            timeoutSeconds: {{ index .Values "probes" "eric-lm-license-server-client" "startupProbe" "timeoutSeconds" }}
           livenessProbe:
             tcpSocket:
               port: liveness-port
@@ -354,7 +340,7 @@ spec:
           {{- end }}
       {{- if include "eric-lm-combined-server.nodeSelector.licenseServerClient" . }}
       nodeSelector:
-        {{- include "eric-lm-combined-server.nodeSelector.licenseServerClient" . | nindent 8}}
+        {{ template "eric-lm-combined-server.nodeSelector.licenseServerClient" . }}
       {{- end }}
       affinity:
       {{- with .Values.licenseServerClient.affinity }}
@@ -386,7 +372,4 @@ spec:
       {{- if .Values.tolerations.licenseServerClient }}
       tolerations:
         {{- toYaml .Values.tolerations.licenseServerClient | nindent 8 }}
-      {{- end }}
-      {{- if (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") }}
-      priorityClassName: {{ (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") | quote }}
       {{- end }}

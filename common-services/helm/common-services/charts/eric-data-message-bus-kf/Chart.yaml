@@ -4,4 +4,4 @@ maintainers:
 - email: PDLCOREAIA@pdl.internal.ericsson.com
   name: AIA
 name: eric-data-message-bus-kf
-version: 1.27.0+21
+version: 1.23.0+17

@@ -6,4 +6,4 @@ maintainers:
 name: eric-pm-bulk-reporter
 sources:
 - https://gerrit.ericsson.se/#/admin/projects/adp-gs/adp-gs-pm-bulk-reporter
-version: 7.5.0+19
+version: 6.7.0+51

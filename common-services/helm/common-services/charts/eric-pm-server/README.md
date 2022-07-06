@@ -5,20 +5,7 @@ The following tables lists the configurable parameters of the PM Server chart an
 
 Parameter | Description | Default
 --------- | ----------- | -------
-`affinity.podAntiAffinity` | Define inter-pod anti-affinity policy to kubernetes scheduler. Supported values are "hard" and "soft". | `"hard"`
 `annotations` | List of additional key/value pairs of annotations appended to every resource object created within PM Server. | `{}`
-`appArmorProfile.eric-pm-configmap-reload.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used for eric-pm-configmap-reload container. | `""`
-`appArmorProfile.eric-pm-configmap-reload.type` | Configuration of AppArmor profile type for eric-pm-configmap-reload container. Supported values are unconfined, runtime/default, localhost and "". | `""`
-`appArmorProfile.eric-pm-exporter.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used for eric-pm-exporter container. | `""`
-`appArmorProfile.eric-pm-exporter.type` | Configuration of AppArmor profile type for eric-pm-exporter container. Supported values are unconfined, runtime/default, localhost and "". | `""`
-`appArmorProfile.eric-pm-reverseproxy.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used for eric-pm-reverseproxy container. | `""`
-`appArmorProfile.eric-pm-reverseproxy.type` | Configuration of AppArmor profile type for eric-pm-reverseproxy container. Supported values are unconfined, runtime/default, localhost and "". | `""`
-`appArmorProfile.eric-pm-server.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used for eric-pm-server container. | `""`
-`appArmorProfile.eric-pm-server.type` | Configuration of AppArmor profile type for eric-pm-server container. Supported values are unconfined, runtime/default, localhost and "". | `""`
-`appArmorProfile.logshipper.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used for logshipper container. | `""`
-`appArmorProfile.logshipper.type` | Configuration of AppArmor profile type for logshipper container. Supported values are unconfined, runtime/default, localhost and "". | `""`
-`appArmorProfile.localhostProfile` | The 'localhost' profile requires a profile name to be provided. The name of the local appArmor profile to be used. The setting applies to all container when the container specific parameter is omitted. | `""`
-`appArmorProfile.type` | Configuration of AppArmor profile type. The setting applies to all container when the container specific parameter is omitted. Supported values are unconfined, runtime/default, localhost and "". | `""`
 `config.certm_tls` | TLS configuration for certm. Multiple endpoints can be configured | `[]`
 `config.certm_tls.clientCertName` | Same name as used in the CLI action `keystore asymmetric-keys install-asymmetric-key-pkcs12 name <clientKeyName> certificate-name <clientCertName> ...` | `commented out`
 `config.certm_tls.clientKeyName` | Same name as used in the CLI action `keystore asymmetric-keys install-asymmetric-key-pkcs12 name <clientKeyName> certificate-name <clientCertName> ...` | `commented out`
@@ -26,10 +13,9 @@ Parameter | Description | Default
 `config.certm_tls.trustedCertName` | Same name as used in the CLI action `install-certificate-pem name <trustedCertName> pem ...` | `commented out`
 `config.recording_rules` | Define recording rules | `{}`
 `config.remote_write` | Define remote write endpoints | `[]`
-`global.networkPolicy.enabled` | Global configuration parameter to enable/disable Network Policy for the HTTP(s) and the metrics port of PM Server. Both global and service-level parameters have to be set to `true` for the Network Policy to be deployed. When enabled, the metrics ports of PM Server allow ingress from the PM Bulk Reporter, set via `.Values.security.tls.pmBulkReporter.serviceName`. Services which want to access the HTTP(s) port of PM Service, require the label `eric-pm-service-access: "true"`. | `false`
 `global.pullSecret` | PM Server's global registry pull secret  | `commented out`
 `global.registry.pullSecret` | (deprecated) PM Server's global registry pull secret  | `commented out`
-`global.registry.url`| PM Server's image global registry. |armdocker.rnd.ericsson.se
+`global.registry.url`| PM Server's image global registry. |451278531435.dkr.ecr.us-east-1.amazonaws.com
 `global.timezone`| PM Server's timezone setting | `UTC`
 `global.security.policyBinding.create` | Creates Pod Security Policy (PSP) | `commented out`
 `global.security.policyReferenceMap` | Creates Reference Map for Pod Security Policy (PSP) | `commented out`
@@ -66,10 +52,10 @@ Parameter | Description | Default
 `resources.eric-pm-exporter.requests.memory`| The requested amount of memory per instance for eric-pm-exporter. | `8Mi`
 `resources.eric-pm-exporter.requests.ephemeral-storage`| The requested amount of ephemeral-storage per instance for eric-pm-exporter. | `""`
 `resources.logshipper.limits.cpu`| The maximum amount of CPU allowed per instance for logshipper. | `100m`
-`resources.logshipper.limits.memory`| The maximum amount of memory allowed per instance for logshipper. | `100Mi`
+`resources.logshipper.limits.memory`| The maximum amount of memory allowed per instance for logshipper. | `50Mi`
 `resources.logshipper.limits.ephemeral-storage`| The maximum amount of ephemeral-storage allowed per instance for logshipper. | `""`
 `resources.logshipper.requests.cpu`| The requested amount of CPU per instance for logshipper. | `50m`
-`resources.logshipper.requests.memory`| The requested amount of memory per instance for logshipper. | `50Mi`
+`resources.logshipper.requests.memory`| The requested amount of memory per instance for logshipper. | `25Mi`
 `resources.logshipper.requests.ephemeral-storage`| The requested amount of ephemeral-storage per instance for logshipper. | `""`
 `resources.eric-pm-reverseproxy.limits.cpu`| The maximum amount of CPU allowed per instance for reverseProxy. | `2`
 `resources.eric-pm-reverseproxy.limits.memory`| The maximum amount of memory allowed per instance for reverseProxy. | `64Mi`
@@ -81,20 +67,8 @@ Parameter | Description | Default
 `resources.eric-pm-server.limits.memory`| The maximum amount of memory allowed per instance for the PM Service. | `2048Mi`
 `resources.eric-pm-server.limits.ephemeral-storage`| The maximum amount of ephemeral-storage allowed per instance for the PM Service. | `8Gi`
 `resources.eric-pm-server.requests.cpu`| The requested amount of CPU per instance for the PM Service. | `250m`
-`resources.eric-pm-server.requests.memory`| The requested amount of memory per instance for the PM Service.| `512Mi`
-`resources.eric-pm-server.requests.ephemeral-storage`| The requested amount of ephemeral-storage per instance for the PM Service.| `512Mi`
-`seccompProfile.eric-pm-configmap-reload.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for eric-pm-configmap-reload.| `""`
-`seccompProfile.eric-pm-configmap-reload.type`| Configuration of seccomp profile type for eric-pm-configmap-reload. It overrides pod level configuration.| `""`
-`seccompProfile.eric-pm-exporter.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for eric-pm-exporter.| `""`
-`seccompProfile.eric-pm-exporter.type`| Configuration of seccomp profile type for eric-pm-exporter. It overrides pod level configuration.| `""`
-`seccompProfile.eric-pm-reverseproxy.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for eric-pm-reverseproxy.| `""`
-`seccompProfile.eric-pm-reverseproxy.type`| Configuration of seccomp profile type for eric-pm-reverseproxy. It overrides pod level configuration.| `""`
-`seccompProfile.eric-pm-server.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for eric-pm-server.| `""`
-`seccompProfile.eric-pm-server.type`| Configuration of seccomp profile type for eric-pm-server. It overrides pod level configuration.| `""`
-`seccompProfile.logshipper.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for logshipper.| `""`
-`seccompProfile.logshipper.type`| Configuration of seccomp profile type for logshipper. It overrides pod level configuration.| `""`
-`seccompProfile.localhostProfile`| The 'Localhost' seccomp profile requires a profile name to be provided. The name of the local seccomp profile to be used for pod.| `""`
-`seccompProfile.type`| Configuration of seccomp profile type for pod. The setting applies to all container when the container specific parameter is omitted.| `""`
+`resources.eric-pm-server.requests.memory`| The requested amount of memory per instance for the PM Service. | `512Mi`
+`resources.eric-pm-server.requests.ephemeral-storage`| The requested amount of ephemeral-storage per instance for the PM Service. | `512Mi`
 `server.baseURL`| The external url at which the server can be accessed. | `""`
 `server.configMapOverrideName`| PM Server ConfigMap override where full-name is `{{.Values.server.configMapOverrideName}}` and setting this value will prevent the default server ConfigMap from being generated. | `""`
 `server.extraArgs`| Additional PM Server container arguments. | `{}`
@@ -118,6 +92,7 @@ Parameter | Description | Default
 `server.serviceAccountName`| Service account name for server to use. | `default`
 `server.service.annotations` | Annotations for PM Server service. | `{}`
 `server.service.labels` | Labels for PM Server service. | `{}`
+`server.terminationGracePeriodSeconds`| PM Server Pod termination grace period. | `300`
 `server.tolerations`| Node taints to tolerate (requires Kubernetes >=1.6). | `[]`
 `service.endpoints.scrapeTargets.tls.enforced`| This options applies to the default server ConfigMap for application monitoring. The option controls if both cleartext and TLS scrape targets or only TLS scrape targets will be considered for service discovery. Value optional will allow scraping of both cleartext and TLS targets. Value required will restrict scraping to TLS targets only. | `required`
 'service.endpoints.reverseproxy.tls.enforced'| The option controls if cleartext and TLS or only TLS is allowed on the PM query interface. Value optional allows both cleartext and TLS. Value required allows only TLS. | `required`
@@ -126,10 +101,8 @@ Parameter | Description | Default
 `nodeSelector` | Node labels for PM server pod assignment. | `{}`
 `updateStrategy.server.type`| PM Server updateStrategy. | `{type: RollingUpdate}`
 `securityContext`| Security Context for all containers. | `{}`
-`terminationGracePeriodSeconds.server`| PM Server Pod termination grace period. | `300`
 `tolerations.eric-pm-server`| The toleration specification for the PM Server pod. If both `tolerations.eric-pm-server` and ``server.tolerations` are set, the values set for `tolerations.eric-pm-server` are used. | `[]`
 `topologySpreadConstraints` | TopologySpreadConstraint can be specified to spread PM Server pods among the given topology to achieve high availability and efficient resource utilization.Application deployment engineer can define one or multiple topologySpreadConstraint.| `[]`
-`podPriority.eric-pm-server.priorityClassName` | The configuration of the priority class for the PM Server pod(s) assigning importance relative to other pods. | `""`
 `probes.server.readinessProbe.initialDelaySeconds` | Delay, in seconds, before Kubernetes starts polling the service for liveness. This value may have to be increased if pod restarts are occurring.| `30`
 `probes.server.readinessProbe.periodSeconds` | Interval, in seconds, between readiness probes.| `10`
 `probes.server.readinessProbe.timeoutSeconds` | Number of seconds to allow before the probe times out. | `30`
@@ -160,28 +133,12 @@ Parameter | Description | Default
 `probes.exporter.livenessProbe.timeoutSeconds` | Number of seconds to allow before the probe times out. | `15`
 `probes.exporter.livenessProbe.failureThreshold` | Number of failures before considering the probe to have failed. | `3`
 `probes.exporter.livenessProbe.successThreshold` | Number of successes before considering the probe successful. | `1`
-`probes.logshipper.livenessProbe.initialDelaySeconds` | Delay, in seconds, before Kubernetes starts polling the service for liveness. This value may have to be increased if pod restarts are occurring.| `1`
-`probes.logshipper.livenessProbe.periodSeconds` | Interval, in seconds, between liveness probes.| `10`
-`probes.logshipper.livenessProbe.timeoutSeconds` | Number of seconds to allow before the probe times out. | `10`
-`probes.logshipper.livenessProbe.failureThreshold` | Number of failures before considering the probe to have failed. | `3`
-`probes.logshipper.livenessProbe.successThreshold` | Number of successes before considering the probe successful. | `1`
-`probes.configmapreload.readinessProbe.initialDelaySeconds` | Delay, in seconds, before Kubernetes starts polling the service for liveness. This value may have to be increased if pod restarts are occurring.| `30`
-`probes.configmapreload.readinessProbe.periodSeconds` | Interval, in seconds, between readiness probes.| `10`
-`probes.configmapreload.readinessProbe.timeoutSeconds` | Number of seconds to allow before the probe times out. | `30`
-`probes.configmapreload.readinessProbe.failureThreshold` | Number of failures before considering the probe to have failed. | `3`
-`probes.configmapreload.readinessProbe.successThreshold` | Number of successes before considering the probe successful. | `1`
-`probes.configmapreload.livenessProbe.initialDelaySeconds` | Delay, in seconds, before Kubernetes starts polling the service for liveness. This value may have to be increased if pod restarts are occurring.| `30`
-`probes.configmapreload.livenessProbe.periodSeconds` | Interval, in seconds, between liveness probes.| `10`
-`probes.configmapreload.livenessProbe.timeoutSeconds` | Number of seconds to allow before the probe times out. | `15`
-`probes.configmapreload.livenessProbe.failureThreshold` | Number of failures before considering the probe to have failed. | `3`
-`probes.configmapreload.livenessProbe.successThreshold` | Number of successes before considering the probe successful. | `1`
-`bandwidth.maxEgressRate` | The maximum rate in megabit-per-second at which traffic can leave the pod (Example: `bandwidth.maxEgressRate: 10M` for 10Mbps) | `""`
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
 $ helm install ./eric-pm-server --name my-release \
-    --set terminationGracePeriodSeconds.server=360
+    --set server.terminationGracePeriodSeconds=360
 ```
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
@@ -268,6 +225,3 @@ $ kubectl create clusterrolebinding eric-pm-server-staging \
   --clusterrole=eric-pm-server-staging --serviceaccount=staging:monitoring
 clusterrolebinding "eric-pm-server-staging" created
 ```
-
-### How to configure Pod Priority Class parameter
-The priorityClassName needs to refer to an already existing priority class, otherwise the pod(s) will be rejected. With the default value of an empty string, no priorityClass will be specified and the pod(s) will be assigned the default pod priority class.

@@ -1,12 +1,12 @@
-{{- if (and .Values.egress.syslog.enabled .Values.egress.syslog.tls.enabled .Values.egress.syslog.certificates.useCertmOnboarding) }}
-apiVersion: certm.sec.ericsson.com/v1
+{{- if (and .Values.egress.syslog.enabled .Values.egress.syslog.tls.enabled) }}
+apiVersion: certm.sec.ericsson.com/v1beta1
 kind: ExternalCertificate
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-syslog-output-asymmetric-cert
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-asymmetric-secret
   generated-secret-type: tls

@@ -5,13 +5,14 @@ The apiVersion check can be removed when only k8s >=1.25 is supported
 {{- if $isV1 }}
 apiVersion: policy/v1
 {{- else }}
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 {{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-pdb
   annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
-  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  labels:
+{{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
 spec:
   # return .Values.podDisruptionBudget.minAvailable if replicaCount is greater than 1
   # else (i.e replicaCount <=1) return 0

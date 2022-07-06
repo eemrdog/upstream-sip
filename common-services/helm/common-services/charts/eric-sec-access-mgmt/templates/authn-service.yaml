@@ -4,14 +4,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-authn
-  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
   annotations:
-    {{- $annotations := dict -}}
-    {{- if $global.security.tls.enabled }}
-      {{- $_ := set $annotations "projectcontour.io/upstream-protocol.tls" "http, 8080" -}}
-    {{- end }}
-    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $annotations $common)) | trim | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+    {{ if $global.security.tls.enabled }}
+    projectcontour.io/upstream-protocol.tls: "http, 8080"
+    {{ end }}
 spec:
   {{- if $global.internalIPFamily }}
   ipFamilies: [{{ $global.internalIPFamily | quote }}]

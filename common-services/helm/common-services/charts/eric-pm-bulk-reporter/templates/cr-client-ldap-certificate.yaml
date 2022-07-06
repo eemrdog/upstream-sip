@@ -1,11 +1,10 @@
-{{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
-{{- if and .Values.userConfig.ldap.enabled .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+{{- if .Values.userConfig.ldap.enabled }}
 apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-client-cert
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
 spec:
   kubernetes:
     ## Mandatory; string.

@@ -3,7 +3,7 @@ apiVersion: com.ericsson.sec.certm/v1alpha2
 kind: ExternalCertificate
 metadata:
   name: {{ template "eric-pm-server.name" $ }}-{{ $ct.name }}-asymmetric-key-cert-consumer
-  annotations: {{- include "eric-pm-server.annotations" $ | nindent 4 }}
+  annotations: {{- include "eric-pm-server.annotations" $ | nindent 2 }}
   labels: {{- include "eric-pm-server.labels" $ | nindent 4 }}
 spec:
   generated-secret-name: {{ template "eric-pm-server.name" $ }}-{{ $ct.name }}-asymmetric-key-cert-consumer-secret

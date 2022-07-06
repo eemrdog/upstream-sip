@@ -10,10 +10,14 @@ It is therefore adviced to delete dependent services first, otherwise the genera
 The following commands give a hint of what would need cleanup after SIP-TLS deletion:
 
     kubectl get secret -n {{ .Release.Namespace }} -l com.ericsson.sec.tls/created-by={{ template "eric-sec-sip-tls.name" . }}
-    kubectl get internalcertificates -n {{ .Release.Namespace }}
-    kubectl get internaluserca -n {{ .Release.Namespace }}
+    kubectl get servercertificates -n {{ .Release.Namespace }}
 
 To delete SIP-TLS:
+    helm2:
+    helm delete {{ .Release.Name }}
+    kubectl delete secret -n {{ .Release.Namespace }} {{ template "eric-sec-sip-tls.name" . }}-trusted-root-cert
+
+    helm3:
     helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
     kubectl delete secret -n {{ .Release.Namespace }} {{ template "eric-sec-sip-tls.name" . }}-trusted-root-cert
 
@@ -35,5 +39,5 @@ The following Custom Resource Definitions (CRDs) *must* be installed before inst
 Also, SIP-TLS *must* be installed together with Key Management Service and its dependent services, preferably as part of the same chart.
 
 For further instructions, see
-*Service Identity Provider TLS User Guide* (1/1553-APR 201 36/4), and
+*Service Identity Provider TLS User Guide* (1/1553-APR 201 36/3), and
 *Key Management User Guide* (1/1553-APR 201 29/2).

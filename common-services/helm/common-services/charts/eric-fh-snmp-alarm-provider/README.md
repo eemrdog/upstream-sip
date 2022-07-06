@@ -18,7 +18,7 @@ Parameter | Description | Default
 `global.timezone` | Set the Time zone for SNMP Alarm Provider | `UTC`
 `global.registry.pullSecret`(DEPRECATED)|To be removed in next major version, please use global.pullSecret | `commented out`
 `global.pullSecret` | SNMP Alarm Provider's pull secret | `commented out`
-`global.registry.url` | SNMP Alarm Provider's image repository | `armdocker.rnd.ericsson.se`
+`global.registry.url` | SNMP Alarm Provider's image repository | `451278531435.dkr.ecr.us-east-1.amazonaws.com`
 `resources.alarmprovider.limits.cpu` | SNMP Alarm Provider's resource limits, CPU | `0.2`
 `resources.alarmprovider.limits.memory` | SNMP Alarm Provider's resource limits, memory | `512Mi`
 `resources.alarmprovider.requests.cpu` | SNMP Alarm Provider's resource requests, CPU | `0.1`

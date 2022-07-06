@@ -1,31 +1,12 @@
-{{/*
-Create a user defined label (DR-D1121-068, DR-D1121-060).
-*/}}
-{{ define "eric-sec-access-mgmt.config-labels" }}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $global $service)) -}}
-{{- end -}}
-
-{{/*
-Standard labels of Helm and Kubernetes.
-*/}}
-{{- define "eric-sec-access-mgmt.standard-labels" }}
+{{- define "eric-sec-access-mgmt.labels" }}
 app.kubernetes.io/name: {{ template "eric-sec-access-mgmt.name" . }}
 app.kubernetes.io/version: {{ template "eric-sec-access-mgmt.version" . }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
-{{- end -}}
-
-{{/*
-Merged labels for Default, which includes Standard and Config.
-*/}}
-{{- define "eric-sec-access-mgmt.labels" }}
-  {{- $labels := dict -}}
-  {{- $_ := set $labels "app" (include "eric-sec-access-mgmt.name" . ) -}}
-  {{- $_ := set $labels "chart" (include "eric-sec-access-mgmt.chart" . ) -}}
-  {{- $_ := set $labels "release" (.Release.Name | toString) -}}
-  {{- $_ := set $labels "heritage" (.Release.Service | toString) -}}
-  {{- $config := include "eric-sec-access-mgmt.config-labels" . | fromYaml -}}
-  {{- $standard := include "eric-sec-access-mgmt.standard-labels" . | fromYaml -}}
-  {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $labels $config $standard)) | trim }}
-{{- end -}}
+app: {{ template "eric-sec-access-mgmt.name" . }}
+chart: {{ template "eric-sec-access-mgmt.chart" . }}
+release: "{{ .Release.Name }}"
+heritage: "{{ .Release.Service }}"
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
+{{- end}}

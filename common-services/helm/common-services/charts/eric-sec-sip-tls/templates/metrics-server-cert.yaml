@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-sec-sip-tls.metrics.server.certSecret" . }}
@@ -14,8 +14,8 @@ spec:
     subject:
       cn: {{ template "eric-sec-sip-tls.name" . }}
     extendedKeyUsage:
-      tlsClientAuth: false
-      tlsServerAuth: true
+      tlsClientAuth: False
+      tlsServerAuth: True
     subjectAlternativeName:
       dns:
         - {{ template "eric-sec-sip-tls.metrics.client.subAltNameDN" . }}

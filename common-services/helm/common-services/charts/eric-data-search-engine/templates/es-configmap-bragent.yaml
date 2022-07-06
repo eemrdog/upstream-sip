@@ -1,0 +1,55 @@
+{{- if .Values.brAgent.enabled -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-bragentproperties
+  annotations:
+{{- include "eric-data-search-engine.annotations" . | indent 4 }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    chart: {{ template "eric-data-search-engine.chart" . }}
+    app.kubernetes.io/name: {{ template "eric-data-search-engine.agentname" . }}
+    app.kubernetes.io/version: {{ template "eric-data-search-engine.version" . }}
+    app.kubernetes.io/instance: {{.Release.Name | quote }}
+data:
+  application.properties: |-
+    bro.host= {{ .Values.brAgent.orchestrator.host }}
+    bro.port= {{ .Values.brAgent.orchestrator.grpcPort }}
+    {{- if $g.security.tls.enabled }}
+    se.hostname={{ include "eric-data-search-engine.fullname" . }}-tls
+    {{- else }}
+    se.hostname={{ include "eric-data-search-engine.fullname" . }}
+    {{- end }}
+    se.port= 9200
+    se.tls= {{ $g.security.tls.enabled }}
+    {{- if $g.security.tls.enabled }}
+    se.ca= /run/secrets/sip-tls-trusted-root-cert/ca.crt
+    se.client-private-key= /run/secrets/http-client-certificates-bra/cliprivkey.pem
+    se.client-cert= /run/secrets/http-client-certificates-bra/clicert.pem
+    se.tls-version= TLSv1.2,TLSv1.3
+    {{- end }}
+    repository.type= {{ .Values.brAgent.backupRepository.type }}
+    {{- if eq .Values.brAgent.backupRepository.type "s3" }}
+    s3.endpoint= {{ required "brAgent.backupRepository.s3.endPoint is required when brAgent.backupRepository.type=s3" .Values.brAgent.backupRepository.s3.endPoint }}
+    s3.bucketName= {{ required "brAgent.backupRepository.s3.bucketName is required when brAgent.backupRepository.type=s3" .Values.brAgent.backupRepository.s3.bucketName }}
+    {{- end }}
+    clean.restore= {{ .Values.brAgent.cleanRestore }}
+    agent.id= {{ include "eric-data-search-engine.fullname" . }}
+    agent.scope= {{ join ";" .Values.brAgent.backupTypeList }}
+    {{- if .Values.brAgent.backupDataModelConfigMap }}
+    se.backupconfig-path= /opt/bragent/bin/backupconfig.yaml
+    {{- end }}
+    agent.apiVersion= 3.0
+    agent.softwareVersion.description= Search Engine Backup and Restore Agent
+    agent.softwareVersion.productionDate= 2021-12-21T14:35:55Z
+    agent.softwareVersion.productName= Search Engine
+    agent.softwareVersion.productNumber= CXU 101 0645
+    agent.softwareVersion.revision= {{ include "eric-data-search-engine.version" . }}
+    agent.softwareVersion.type=database
+    flag.grpc.siptls.security.enabled = {{ $g.security.tls.enabled }}
+    siptls.ca.path = /run/secrets/certificates/ca-bro/cacertbundle.pem
+    siptls.ca.name = {{ .Values.brAgent.orchestrator.host }}
+    bro.client-cert= /run/secrets/bro-client-certificates-bra/clientcert.pem
+    bro.client-private-key= /run/secrets/bro-client-certificates-bra/clientprivkey.pem
+{{ end }}

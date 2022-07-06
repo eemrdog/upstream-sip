@@ -3,8 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "eric-data-object-storage-mn.fullname" . }}-mgt
-  labels: {{- include "eric-data-object-storage-mn-mgt.labels" . | nindent 4 }}
-  annotations: {{- include "eric-data-object-storage-mn.annotations" . | nindent 4 }}
+  labels:
+    {{- include "eric-data-object-storage-mn-mgt.helm-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 4 }}
 spec:
   strategy:
     type: {{ .Values.updateStrategy.mgt.type | quote }}
@@ -20,23 +22,19 @@ spec:
   template:
     metadata:
       labels:
-        {{- $brLabels := dict -}}
-        {{- if (.Values.brAgent).enabled }}
-          {{- $_ := set $brLabels .Values.brAgent.brLabelKey (.Values.brAgent.brLabelValue) -}}
-        {{- end -}}
-        {{- $commonLabels := include "eric-data-object-storage-mn-mgt.labels" . | fromYaml -}}
-        {{- include "eric-data-object-storage-mn.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $brLabels)) | trim | nindent 8 }}
+        {{- include "eric-data-object-storage-mn-mgt.helm-labels" . | nindent 8 }}
+        {{- if .Values.brAgent.enabled }}
+        {{ .Values.brAgent.brLabelKey }}: {{ .Values.brAgent.brLabelValue | quote }}
+        {{- end }}
       annotations:
-        {{- $annotations := dict -}}
-        {{- $_ := set $annotations "checksum/config" (include (print $.Template.BasePath "/configmap.yaml") . | sha256sum) -}}
-        {{- $_ := set $annotations "backupType" (include "eric-data-object-storage-mn.backupTypes" .) -}}
-        {{- $commonAnnotations := include "eric-data-object-storage-mn.annotations" . | fromYaml -}}
-
-        {{- include "eric-data-object-storage-mn.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnnotations $annotations)) | trim | nindent 8 }}
+        {{- if and .Values.brAgent.enabled .Values.brAgent.backupTypeList }}
+        {{- if (index .Values.brAgent.backupTypeList 0) }}
+        backupType: {{- template "eric-data-object-storage-mn.backupTypes" . }}
+        {{- end }}
+        {{- end }}
+        {{- include "eric-data-object-storage-mn.helm-annotations" . | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
-      {{- if .Values.podPriority.eric_data_object_storage_mn_mgt.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.eric_data_object_storage_mn_mgt.priorityClassName | quote}}
-      {{- end }}
       securityContext:
         fsGroup: {{ template "eric-data-object-storage-mn.fsGroup.coordinated" . }}
       serviceAccountName: {{ include "eric-data-object-storage-mn.serviceAccountName" . | quote }}
@@ -48,13 +46,15 @@ spec:
       initContainers:
         - name: kms-config
           image: {{ template "eric-data-object-storage-mn-init.imagePath" . }}
-          imagePullPolicy: {{ .Values.imageCredentials.init.pullPolicy }}
+          imagePullPolicy: {{ .Values.imageCredentials.pullPolicy }}
           {{- if has "applicationLevel" $global.log.outputs }}
           command: ["/minio/init.sh", "kms"]
           {{ else }}
           command: ["/minio/kms.sh"]
           {{- end }}
           securityContext:
+            runAsUser: {{ .Values.mgt.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.mgt.securityContext.runAsGroup }}
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: false
@@ -69,7 +69,7 @@ spec:
             - name: kms-config
               mountPath: /minio/config
           resources:
-{{ toYaml .Values.resources.mgt | indent 12 }}
+{{ toYaml .Values.mgt.resources | indent 12 }}
 {{- end }}
       containers:
     {{- if has "applicationLevel" $global.log.outputs }}
@@ -77,13 +77,15 @@ spec:
     {{- end }}
       - name: manager
         image: {{ template "eric-data-object-storage-mn-init.imagePath" . }}
-        imagePullPolicy: {{ .Values.imageCredentials.init.pullPolicy }}
+        imagePullPolicy: {{ .Values.imageCredentials.pullPolicy }}
         {{- if has "applicationLevel" $global.log.outputs }}
         command: [ "/minio/init.sh", "manager" ]
         {{ else}}
         command: ["/minio/manager.sh"]
         {{- end }}
         securityContext:
+          runAsUser: {{ .Values.mgt.securityContext.runAsUser }}
+          runAsGroup: {{ .Values.mgt.securityContext.runAsGroup }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: false
@@ -166,7 +168,7 @@ spec:
           successThreshold: {{ .Values.probes.mgt.readinessProbe.successThreshold }}
           failureThreshold: {{ .Values.probes.mgt.readinessProbe.failureThreshold }}
         resources:
-{{ toYaml .Values.resources.mgt | indent 10 }}
+{{ toYaml .Values.mgt.resources | indent 10 }}
 
       {{- if .Values.brAgent.enabled }}
       - name: {{ template "eric-data-object-storage-mn.fullname" . }}-bra
@@ -177,7 +179,7 @@ spec:
         command: ["/bin/sh","-c"]
         args: [ "/usr/bin/java -Dlog4j.configurationFile=/etc/bra/log4j2.xml -jar /opt/agent.jar /etc/bra/application.properties" ]
         {{- end }}
-        imagePullPolicy: {{ .Values.imageCredentials.bra.pullPolicy }}
+        imagePullPolicy: {{ .Values.imageCredentials.pullPolicy }}
         env:
 {{- if has "k8sLevel" $global.log.outputs }}
           - name: LOG_INDIRECT_STREAM
@@ -230,7 +232,7 @@ spec:
           successThreshold: {{ .Values.probes.brAgent.readinessProbe.successThreshold }}
           failureThreshold: {{ .Values.probes.brAgent.readinessProbe.failureThreshold }}
         resources:
-{{ toYaml .Values.resources.brAgent | indent 10 }}
+{{ toYaml .Values.brAgent.resources | indent 10 }}
         volumeMounts:
         {{- if has "applicationLevel" $global.log.outputs }}
         {{- include "eric-data-object-storage-mn.logshipper-storage-path" . | indent 10 }}
@@ -261,6 +263,8 @@ spec:
             readOnly: true
           {{- end }}
         securityContext:
+          runAsUser: {{ .Values.brAgent.securityContext.runAsUser }}
+          runAsGroup: {{ .Values.brAgent.securityContext.runAsGroup }}
           privileged: false
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false

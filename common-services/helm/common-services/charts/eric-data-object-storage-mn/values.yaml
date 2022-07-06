@@ -2,7 +2,7 @@
 # ---
 #global:
 #  registry:
-#    url: "armdocker.rnd.ericsson.se"
+#    url: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
 #
 #  pullSecret: ""
 #
@@ -20,19 +20,11 @@
 #    ctrl:
 #      bro: 3000
 
-podPriority:
-    eric_data_object_storage_mn_mgt:
-        priorityClassName :
-    eric_data_object_storage_mn:
-        priorityClassName :
-
 global:
   log:
     outputs: ["k8sLevel"]
 productInfo:
-  rstate: R24A
-
-
+  rstate: R20A
 
 imageCredentials:
   osmn:
@@ -59,6 +51,15 @@ imageCredentials:
       pullPolicy:
     repoPath:
 
+resources:
+  logshipper:
+    requests:
+      memory: 50Mi
+      cpu: 20m
+    limits:
+      memory: 100Mi
+      cpu: 50m
+
 logshipper:
   storagePath: "/logs"
   storageAllocation: "500Mi"
@@ -70,7 +71,6 @@ logshipper:
       - "/manager.log*"
       - "/bra.log*"
       - "/minio.log*"
-      - "/tls_certs.log*"
       multiline:
         pattern: '^[[:space:]]'
         negate: false
@@ -180,9 +180,11 @@ persistentVolumeClaim:
   subPath: ""
 
 ## Extra annotations, format: "AnnotA":"ValueA", "AnnotB":"ValueB"
-annotations: {
-  # TODO: Ask Guardians whether this change OK.
-  # Now there is a metrics-annotations template setting these up.
+metadata:
+  annotations: {
+    prometheus.io/scrape: 'true',
+    prometheus.io/port:   '9000',
+    prometheus.io/path:   '/minio/prometheus/metrics'
 }
 
 ## Expose the Minio service only to be accessed from internal cluster by type ClusterIP
@@ -202,58 +204,48 @@ affinity:
   podAntiAffinity: "hard"
 
 
+## Object Storage service instance pod
+server:
 # Configure resource requests and limits
-resources:
-  ## Object Storage service instance pod
-  server:
+  resources:
     requests:
       memory: 2Gi
-      cpu: 1100m
-      ephemeral-storage: 256Mi
+      cpu: 250m
     limits:
       memory: 8Gi
-      cpu: 1100m
-      ephemeral-storage: 4Gi
-  ## Object Storage Management pod
-  mgt:
+      cpu: 500m
+
+  securityContext:
+    runAsUser: 58325
+    runAsGroup: 0
+    fsGroup: 58325
+
+
+## Object Storage Management pod
+mgt:
+# Configure resource requests and limits
+  resources:
     requests:
       memory: 256Mi
       cpu: 250m
-      ephemeral-storage: 256Mi
     limits:
       memory: 512Mi
       cpu: 500m
-      ephemeral-storage: 4Gi
-  brAgent:
-    requests:
-      memory: 16Mi
-      cpu: 200m
-      ephemeral-storage: 256Mi
-    limits:
-      memory: 256Mi
-      cpu: '1'
-      ephemeral-storage: 4Gi
-  logshipper:
-    requests:
-      memory: 50Mi
-      cpu: 100m
-      ephemeral-storage: 256Mi
-    limits:
-      memory: 100Mi
-      cpu: 250m
-      ephemeral-storage: 4Gi
+  securityContext:
+    runAsUser: 32499
+    runAsGroup: 0
+    fsGroup: 32499
+
 
 brAgent:
   enabled: false
   brLabelKey: adpbrlabelkey
-# TODO: Ask Guardians if this is OK. It's documented as being eric-data-object-storage-mn by default 
-  brLabelValue: eric-data-object-storage-mn
   logLevel: info
   retryTimes: 3
   backupTypeList:
     - "DEFAULT"
   properties:
-    production_date: 2022-04-21
+    production_date: 2021-12-15
   tls:
     certName: cert.pem
     keyName: key.pem
@@ -263,6 +255,18 @@ brAgent:
   objectStorage:
     host: "eric-data-object-storage-mn"
     port: 9000
+  resources:
+    requests:
+      memory: 16Mi
+      cpu: 200m
+    limits:
+      memory: 256Mi
+      cpu: '1'
+  securityContext:
+    runAsUser: 60618
+    runAsGroup: 0
+    fsGroup: 60618
+
 ## Use this field to add environment variables relevant to Minio server. These fields will be passed on to Minio container(s)
 ## when Chart is deployed
 environment:

@@ -47,28 +47,13 @@ Create chart name and version as used by the chart label.
 {{/*
 Create kubernetes.io name and version
 */}}
-{{- define "eric-log-transformer.k8sLabels" -}}
+{{- define "eric-log-transformer.labels" }}
 app.kubernetes.io/name: {{ include "eric-log-transformer.name" . }}
 app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
-app.kubernetes.io/instance: {{ .Release.Name | quote }}
-{{- end -}}
-
-{{/*
-Common labels
-*/}}
-{{- define "eric-log-transformer.labels" -}}
-  {{- $k8sLabels := include "eric-log-transformer.k8sLabels" . | fromYaml -}}
-  {{- $globalLabels := (.Values.global).labels -}}
-  {{- $serviceLabels := .Values.labels -}}
-  {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $k8sLabels $globalLabels $serviceLabels)) | trim }}
-{{- end -}}
-
-{{/*
-Logshipper labels
-*/}}
-{{- define "eric-log-transformer.logshipper-labels" }}
-{{- println "" -}}
-{{- include "eric-log-transformer.labels" . -}}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -85,15 +70,9 @@ Create Search Engine host address
 
 {{- define "eric-log-transformer.beats-tls-config-options" -}}
 {{- $d := fromJson (include "eric-log-transformer.deprecated" .) }}
-{{- if not $d.security.tls.eda }}
 ssl_certificate => "/opt/logstash/resource/srvcert.pem"
 ssl_key => "/opt/logstash/resource/srvpriv_p8.key"
 ssl_certificate_authorities => ["/run/secrets/ca-certificates/client-cacertbundle.pem"]
-{{- else }}
-ssl_certificate => "/run/secrets/eda-certificates/cert.pem"
-ssl_key => "/run/secrets/eda-certificates/key.pem"
-ssl_certificate_authorities => ["/run/secrets/eda-certificates/ca-cert.pem"]
-{{- end }}
 ssl => true
 client_inactivity_timeout => 300
 ssl_handshake_timeout => 10000
@@ -113,35 +92,6 @@ Creating Secret Volumes for Server Certificate and Client CA Certificate
 - name: "client-ca-certificate"
   secret:
     secretName: {{ include "eric-log-transformer.fullname" . }}-client-ca
-{{- end -}}
-
-{{/*
-Creating secret volume for EDA TLS
-*/}}
-{{- define "eric-log-transformer.eda-tls-volume" }}
-- name: "eda-certificates"
-  secret:
-    secretName: {{ include "eric-log-transformer.fullname" . }}-server-cert
-{{- end -}}
-
-{{/*
-Creating volume mount for EDA TLS
-*/}}
-{{- define "eric-log-transformer.eda-tls-volumemount" }}
-- name: "eda-certificates"
-  mountPath: "/run/secrets/eda-certificates/"
-  readOnly: true
-{{- end -}}
-
-{{- define "eric-log-transformer.tcp-eda-tls-config-options" -}}
-{{- $d := fromJson (include "eric-log-transformer.deprecated" .) }}
-{{- if $d.security.tls.eda }}
-ssl_cert => "/run/secrets/eda-certificates/cert.pem"
-ssl_key => "/run/secrets/eda-certificates/key.pem"
-ssl_certificate_authorities => ["/run/secrets/eda-certificates/ca-cert.pem"]
-ssl_enable => true
-ssl_verify => true
-{{- end }}
 {{- end -}}
 
 {{/*
@@ -179,10 +129,9 @@ This hides defaults from values file.
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "pullSecret")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret") -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "networkPolicy" (dict "enabled" false)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "internalIPFamily" "") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "policyBinding" (dict "create" false))) -}}
@@ -257,9 +206,19 @@ Create a merged set of nodeSelectors from global and service level.
 */}}
 {{ define "eric-log-transformer.nodeSelector" }}
   {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- $global := $g.nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- include "eric-log-transformer.aggregatedMerge" (dict "context" "nodeSelector" "location" .Template.Name "sources" (list $global $service)) }}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $g.nodeSelector $key -}}
+          {{- $globalValue := index $g.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $g.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $g.nodeSelector | trim -}}
+  {{- end -}}
 {{ end }}
 
 {{/*
@@ -267,15 +226,6 @@ Create asymmetric-key-certificate-name for lumberjack output.
 */}}
 {{- define "eric-log-transformer.lumberjack-output-asymmetric-cert" -}}
 {{- printf "%s/%s" .Values.egress.lumberjack.certificates.asymmetricKeyCertificateName .Values.egress.lumberjack.certificates.asymmetricKeyCertificateName -}}
-{{- end -}}
-
-{{- define "eric-log-transformer.lumberjack-certificate-path" -}}
-{{- if .Values.egress.lumberjack.certificates.asymmetricKeyCertificateName }}
-  {{- printf "/run/secrets/lumberjackOutput-certs/tls.crt" -}}
-{{- end }}
-{{- if .Values.egress.lumberjack.certificates.trustedCertificateListName -}}
-  {{- printf "/run/secrets/lumberjackOutput-cacerts/trustedcert" -}}
-{{- end }}
 {{- end -}}
 
 {{- define "eric-log-transformer.total-queue-size" -}}
@@ -318,29 +268,14 @@ Create asymmetric-key-certificate-name for lumberjack output.
   {{- $logshipperContext | toJson -}}
 {{ end }}
 
-{{- define "eric-log-transformer.product-info" }}
+{{- define "eric-log-transformer.annotations" }}
 ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
 ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
 ericsson.com/product-revision: {{ (split "-" (.Chart.Version | replace "+" "-" ))._0 | quote }}
-{{- end}}
-
-{{/*
-Common annotations
-*/}}
-{{- define "eric-log-transformer.annotations" -}}
-  {{- $productInfo := include "eric-log-transformer.product-info" . | fromYaml -}}
-  {{- $globalAnn := (.Values.global).annotations -}}
-  {{- $serviceAnn :=  .Values.annotations -}}
-  {{- include "eric-log-transformer.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $globalAnn $serviceAnn)) | trim }}
-{{- end -}}
-
-{{/*
-Logshipper annotations
-*/}}
-{{- define "eric-log-transformer.logshipper-annotations" }}
-{{- println "" -}}
-{{- include "eric-log-transformer.annotations" . -}}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
 {{- end }}
+{{- end}}
 
 {{ define "eric-log-transformer.metrics-path" }}
   {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
@@ -439,181 +374,4 @@ Logshipper annotations
     {{- end}}
       {
   {{- end}}
-{{- end -}}
-
-{{/*
-Get the pm metrics port.
-*/}}
-{{- define "eric-log-transformer-pm-server-port" -}}
-  {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    9115
-  {{- else -}}
-    9114
-  {{- end -}}
-{{- end -}}
-
-{{/*
-   Get the pm metrics host name
-*/}}
-{{- define "eric-log-transformer-pm-server-hostname" -}}
-  {{ .Values.metrics.pmServer }}
-{{- end -}}
-
-{{/*
-Get the ls daemon port and ls sidecar port
-*/}}
-{{- define "eric-log-transformer-ls-port" -}}
-  {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    5044
-  {{- else -}}
-    5045
-  {{- end -}}
-{{- end -}}
-
-{{/*
-   Get the ls daemon host name
-*/}}
-{{- define "eric-log-transformer-ls-hostname" -}}
-  {{ .Values.logshipper.hostname }}
-{{- end -}}
-
-{{/*
-Get the syslog server port.
-*/}}
-{{- define "eric-log-transformer-syslog-server-port" -}}
-  {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    5015
-  {{- else -}}
-    5014
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Get the json input port.
-*/}}
-{{- define "eric-log-transformer-json-input-port" -}}
-  {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    5024
-  {{- else -}}
-    5025
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Get the http input port.
-*/}}
-{{- define "eric-log-transformer-http-input-port" -}}
-  {{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    9443
-  {{- else -}}
-    9080
-  {{- end -}}
-{{- end -}}
-
-{/*
-eric-log-transformer Labels for Network Policies
-*/}}
-{{- define "eric-log-transformer.peer.labels" -}}
-  {{- if (has "stream" .Values.log.outputs) -}}
-    eric-log-transformer-access: "true"
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Define eric-log-transformer.appArmorProfileAnnotation
-*/}}
-{{- define "eric-log-transformer.appArmorProfileAnnotation" -}}
-{{- $containerList := list "logtransformer" -}}
-{{- $g := fromJson (include "eric-log-transformer.global" .) -}}
-{{- if and .Values.metrics.enabled $g.security.tls.enabled -}}
-  {{- $containerList = append $containerList "metrics" -}}
-  {{- $containerList = append $containerList "tlsproxy" -}}
-{{- end -}}
-{{- if (has "stream" .Values.log.outputs) -}}
-  {{- $containerList = append $containerList "logshipper" -}}
-{{- end -}}
-{{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-{{- $commonProfile := dict -}}
-{{- if .Values.appArmorProfile.type -}}
-  {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-  {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-    {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- $profiles := dict -}}
-{{- range $container := $containerList -}}
-  {{- if and (hasKey $.Values.appArmorProfile $container) (index $.Values.appArmorProfile $container "type") -}}
-    {{- $_ := set $profiles $container (index $.Values.appArmorProfile $container) -}}
-  {{- else -}}
-    {{- $_ := set $profiles $container $commonProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- range $key, $value := $profiles -}}
-  {{- if $value.type -}}
-    {{- if not (has $value.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $value.type $acceptedProfiles) -}}
-    {{- end -}}
-    {{- if and (eq $value.type "localhost") (empty $value.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-container.apparmor.security.beta.kubernetes.io/{{ $key }}: {{ $value.type }}{{ eq $value.type "localhost" | ternary (printf "/%s" $value.localhostProfile) ""  }}
-  {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Define eric-log-transformer.podSeccompProfile
-*/}}
-{{- define "eric-log-transformer.podSeccompProfile" -}}
-{{- if and .Values.seccompProfile .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-log-transformer.contLtSeccompProfile
-*/}}
-{{- define "eric-log-transformer.contLtSeccompProfile" -}}
-{{- if and .Values.seccompProfile.logtransformer .Values.seccompProfile.logtransformer.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.logtransformer.type }}
-  {{- if eq .Values.seccompProfile.logtransformer.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.logtransformer.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-log-transformer.contMetricsSeccompProfile
-*/}}
-{{- define "eric-log-transformer.contMetricsSeccompProfile" -}}
-{{- if and .Values.seccompProfile.metrics .Values.seccompProfile.metrics.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.metrics.type }}
-  {{- if eq .Values.seccompProfile.metrics.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.metrics.localhostProfile }}
-  {{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-log-transformer.contTlsproxySeccompProfile
-*/}}
-{{- define "eric-log-transformer.contTlsproxySeccompProfile" -}}
-{{- if and .Values.seccompProfile.tlsproxy .Values.seccompProfile.tlsproxy.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.tlsproxy.type }}
-  {{- if eq .Values.seccompProfile.tlsproxy.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.tlsproxy.localhostProfile }}
-  {{- end }}
-{{- end }}
 {{- end -}}

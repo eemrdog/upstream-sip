@@ -11,11 +11,6 @@ replicaCount: 2
 #     imagePullPolicy: IfNotPresent
 #   timezone: UTC
 #   nodeSelector:
-#   networkPolicy:
-#     enabled: false
-#   log:
-#     outputs:
-#       - k8sLevel
 #   security:
 #     tls:
 #       enabled: true
@@ -60,19 +55,22 @@ imageCredentials:
     repoPath: # overrides repoPath from eric-product-info.yaml
 
 # All k8s probes parameters are optional.
+# NOTE: startupProbe parameters are obsolete (not used) if k8s version < 1.20
 probes:
   alarmHandler:
     livenessProbe:
+      initialDelaySeconds: 65     # This is not included if k8s version >= 1.20
       periodSeconds: 17
       timeoutSeconds: 15
       successThreshold: 1
       failureThreshold: 3
     readinessProbe:
+      initialDelaySeconds: 65     # This is not included if k8s version >= 1.20
       periodSeconds: 10
       timeoutSeconds: 10
       successThreshold: 1
       failureThreshold: 5
-    startupProbe:
+    startupProbe:                 # StartupProbe will be enabled only if k8s version is >=1.20
       initialDelaySeconds: 10
       failureThreshold: 30
       periodSeconds: 5
@@ -104,7 +102,6 @@ probes:
 
 # pm server
 pmServer:
-  serviceName: "eric-pm-server"
   # PM Server certificate authority secret
   caSecret: "eric-pm-server-ca"
 
@@ -205,7 +202,6 @@ dataCoordinator:
    port: "2181"
 
 kafka:
-  serviceName: "eric-data-message-bus-kf"
   hostname: "eric-data-message-bus-kf-client"
   port: 9092
   tlsport: 9093
@@ -289,9 +285,6 @@ terminationGracePeriodSeconds: 30
 
 topologySpreadConstraints: []
 
-networkPolicy:
-  enabled: true
-
 updateStrategy:
   type: RollingUpdate
   rollingUpdate:
@@ -369,46 +362,6 @@ affinity:
   # Pod Anti Affinity - "soft" or "hard"
   podAntiAffinity: "hard"
 
-appArmorProfile:
-  type: ""
-  localhostProfile: ""
-  alarmHandler:
-    type: ""
-    localhostProfile: ""
-  topiccreator:
-    type: ""
-    localhostProfile: ""
-  logshipper:
-    type: ""
-    localhostProfile: ""
-  # ericsecoauthsap:
-  #   type:
-  #   localhostProfile:
-  # ericsecoauthproxy:
-  #   type:
-  #   localhostProfile:
-
-# DR-D1123-128
-seccompProfile:
-  type: ""
-  localhostProfile: ""
-  alarmHandler:
-    type: ""
-    localhostProfile: ""
-  topiccreator:
-    type: ""
-    localhostProfile: ""
-  logshipper:
-    type: ""
-    localhostProfile: ""
-  # ericsecoauthsap:
-  #   type:
-  #   localhostProfile:
-  # ericsecoauthproxy:
-  #   type:
-  #   localhostProfile:
-
-
 ingress:
   enabled: false
   # If true, a Contour HTTPProxy will be used as ingress (required for authorization)
@@ -462,13 +415,6 @@ authorizationProxy:
   ## Conditional, if ADP ICCR Ingress is installed with non-default chart name
   ## The name of the ADP ICCR Ingress service (chart)
   adpIccrServiceName: eric-tm-ingress-controller-cr # Default value
-
-  # Conditional, if ADP ICCR is deployed with Envoy client certificates enabled
-  # and Envoy client certificate CA(s) is stored in non-default k8s secret.
-  # If this parameter is set then authorizationProxy.adpIccrServiceName is obsolete.
-  #
-  # The name of the k8s secret which contains ADP ICCR Envoy client certificate CAs
-  # adpIccrCaSecret: "" # Default value
 
   # Conditional, if ADP IAM Server cluster internal service port has a
   # non-default value. In IAM server this implies the following parameters:
@@ -525,13 +471,6 @@ authorizationProxy:
     logtransformer:
       host: "eric-log-transformer"
 
-  # sipoauth2:
-  #    # Optional
-  #    # Enables or disables authorization proxy to use IAM sip-oauth2 api
-  #    # to get identity when communicating with IAM.
-  #    # Deprecated
-  #    enabled: false
-
   # Optional
   # If false, metrics will not be scraped
   metrics:
@@ -540,5 +479,4 @@ authorizationProxy:
 # DR-D1126-030
 # Pod priority configuration for deployment
 podPriority:
-  alarmHandler:
-    priorityClassName: "" # No priority set
+  priorityClassName: "" # No priority set

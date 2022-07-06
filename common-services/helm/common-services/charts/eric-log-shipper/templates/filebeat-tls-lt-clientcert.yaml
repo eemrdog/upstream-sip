@@ -8,9 +8,9 @@ kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-log-shipper.fullname" . }}-lt-clientcert"
   labels:
-    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+    {{- include "eric-log-shipper.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+    {{- include "eric-log-shipper.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-log-shipper.fullname" . }}-lt-client-cert"
@@ -36,9 +36,9 @@ kind: "ClientCertificate"
 metadata:
   name: "{{ include "eric-log-shipper.fullname" . }}-lt-clientcert"
   labels:
-    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+    {{- include "eric-log-shipper.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+    {{- include "eric-log-shipper.annotations" . | indent 4 }}
 spec:
   generated-secret-name: "{{ include "eric-log-shipper.fullname" . }}-lt-client-cert"
   common-name: {{ include "eric-log-shipper.fullname" . | quote }}

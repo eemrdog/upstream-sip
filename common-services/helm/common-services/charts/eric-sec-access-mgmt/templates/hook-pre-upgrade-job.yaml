@@ -3,29 +3,19 @@ kind: Job
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-pre-upgrade-job
   labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
-  annotations:
-    {{- $commonHookAnn := dict -}}
-    {{- $_ := set $commonHookAnn "helm.sh/hook" "pre-upgrade" -}}
-    {{- $_ := set $commonHookAnn "helm.sh/hook-delete-policy" "hook-succeeded,before-hook-creation" -}}
-    {{- $_ := set $commonHookAnn "helm.sh/hook-weight" "5" -}}
-    {{- $commonAnn := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $commonAnn $commonHookAnn)) | trim | nindent 4 }}
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+    "helm.sh/hook": "pre-upgrade"
+    "helm.sh/hook-delete-policy": "hook-succeeded,before-hook-creation"
+    "helm.sh/hook-weight": "5"
 spec:
   template:
     metadata:
-      labels:
-        {{- $static := dict -}}
-        {{- $_ := set $static "app" (printf "%s-pre-upgrade-job" (include "eric-sec-access-mgmt.name" .)) -}}
-        {{- $labels := include "eric-sec-access-mgmt.labels" . | fromYaml -}}
-        {{- $_ := unset $labels "app" -}}
-        {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $labels)) | trim | nindent 8 }}
+      labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 8 }}
+        app: {{ template "eric-sec-access-mgmt.name" . }}-pre-upgrade-job
       annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 8 }}
     spec:
       serviceAccountName: {{ template "eric-sec-access-mgmt.name" . }}-sa
       restartPolicy: Never
-      {{- if .Values.podPriority.preupgrade.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.preupgrade.priorityClassName | quote}}
-      {{- end }}
       containers:
       - name: "preupgrade"
         securityContext: {{- include "eric-sec-iam-server.containerSecurityContext" . | nindent 10 }}
@@ -44,4 +34,4 @@ spec:
       imagePullSecrets:
         - name: {{ template "eric-sec-access-mgmt.pullSecret" . }}
       {{- end }}
-      tolerations: {{- toYaml .Values.tolerations.preupgrade | nindent 8 }}
+      tolerations: {{- include "eric-sec-access-mgmt.tolerations.preupgrade" . | nindent 8 }}

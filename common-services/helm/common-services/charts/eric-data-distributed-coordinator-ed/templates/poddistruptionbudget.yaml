@@ -1,6 +1,6 @@
 {{- $rc := (int .Values.pods.dced.replicas) }}
 {{- if gt $rc 1 }}
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ template "eric-data-distributed-coordinator-ed.name" . }}

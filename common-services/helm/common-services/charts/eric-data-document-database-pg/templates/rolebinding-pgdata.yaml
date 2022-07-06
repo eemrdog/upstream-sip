@@ -10,14 +10,17 @@ metadata:
   {{- else }}
   name: {{ template "eric-data-document-database-pg.name" . }}-pgdata-secdef-policy
   {{- end }}
-  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+  labels:
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-upgrade,pre-rollback" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-5" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-upgrade,pre-rollback
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "-5"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

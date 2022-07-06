@@ -5,14 +5,20 @@ apiVersion: com.ericsson.sec.certm/v1alpha2
 kind: ExternalCertificate
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-authn-ingress-external-client-certificate
-  annotations:
-    {{- $secretAnnotations := (.Values.authenticationProxy.ingress.secretAnnotations) -}}
-    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $common $secretAnnotations)) | trim | nindent 4 }}
-  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+{{- if .Values.authenticationProxy.ingress.secretAnnotations }}
+{{ toYaml .Values.authenticationProxy.ingress.secretAnnotations | indent 4 }}
+{{- end }}
+  labels:
+{{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
+
 spec:
   generated-secret-name: {{ template "eric-sec-access-mgmt.name" . }}-authn-ingress-external-tls-secret
   generated-secret-type: tls
+{{- if (hasKey .Values.authenticationProxy.ingress "asymmetricKeyCertificateName") }}
+  asymmetric-key-certificate-name: {{ .Values.authenticationProxy.ingress.asymmetricKeyCertificateName | quote }}
+{{- else }}
   asymmetric-key-certificate-name: {{ .Values.authenticationProxy.ingress.certificates.asymmetricKeyCertificateName | quote }}
+{{- end }}
 {{- end -}}
 {{ end }}

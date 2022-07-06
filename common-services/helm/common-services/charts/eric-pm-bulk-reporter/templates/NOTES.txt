@@ -13,4 +13,4 @@
 {{- end }}
 
 Bulk Reporter Configuration:
-  helm -n {{ .Release.Namespace }} get values {{ .Release.Name }}
+  helm get {{ .Release.Name }}

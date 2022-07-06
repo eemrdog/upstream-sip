@@ -10,9 +10,25 @@ metadata:
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
+    {{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
+    prometheus.io/scrape: {{ .Values.metrics.enabled | quote }}
+    prometheus.io/port: {{ include "eric-sec-sip-tls.metrics.server.port" . | quote }}
+    prometheus.io/path: "/metrics"
+    {{- if eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true" }}
+    prometheus.io/scheme: https
+    {{- else }}
+    prometheus.io/scheme: http
+    {{- end }}
+    {{- end }}
+    {{- if .Values.bandwidth }}
+    kubernetes.io/egress-bandwidth: {{ .Values.bandwidth.maxEgressRate }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.podPriority.priorityClassName }}
+  priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
+  {{- end }}
   selector:
     matchLabels:
       app: "{{ template "eric-sec-sip-tls.name" . }}"
@@ -28,38 +44,8 @@ spec:
       labels:
         {{- include "eric-sec-sip-tls.labels" . | nindent 8 }}
       annotations:
-        {{- $commonAnn := include "eric-sec-sip-tls.annotations" . | fromYaml -}}
-        {{- $appArmorMain :=  include "eric-sec-sip-tls.appArmorAnnotation.sip-tls" . | fromYaml -}}
-        {{- $appArmorInit := include "eric-sec-sip-tls.appArmorAnnotation.sip-tls-init" . | fromYaml -}}
-        {{- $appArmorSupervisor := include "eric-sec-sip-tls.appArmorAnnotation.sip-tls-supervisor" . | fromYaml -}}
-
-        {{- $checkSumAnn := dict }}
-        {{- $_ := set $checkSumAnn "checksum/config" (include (print $.Template.BasePath "/config-map.yaml") . | sha256sum) }}
-
-        {{- $metricsAnn := dict }}
-        {{- $egressAnn := dict }}
-        {{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
-          {{- $_ := set $metricsAnn "prometheus.io/scrape" (.Values.metrics.enabled | toString) }}
-          {{- $_ := set $metricsAnn "prometheus.io/port" (include "eric-sec-sip-tls.metrics.server.port" . | toString) }}
-          {{- $_ := set $metricsAnn "prometheus.io/path" "/metrics" }}
-
-          {{- if eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true" }}
-            {{- $_ := set $metricsAnn "prometheus.io/scheme" "https" }}
-          {{- else }}
-            {{- $_ := set $metricsAnn "prometheus.io/scheme" "http" }}
-          {{- end }}
-
-          {{- if .Values.bandwidth }}
-            {{- $_ := set $egressAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) }}
-          {{- end }}
-        {{- end }}
-
-        {{- if $logStream }}
-          {{- $appArmorLS :=  include "eric-sec-sip-tls.appArmorAnnotation.logshipper" . | fromYaml -}}
-          {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checkSumAnn $metricsAnn $egressAnn $appArmorMain $appArmorInit $appArmorSupervisor $appArmorLS $commonAnn)) | trim | nindent 8 }}
-        {{- else -}}
-          {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checkSumAnn $metricsAnn $egressAnn $appArmorMain $appArmorInit $appArmorSupervisor $commonAnn)) | trim | nindent 8 }}
-        {{- end }}
+        {{- include "eric-sec-sip-tls.annotations" . | indent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
     spec:
       {{- if .Values.persistence }}
         {{- if .Values.persistence.type }}
@@ -68,9 +54,6 @@ spec:
         fsGroup: {{ include "eric-sec-sip-tls.fsGroup.coordinated" . }}
           {{- end }}
         {{- end }}
-      {{- end }}
-      {{- if .Values.podPriority.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
       {{- end }}
       initContainers:
         - name: "sip-tls-init"
@@ -89,7 +72,7 @@ spec:
           {{- else }}
           args: ["--app", "/sip-tls/init_kms.py", "--app-args", ""]
           {{- end }}
-          {{- include "eric-sec-sip-tls.sip-tls-init.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.securityContext" . | nindent 10 }}
           {{- include "eric-sec-sip-tls.sip-tls-init.resources" . | nindent 10 }}
           env:
             - name: SERVICE_ACCOUNT_NAME
@@ -141,7 +124,7 @@ spec:
           {{- else }}
           args: [ "--app", "/sip-tls/sip_tls.py", "--app-args", "" ]
           {{- end }}
-          {{- include "eric-sec-sip-tls.sip-tls.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.securityContext" . | nindent 10 }}
           {{- include "eric-sec-sip-tls.sip-tls.resources" . | nindent 10 }}
           {{- include "eric-sec-sip-tls.sip-tls.probes" . | indent 10 }}
           {{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
@@ -208,7 +191,7 @@ spec:
           {{- else }}
           args: [ "--app", "/sip-tls-supervisor/sip_tls_supervisor.py", "--app-args", "" ]
           {{- end }}
-          {{- include "eric-sec-sip-tls.sip-tls-supervisor.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.securityContext" . | nindent 10 }}
           {{- include "eric-sec-sip-tls.sip-tls-supervisor.resources" . | nindent 10 }}
           {{- include "eric-sec-sip-tls.sip-tls-supervisor.probes" . | indent 10 }}
           env:
@@ -238,6 +221,16 @@ spec:
               value: {{ .Values.keyManagement.hostname | quote }}
             - name: KMS_PORT
               value: {{ .Values.keyManagement.port | quote }}
+            - name: DCED_HOSTNAME
+              value: {{ .Values.etcd.hostname | quote }}
+            - name: DCED_PORT
+              value: {{ .Values.etcd.port | quote }}
+            - name: ALARM_COMPLIANT_WITH_FH_DRS
+              {{- if .Values.alarmInstanceModel.compliantWithFHDRs.enabled }}
+              value: "true"
+              {{- else }}
+              value: "false"
+              {{- end }}
             - name: AH_FI_TOPIC
               value: "AdpFaultIndication"
             - name: KAFKA_HOSTNAME
@@ -256,6 +249,9 @@ spec:
               {{- else }}
               value: "false"
               {{- end }}
+            - name: FAULT_INDICATION_SCHEMA_VERSION
+              # faultIndication schema version
+              value: "0.2"
             - name: RECOVERY_THRESHOLD
               value: "{{ template "eric-sec-sip-tls.supervisor.recoveryThreshold" . }}"
             - name: TZ
@@ -277,6 +273,10 @@ spec:
             {{- if eq (include "eric-sec-sip-tls.alarmHandler.tls.enabled" .) "true" }}
             - name: alarm-handler-client-cert
               mountPath: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.mountFolder" . }}
+            {{- end}}
+            {{- if .Values.etcd.hostname }}
+            - name: dced-client-cert
+              mountPath: /run/secrets/dced-client-cert
             {{- end }}
             - name: trusted-root-cert
               mountPath: /run/secrets/trusted-root-cert
@@ -340,6 +340,12 @@ spec:
         secret:
           optional: true
           secretName: {{ template "eric-sec-sip-tls.name" . }}-trusted-root-cert
+      {{- if .Values.etcd.hostname }}
+      - name: dced-client-cert
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.name" . }}-dced-client-cert
+      {{- end }}
       {{- if $logStream }}
       {{- include "eric-sec-sip-tls.logshipper-volume" . | indent 6 }}
       {{- end }}
@@ -355,13 +361,13 @@ spec:
       {{- end }}
       {{- if .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
-        {{- range $constraints := .Values.topologySpreadConstraints }}
+        {{- range $constraints := .Values.topologySpreadConstraints}}
         - maxSkew: {{ $constraints.maxSkew }}
           topologyKey: {{ $constraints.topologyKey }}
           whenUnsatisfiable: {{ $constraints.whenUnsatisfiable }}
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: {{ template "eric-sec-sip-tls.name" $ }}
-              app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+              app: {{ template "eric-sec-sip-tls.name" $ }}
+              release: {{ $.Release.Name | quote }}
         {{- end }}
       {{- end }}

@@ -5,14 +5,13 @@ kind: InternalCertificate
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-client-message-bus-rd-certificate
   labels:
-    {{- $static := dict -}}
-    {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $static "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $static "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 4 }}
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+  annotations:
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ .Values.messageBusRd.clientCertSecret }}
@@ -34,14 +33,13 @@ kind: InternalCertificate
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-client-message-bus-kf-certificate
   labels:
-    {{- $static := dict -}}
-    {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $static "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $static "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 4 }}
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+  annotations:
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ .Values.messageBusKF.clientCertSecret }}

@@ -1,6 +1,6 @@
 {{/*
 Template of Log Shipper sidecar
-Version: 9.2.0+13
+Version: 7.3.0-23
 */}}
 
 {{/*
@@ -15,7 +15,7 @@ This hides defaults from values file.
   {{- if $productInfo -}}
     {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" $productInfo.images.logshipper.registry )) -}}
   {{- else -}}
-    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se" )) -}}
+    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com" )) -}}
   {{- end -}}
   {{ if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
@@ -66,7 +66,7 @@ Create product name, version and revision
 {{- define "eric-data-document-database-pg.logshipper-product-info" }}
 ericsson.com/product-name: "Log Shipper"
 ericsson.com/product-number: "CXC 201 1464"
-ericsson.com/product-revision: "9.2.0-13"
+ericsson.com/product-revision: "7.3.0-23"
 {{- end }}
 
 {{/*
@@ -78,31 +78,24 @@ app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Parameterize and service specific image path
-*/}}
-{{- define "eric-data-document-database-pg.logshipper-image" }}
-{{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") }}
-{{- $registry := default $productInfo.images.logshipper.registry (default (((.Values).global).registry).url (default (((.Values).imageCredentials).registry).url ((((.Values).imageCredentials).logshipper).registry).url)) }}
-{{- $repoPath := default $productInfo.images.logshipper.repoPath (default ((.Values).imageCredentials).repoPath (((.Values).imageCredentials).logshipper).repoPath) }}
-{{- $name := $productInfo.images.logshipper.name }}
-{{- $tag := default $productInfo.images.logshipper.tag (default (((.Values).images).logshipper).tag) }}
-{{- printf "%s/%s/%s:%s" $registry $repoPath $name $tag }}
+{{- define "eric-data-document-database-pg.labels" }}
+{{- if .Values.labels -}}
+{{- range $name, $config := .Values.labels }}
+{{ $name }}: {{ tpl $config $ | quote }}}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/*
-seccompProfile for logshipper container
+Define Log Shipper annotations
 */}}
-{{- define "eric-data-document-database-pg.LsSeccompProfile" -}}
-{{- $default := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) }}
-{{- if and $default.seccompProfile.logshipper $default.seccompProfile.logshipper.type }}
-seccompProfile:
-  type: {{ $default.seccompProfile.logshipper.type }}
-  {{- if eq $default.seccompProfile.logshipper.type "Localhost" }}
-  localhostProfile: {{ $default.seccompProfile.logshipper.localhostProfile }}
-  {{- end }}
+{{- define "eric-data-document-database-pg.annotations" }}
+{{- if .Values.annotations -}}
+{{- range $name, $config := .Values.annotations }}
+{{ $name }}: {{ tpl $config $ | quote }}
 {{- end }}
-{{- end -}}
+{{- end }}
+{{- end }}
 
 {{/*
 Log Shipper sidecar container spec
@@ -112,7 +105,7 @@ Log Shipper sidecar container spec
 {{- $default := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) }}
 - name: "logshipper"
   imagePullPolicy: {{ or $default.imageCredentials.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
-  image: {{ include "eric-data-document-database-pg.logshipper-image" . }}
+  image: "{{ or $default.imageCredentials.logshipper.registry.url $g.registry.url }}/{{ $default.imageCredentials.logshipper.repoPath }}/{{ $default.images.logshipper.name }}:{{ $default.images.logshipper.tag }}"
   args:
     - /opt/filebeat/init.sh
   securityContext:
@@ -123,7 +116,6 @@ Log Shipper sidecar container spec
     capabilities:
       drop:
         - "all"
-    {{ include "eric-data-document-database-pg.LsSeccompProfile" . | indent 4 }}
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
@@ -223,7 +215,7 @@ Log Shipper sidecar container for hook spec
 {{- $default := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) }}
 - name: "logshipper"
   imagePullPolicy: {{ or $default.imageCredentials.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
-  image: {{ include "eric-data-document-database-pg.logshipper-image" . }}
+  image: "{{ or $default.imageCredentials.logshipper.registry.url $g.registry.url }}/{{ $default.imageCredentials.logshipper.repoPath }}/{{ $default.images.logshipper.name }}:{{ $default.images.logshipper.tag }}"
   args:
     - /opt/filebeat/init.sh
   securityContext:
@@ -234,7 +226,6 @@ Log Shipper sidecar container for hook spec
     capabilities:
       drop:
         - "all"
-    {{ include "eric-data-document-database-pg.LsSeccompProfile" . | indent 4 }}
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
@@ -405,8 +396,14 @@ apiVersion: "siptls.sec.ericsson.com/v1"
 kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-data-document-database-pg.logshipper-service-fullname" . }}-lt-client-cert"
-  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
-  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+  labels:
+    {{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    {{- include "eric-data-document-database-pg.logshipper-labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-data-document-database-pg.logshipper-service-fullname" . }}-lt-client-cert"
@@ -434,14 +431,17 @@ apiVersion: "siptls.sec.ericsson.com/v1"
 kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-data-document-database-pg.logshipper-service-fullname" . }}-lt-client-cert-hook"
-  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+  labels:
+    {{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    {{- include "eric-data-document-database-pg.logshipper-labels" . | indent 4 }}
   annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-install,pre-rollback,pre-upgrade" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-7" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
+    {{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-install,pre-rollback,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "-7"
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-data-document-database-pg.logshipper-service-fullname" . }}-lt-client-cert-hook"
@@ -471,9 +471,9 @@ spec:
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" $productInfo.images.logshipper.name ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" $productInfo.images.logshipper.tag ))) -}}
   {{- else -}}
-    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
+    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-drop" ))) -}}
     {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" "eric-log-shipper" ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "9.2.0-13" ))) -}}
+    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "7.3.0-23" ))) -}}
   {{- end -}}
   {{- $default := merge $default (dict "logshipper" (dict "runAndExit" true )) -}}
   {{- $default := merge $default (dict "logshipper" (dict "shutdownDelay" 10 )) -}}
@@ -484,8 +484,9 @@ spec:
   {{- $default := merge $default (dict "logshipper" (dict "logtransformer" (dict "host" "eric-log-transformer" ))) -}}
   {{- $default := merge $default (dict "logshipper" (dict "logplane" "adp-app-logs")) -}}
   {{- $default := merge $default (dict "log" (dict "logshipper" (dict "level" "info" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "type" "" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "localhostProfile" "" ))) -}}
   {{- $default := mergeOverwrite $default .Values -}}
+  {{- if ((.Values.livenessProbe).logshipper) }}
+     {{- $default := mergeOverwrite $default.probes.logshipper.livenessProbe .Values.livenessProbe.logshipper -}}
+  {{- end }}
   {{- $default | toJson -}}
 {{- end -}}

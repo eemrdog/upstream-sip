@@ -3,7 +3,7 @@ apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}
-  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
   labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
 spec:
   minReplicas: {{ index .Values "autoScaling" "eric-cm-mediator" "minReplicas" }}

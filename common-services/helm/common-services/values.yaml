@@ -81,24 +81,11 @@ credentials:
       user: pguser
       pwd: pgpwd
 
-global:
-  ingress:
-    controllerType: nginx
-    # $controllerType_annotations:
-    # This parameter accepts the global ingress annotations for a custom controllerType 
-    # Replace $controllerType with the value of controllerType
-    # For example, if controllerType is "iccr" then it should be named iccr_annotations
-    # By default, controllerType "nginx" uses parameter "annotations"
-    annotations:
-      kubernetes.io/ingress.class: nginx
-      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-      nginx.ingress.kubernetes.io/use-regex: "true"
-
 eric-data-distributed-coordinator-ed:
   enabled: true
   pods:
-    dced:
-      replicas: 3
+    etcd:
+      replicas: 2
   updateStrategy:
     type: RollingUpdate
   imagePullPolicy: IfNotPresent
@@ -158,7 +145,7 @@ eric-data-distributed-coordinator-ed:
 
 eric-sec-key-management:
   enabled: true
-  replicas: 2
+  replicas: 1
   updateStrategy:
     type: RollingUpdate
   imageCredentials:
@@ -192,7 +179,6 @@ eric-sec-sip-tls:
     type: RollingUpdate
   imageCredentials:
     pullPolicy: IfNotPresent
-  replicaCount: 2
   logLevel: info
   keyManagement:
     hostname: eric-sec-key-management
@@ -208,21 +194,21 @@ eric-sec-sip-tls:
         cpu: "100m"
       limits:
         memory: "400Mi"
-        cpu: "1000m"
+        cpu: "3000m"
     sip-tls-supervisor:
       requests:
         memory: "200Mi"
         cpu: "100m"
       limits:
         memory: "400Mi"
-        cpu: "300m"
+        cpu: "3000m"
     sip-tls-init:
       requests:
-        memory: "100Mi"
+        memory: "200Mi"
         cpu: "100m"
       limits:
-        memory: "200Mi"
-        cpu: "300m"
+        memory: "400Mi"
+        cpu: "3000m"
     logshipper:
       requests:
         memory: "80Mi"
@@ -373,15 +359,15 @@ eric-log-transformer:
       rules:
         - field:
           value:
-  jvmHeap: 4096m
+  jvmHeap: 1024m
   resources:
     logtransformer:
       requests:
         cpu: 250m
-        memory: 6Gi
+        memory: 2Gi
       limits:
         cpu: 1000m
-        memory: 6Gi
+        memory: 2Gi
     metrics:
       limits:
         cpu: "100m"
@@ -695,11 +681,20 @@ eric-data-coordinator-zk:
 
 eric-data-message-bus-kf:
   configurationOverrides:
-    "log.retention.bytes": "1073741824"
+    "num.partitions": "3" # To be tuned based on the throughput
+    "min.insync.replicas": "2"
+    "num.io.threads": "3"     #Value based on the number of partitions
+    "num.network.threads": "3"  #Value based on the number of partitions
+    "log.retention.bytes": "1073741824" # To be tuned based on the throughput and disk storage
     "log.segment.bytes": "65536000"
     "log.retention.check.interval.ms": "30000"
+    "log.retention.minutes": "1" # To be tuned based on the throughput and disk storage
+    "log.retention.ms": "1000" # To be tuned based on the throughput and disk storage
     "file.delete.delay.ms": "10000"
-    "log.cleaner.threads": "5"
+    "log.cleaner.threads": "5" # Value based on the number of io threads
+    "log.cleaner.backoff.ms": "1000"
+    "log.cleaner.delete.retention.ms": "1000"
+    "log.cleaner.enable": "true"
     "log.cleaner.delete.retention.ms": "1000"
     "log.segment.delete.delay.ms": "1000"
   enabled: false #Enable when deploy CPR
@@ -721,13 +716,13 @@ eric-data-message-bus-kf:
         tls:
           enforced: "optional"
           verifyClientCertificate: "optional"
-          servcertTimeToLive: 604800
-          servcertRenewalLeadTime: 4800
+          servcertTimeToLive: 3600
+          servcertRenewalLeadTime: 3000
       dataCoordinator:
         tls:
           enforced: "required"
-          clientTimeToLive: 604800
-          clientRenewalLeadTime: 4800
+          clientTimeToLive: 3600
+          clientRenewalLeadTime: 3000
   security:
     tls:
       messagebuskf:
@@ -755,9 +750,6 @@ eric-cm-mediator:
           verifyClientCertificate: optional # Must be optional because CPR does not work with if two ways tls is enforced.
   cmm:
     debug: False
-    gunicornLogLevel: "Info"
-    gunicornAccessLogLevel: "Info"
-    accessLogging: false
     logLevel: "Info"
     logFormat: "adpjson"
     kafkaLogLevel: "Info"
@@ -1343,27 +1335,14 @@ eric-ctrl-bro:
         enabled: true
       rest:
         enabled: false
-  service:
-    endpoints:
-      broToAgent:
-        tls:
-          verifyClientCertificate: optional
-      restActions:
-        tls:
-          verifyClientCertificate: optional
-      scrape:
-        pm:
-          tls:
-            verifyClientCertificate: optional
-      cmmHttpNotif:
-        tls:
-          verifyClientCertificate: optional
 
 eric-sec-access-mgmt:
   enabled: true
   updateStrategy:
-    iam:
-      type: RollingUpdate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   imageCredentials:
     pullPolicy: IfNotPresent
   statefulset:
@@ -1392,16 +1371,6 @@ eric-sec-access-mgmt:
     enabled: false
     hostname: eric-sec-access-mgmt # Don't change, otherwise RBAC proxy won't work.
     inghostname: #iam.fqdn.of.your.cluster # Update this to create the NGINX Ingress
-    # $controllerType_annotations:
-    # This parameter accepts the eric-sec-access-mgmt specific ingress annotations for a custom controllerType 
-    # Replace $controllerType with the value of controllerType
-    # For example, if controllerType is "iccr" then it should be named iccr_annotations
-    # By default, controllerType "nginx" uses parameter "annotations"
-#  the value of  trustedCertificateListSecret must be set as oidc-idp-secret at the deployment time if ADP IAM is used with external IDP.
-#  egress:
-#    identityProvider:
-#      certificates:
-#        trustedCertificateListSecret: oidc-idp-secret
   persistence:
     dbHost: eric-idam-database-pg
     dbName: idam
@@ -1418,11 +1387,8 @@ eric-sec-access-mgmt:
       limits:
         cpu: 3000m
         memory: 2036Mi
-  sipoauth2:
-    enabled: false
   metrics:
     enabled: false
-  logLevel: info
   http:
     hostValidation:
       ## Host Validation is always enabled by default. Following hosts are
@@ -1433,17 +1399,6 @@ eric-sec-access-mgmt:
       ## for the HTTP `Host` header in requests passed to IAM (during Host
       ## header validation) can be specified below.
       allowedHosts:
-  authenticationProxy:
-    enabled: false
-    lastlogintimeEnabled: true
-    # If authenticationProxy.enabled = true, then cookieDomain should not be empty.
-    # cookieDomain is the domain for which the token cookie is set for. Authentication Proxy
-    # and all the service providers which use Authorization Proxy for access control should
-    # belong into this domain. It is the longest possible (domain) part that they share.
-    # No default value can be provided since this depends completely on the deployment.
-    cookieDomain: ""
-    ingress:
-      enabled: false
 
 eric-data-search-engine-rbac-proxy:
   enabled: false
@@ -1584,8 +1539,6 @@ eric-pm-bulk-reporter:
     enabled: false
     kafkahost: eric-data-message-bus-kf:9093
     thresholdGps: "ten-seconds thirty-seconds one-min five-min fifteen-min thirty-min one-hour twelve-hour one-day"
-  yangModelSupport:
-    enabled: false  # do not enable this!
   #nodeSelector:
 
 
@@ -2160,17 +2113,15 @@ eric-data-object-storage-mn:
   ingress:
       enabled: true
       annotations:
+        kubernetes.io/ingress.class: nginx
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
         nginx.ingress.kubernetes.io/proxy-body-size: 20m
         nginx.ingress.kubernetes.io/proxy-connect-timeout: "180"
         nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
         nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
         nginx.ingress.kubernetes.io/upstream-vhost: eric-data-object-storage-mn:9000
+        nginx.ingress.kubernetes.io/use-regex: "true"
         nginx.ingress.kubernetes.io/rewrite-target: /$1
-      # $controllerType_annotations:
-      # This parameter accepts the eric-data-object-storage-mn specific ingress annotations for a custom controllerType 
-      # Replace $controllerType with the value of controllerType
-      # For example, if controllerType is "iccr" then it should be named iccr_annotations
-      # By default, controllerType "nginx" uses parameter "annotations"
       hosts:
         - host: ingress-nginx
           paths:

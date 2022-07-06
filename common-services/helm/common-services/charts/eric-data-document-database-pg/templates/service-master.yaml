@@ -3,19 +3,19 @@ kind: Service
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}
   labels:
-    {{- $labels := dict -}}
-    {{- $_ := set $labels "app" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $_ := set $labels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $commonLabels)) | trim | nindent 4 }}
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $metricsAnn := dict -}}
-    {{- if .Values.metrics.enabled }}
-      {{- $_ := set $metricsAnn "prometheus.io/scrape" "true" -}}
-      {{- $_ := set $metricsAnn "prometheus.io/port" (.Values.metrics.service.port | toString) -}}
-    {{- end }}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $metricsAnn $commonAnn)) | trim | nindent 4 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+{{- if .Values.metrics.enabled }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.metrics.service.port | quote }}
+{{- end }}
 spec:
   type: {{ default "ClusterIP" .Values.service.type }}
   ports:

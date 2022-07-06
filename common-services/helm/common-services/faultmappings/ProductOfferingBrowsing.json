@@ -48,15 +48,5 @@
 		"probableCause": 158,
 		"defaultExpiration": 3600,
 		"defaultDescription": "Failure during certification check"
-	},
-	{
-		"faultName":"CertificateExpiresSoonWarning",
-		"vendor":193,
-		"code":6094964,
-		"defaultSeverity":"Major",
-		"category":"ProcessingErrorAlarm",
-		"probableCause":158,
-		"defaultExpiration":3600,
-		"defaultDescription":"Certificate Expires Soon"
 	}
 ]

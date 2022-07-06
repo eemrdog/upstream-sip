@@ -1,6 +1,6 @@
 {{- define "eric-sec-iam-server.containerSecurityContext" }}
 allowPrivilegeEscalation: false
-readOnlyRootFilesystem: true
+readOnlyRootFilesystem: false
 privileged: false
 runAsNonRoot: true
 capabilities:

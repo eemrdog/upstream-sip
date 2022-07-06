@@ -9,13 +9,11 @@ kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-logshipper-cfg"
   annotations:
-    {{- $logShipperProductInfo := include "eric-sec-sip-tls.logshipper-product-info" . | fromYaml -}}
-    {{- $commonAnn := include "eric-sec-sip-tls.annotations" . | fromYaml -}}
-    {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $logShipperProductInfo $commonAnn)) | trim | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
+    {{- include "eric-sec-sip-tls.logshipper-product-info" . | nindent 4 }}
   labels:
-    {{- $logShipperLabels := include "eric-sec-sip-tls.logshipper-labels" . | fromYaml -}}
-    {{- $commonLabels := include "eric-sec-sip-tls.labels" . | fromYaml -}}
-    {{- include "eric-sec-sip-tls.mergeLabels" (dict "location" .Template.Name "sources" (list $logShipperLabels $commonLabels)) | trim | nindent 4 }}
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.logshipper-labels" . | nindent 4 }}
 data:
   {{- $closeTimeout := $default.logshipper.harvester.closeTimeout | quote }}
   {{- $storagePath := $default.logshipper.storagePath }}
@@ -104,8 +102,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -153,8 +149,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -183,7 +177,7 @@ data:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:
@@ -214,13 +208,14 @@ data:
       ssl.key: "/run/secrets/certificates/cliprivkey.pem"
       ssl.verification_mode: "full"
       ssl.renegotiation: "freely"
-      ssl.supported_protocols: ["TLSv1.2", "TLSv1.3"]
+      ssl.supported_protocols: ["TLSv1.2"]
       ssl.cipher_suites: []
       {{- end }}
     {{- end }}
     filebeat.registry.flush: 5s
     logging.level: {{ $default.log.logshipper.level | quote | lower }}
-    # The list of debugging-only selector tags. Use * to enable debug output for all components.
+    # The list of debugging-only selector tags.
+    # Use * to enable debug output for all components.
     logging.selectors: [ "beats", "service", "harvester", "input" ]
     logging.metrics.enabled: false
     logging.json: true

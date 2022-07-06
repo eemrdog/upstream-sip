@@ -1,18 +1,22 @@
 {{- if and (eq (print .Values.ingress.enabled) "true") (eq .Values.ingress.ingressController "nginx") -}}
+{{/*
+The apiVersion check can be removed when only k8s >=1.19 is supported
+*/}}
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
 apiVersion: networking.k8s.io/v1
+{{- else }}
+apiVersion: networking.k8s.io/v1beta1
+{{- end }}
 kind: Ingress
 metadata:
   name: {{ include "eric-lm-combined-server.lch.ingress-name" . }}
   labels:
     {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
   annotations:
-    {{- $k8sLabels := dict }}
-    {{- $_ := set $k8sLabels "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) }}
-    {{- $_ := set $k8sLabels "nginx.ingress.kubernetes.io/backend-protocol" "HTTPS" }}
-    {{- $_ := set $k8sLabels "nginx.ingress.kubernetes.io/ssl-passthrough" (.Values.ingress.tls.passthrough | toString) }}
-
-    {{- $base := include "eric-lm-combined-server.annotations" . | fromYaml -}}
-    {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $k8sLabels $base)) | trim | nindent 4 }}
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.ingressClass }}
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-passthrough: {{ .Values.ingress.tls.passthrough | quote }}
 spec:
   {{- if eq (print .Values.ingress.tls.enabled) "true" }}
   tls:

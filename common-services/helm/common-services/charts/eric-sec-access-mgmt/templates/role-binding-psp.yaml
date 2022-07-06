@@ -7,7 +7,7 @@ metadata:
   annotations:
     {{- include "eric-sec-access-mgmt.securityPolicy.annotations" . | nindent 4 }}
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

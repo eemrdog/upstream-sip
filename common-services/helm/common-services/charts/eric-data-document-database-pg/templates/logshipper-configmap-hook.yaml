@@ -10,13 +10,16 @@ kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-data-document-database-pg.logshipper-service-fullname" . }}-logshipper-cfg-hook"
   annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-install,pre-rollback,pre-upgrade,post-delete,post-rollback,post-upgrade" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-6" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
-  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-install,pre-rollback,pre-upgrade,post-delete,post-rollback,post-upgrade 
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "-6"
+  labels:
+    {{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    {{- include "eric-data-document-database-pg.logshipper-labels" . | indent 4 }}
 data:
   {{- $closeTimeout := $default.logshipper.harvester.closeTimeout | quote }}
   {{- $storagePath := $default.logshipper.storagePath }}
@@ -105,8 +108,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -154,8 +155,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -184,7 +183,7 @@ data:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:

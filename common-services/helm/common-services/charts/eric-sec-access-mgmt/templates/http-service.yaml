@@ -5,18 +5,19 @@ kind: Service
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-http
   annotations:
-    {{- $annotations := dict -}}
-    {{/* the below annotation must be added for ICCR to work */}}
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+    #the below annotation must be added for ICCR to work
     {{- if and $global.security.tls.enabled .Values.ingress.enabled}}
-      {{- $_ := set $annotations "contour.heptio.com/upstream-protocol.tls" (printf "http, %s" (include "eric-sec-access-mgmt.serviceHttpsPort" .)) -}}
+    contour.heptio.com/upstream-protocol.tls: "{{ template "eric-sec-access-mgmt.serviceHttpsPort" . }},http"
     {{- end }}
-    {{- $serviceAnnotations := ($service.annotations) -}}
-    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $serviceAnnotations $annotations $common)) | trim | nindent 4 }}
+{{- if $service.annotations }}
+{{ toYaml $service.annotations | indent 4 }}
+{{- end }}
   labels:
-    {{- $serviceLabels := ($service.labels) -}}
-    {{- $defaultLabels := include "eric-sec-access-mgmt.labels" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $serviceLabels $defaultLabels)) | trim | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
+{{- if $service.labels }}
+{{ toYaml $service.labels | indent 4 }}
+{{- end }}
 
 #TODO: should we use service.spec.sessionAffinity to “ClientIP” as recommended by Keycloak documentation: Sticky Sessions
 spec:

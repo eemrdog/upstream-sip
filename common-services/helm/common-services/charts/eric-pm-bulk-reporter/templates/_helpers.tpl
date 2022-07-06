@@ -6,7 +6,7 @@ This hides defaults from values file.
 */}}
 {{ define "eric-pm-bulk-reporter.global" }}
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{ if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
@@ -66,10 +66,20 @@ Create scheme for ready and livness
 Create a merged set of nodeSelectors from global and service level.
 */}}
 {{ define "eric-pm-bulk-reporter.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-pm-bulk-reporter.nodeSelector" -}}
-  {{- include "eric-pm-bulk-reporter.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $service $global)) | trim -}}
+  {{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $g.nodeSelector $key -}}
+          {{- $globalValue := index $g.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $g.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $g.nodeSelector | trim -}}
+  {{- end -}}
 {{ end }}
 
 {{/*
@@ -165,39 +175,29 @@ Define Message Bus server
     {{- end -}}
 {{- end -}}
 
-{{/*
-Define Kubernetes labels
-*/}}
-{{- define "eric-pm-bulk-reporter.kubernetes-labels" }}
-  app.kubernetes.io/name: {{ template "eric-pm-bulk-reporter.name" . }}
-  app.kubernetes.io/version: {{ template "eric-pm-bulk-reporter.version" . }}
-  app.kubernetes.io/instance: {{ .Release.Name | quote }}
-{{- end -}}
-
 {{- define "eric-pm-bulk-reporter.meta-labels" }}
-  {{- $static := dict -}}
-  {{- $_ := set $static "app" (include "eric-pm-bulk-reporter.name" .) -}}
-  {{- $_ := set $static "release" (.Release.Name | toString) -}}
-  {{- $kubernetes := include "eric-pm-bulk-reporter.kubernetes-labels" . | fromYaml -}}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-pm-bulk-reporter.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $kubernetes $global $service)) | trim }}
+app.kubernetes.io/name: {{ template "eric-pm-bulk-reporter.name" . }}
+app.kubernetes.io/version: {{ template "eric-pm-bulk-reporter.version" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app: {{ template "eric-pm-bulk-reporter.name" . }}
+release: {{ .Release.Name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
 {{- end}}
 
 {{- define "eric-pm-bulk-reporter.labels" -}}
-  {{- $static := dict -}}
-  {{- $_ := set $static "chart" (include "eric-pm-bulk-reporter.chart" .) -}}
-  {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
-  {{- $meta := include "eric-pm-bulk-reporter.meta-labels" . | fromYaml -}}
-  {{- include "eric-pm-bulk-reporter.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $meta)) | trim }}
-{{- end -}}
-
-{{/*
-Logshipper labels
-*/}}
-{{- define "eric-pm-bulk-reporter.logshipper-labels" }}
-{{- include "eric-pm-bulk-reporter.labels" . -}}
+app.kubernetes.io/name: {{ template "eric-pm-bulk-reporter.name" . }}
+app.kubernetes.io/version: {{ template "eric-pm-bulk-reporter.version" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app: {{ template "eric-pm-bulk-reporter.name" . }}
+chart: {{ template "eric-pm-bulk-reporter.chart" . }}
+release: {{ .Release.Name }}
+heritage: {{ .Release.Service }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
 {{- end }}
+{{- end -}}
 
 {{/*
   DR-D1123-124: Create security policy.
@@ -219,10 +219,10 @@ Define helm-annotations
 Define annotations
 */}}
 {{- define "eric-pm-bulk-reporter.annotations" -}}
-  {{- $helm := include "eric-pm-bulk-reporter.helm-annotations" . | fromYaml -}}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $helm $global $service)) | trim }}
+{{- include "eric-pm-bulk-reporter.helm-annotations" . }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations | indent 2 }}
+{{- end }}
 {{- end -}}
 
 {{- define "eric-pm-bulk-reporter.imagePath" }}
@@ -306,112 +306,9 @@ Define eric-pm-bulk-reporter.resources
  CA Secret provided by PM Server
 */}}
 {{- define "eric-pm-bulk-reporter.pmSecretName" -}}
-  {{- if .Values.pmServer.pmServiceName -}}
-    {{- .Values.pmServer.pmServiceName -}}
-  {{- else -}}
-    eric-pm-server
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Get the metrics port.
-*/}}
-{{- define "eric-pm-bulk-reporter.metrics-port" -}}
-  {{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    9089
-  {{- else -}}
-    9090
-  {{- end -}}
-{{- end -}}
-
-{{/*
-Get the metrics scheme.
-*/}}
-{{- define "eric-pm-bulk-reporter.protmetheus-io-scheme" -}}
-  {{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
-  {{- if $g.security.tls.enabled -}}
-    {{- print "https" -}}
-  {{- else -}}
-    {{- print "http" -}}
-  {{- end -}}
-{{- end -}}
-
-{{/*
-PM bulk reporter Labels for Network Policies
-*/}}
-{{- define "eric-pm-bulk-reporter.peer.labels" -}}
-{{- if (has "stream" .Values.log.outputs) -}}
-{{ .Values.logshipper.logtransformer.host }}-access: "true"
-{{- end }}
-{{ .Values.security.tls.cmMediator.serviceName }}-access: "true"
-{{ .Values.security.tls.pmServer.serviceName }}-access: "true"
-{{ .Values.security.tls.objectStorage.serviceName }}-access: "true"
-{{ .Values.security.keyManagement.serviceName }}-access: "true"
-{{- if .Values.trace.enabled }}
-{{ .Values.trace.agent.host }}-access: "true"
-{{- end }}
-{{- if .Values.thresholdReporter.enabled }}
-{{ .Values.thresholdReporter.kafkaHostname }}-access: "true"
-{{ .Values.thresholdReporter.alarmHandlerHostname }}-access: "true"
-{{- end }}
-{{- end -}}
-
-{{/*
-Define eric-pm-bulk-reporter.appArmorProfileAnnotation
-*/}}
-{{- define "eric-pm-bulk-reporter.appArmorProfileAnnotation" -}}
-{{- $acceptedProfiles := list "unconfined" "runtime/default" "localhost" }}
-{{- $commonProfile := dict -}}
-{{- if .Values.appArmorProfile.type -}}
-  {{- $_ := set $commonProfile "type" .Values.appArmorProfile.type -}}
-  {{- if and (eq .Values.appArmorProfile.type "localhost") .Values.appArmorProfile.localhostProfile -}}
-    {{- $_ := set $commonProfile "localhostProfile" .Values.appArmorProfile.localhostProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- $profiles := dict -}}
-{{- range $container := list "eric-pm-br-initcontainer" "eric-pm-bulk-reporter" "eric-pm-alarm-reporter" "eric-pm-sftp" "logshipper" -}}
-  {{- if and (hasKey $.Values.appArmorProfile $container) (index $.Values.appArmorProfile $container "type") -}}
-    {{- $_ := set $profiles $container (index $.Values.appArmorProfile $container) -}}
-  {{- else -}}
-    {{- $_ := set $profiles $container $commonProfile -}}
-  {{- end -}}
-{{- end -}}
-{{- range $key, $value := $profiles -}}
-  {{- if $value.type -}}
-    {{- if not (has $value.type $acceptedProfiles) -}}
-      {{- fail (printf "Unsupported appArmor profile type: %s, use one of the supported profiles %s" $value.type $acceptedProfiles) -}}
+    {{- if .Values.pmServer.pmServiceName -}}
+        {{- .Values.pmServer.pmServiceName -}}
+    {{- else -}}
+      eric-pm-server
     {{- end -}}
-    {{- if and (eq $value.type "localhost") (empty $value.localhostProfile) -}}
-      {{- fail "The 'localhost' appArmor profile requires a profile name to be provided in localhostProfile parameter." -}}
-    {{- end }}
-container.apparmor.security.beta.kubernetes.io/{{ $key }}: {{ $value.type }}{{ eq $value.type "localhost" | ternary (printf "/%s" $value.localhostProfile) ""  }}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Define podPriority check
-*/}}
-{{- define "eric-pm-bulk-reporter.podpriority" }}
-{{- if .Values.podPriority }}
-  {{- if index .Values.podPriority "eric-pm-bulk-reporter" -}}
-    {{- if (index .Values.podPriority "eric-pm-bulk-reporter" "priorityClassName") }}
-      priorityClassName: {{ index .Values.podPriority "eric-pm-bulk-reporter" "priorityClassName" | quote }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Define eric-pm-bulk-reporter.podSeccompProfile
-*/}}
-{{- define "eric-pm-bulk-reporter.podSeccompProfile" -}}
-{{- if and .Values.seccompProfile .Values.seccompProfile.type }}
-seccompProfile:
-  type: {{ .Values.seccompProfile.type }}
-  {{- if eq .Values.seccompProfile.type "Localhost" }}
-  localhostProfile: {{ .Values.seccompProfile.localhostProfile }}
-  {{- end }}
-{{- end }}
 {{- end -}}

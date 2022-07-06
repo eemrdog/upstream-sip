@@ -1,72 +1,72 @@
 dependencies:
 - name: eric-log-shipper
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 9.3.0+24
+  version: 8.0.0+19
 - name: eric-log-transformer
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 8.2.0+17
+  version: 7.0.1+2
 - name: eric-data-search-engine
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 10.1.0+22
+  version: 8.2.0+28
 - name: eric-data-search-engine-curator
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 2.9.0+22
+  version: 2.6.0+18
 - name: eric-sec-sip-tls
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 4.2.0+32
+  version: 3.0.0+46
 - name: eric-sec-key-management
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 3.4.0+15
+  version: 2.24.0+10
 - name: eric-data-distributed-coordinator-ed
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 3.3.0+13
+  version: 3.0.0+9
 - name: eric-data-document-database-pg
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.4.0+44
+  version: 6.4.0+9
 - name: eric-data-document-database-pg
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.4.0+44
+  version: 6.4.0+9
 - name: eric-data-document-database-pg
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.4.0+44
+  version: 6.4.0+9
 - name: eric-data-document-database-pg
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.4.0+44
+  version: 6.4.0+9
 - name: eric-data-coordinator-zk
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 1.28.0+12
+  version: 1.24.0+5
 - name: eric-data-message-bus-kf
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 1.27.0+21
+  version: 1.23.0+17
 - name: eric-cm-mediator
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.16.0+29
+  version: 7.11.0+17
 - name: eric-fh-alarm-handler
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 8.3.0+63
+  version: 7.5.0+23
 - name: eric-fh-snmp-alarm-provider
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 6.3.0+49
+  version: 6.0.0+5
 - name: eric-ctrl-bro
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 5.5.0+49
+  version: 5.1.0+18
 - name: eric-sec-access-mgmt
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 12.0.0+39
+  version: 9.1.0+36
 - name: eric-pm-server
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 10.0.0+14
+  version: 6.6.0+23
 - name: eric-pm-bulk-reporter
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.5.0+19
+  version: 6.7.0+51
 - name: eric-data-document-database-pg
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-  version: 7.4.0+44
+  version: 6.4.0+9
 - name: eric-lm-combined-server
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-  version: 6.0.0+38
+  version: 5.0.0+15
 - name: eric-data-object-storage-mn
   repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-eric-data-object-storage-mn-released-helm
-  version: 1.23.0+22
-digest: sha256:cb4386fff47262cd3ae6ecb89d08a81ac835bd483d4182378e1bb609595295ee
-generated: "2022-05-25T12:02:50.746196646Z"
+  version: 1.19.0+5
+digest: sha256:7f18dc39833aa237fe8eafac13de15d2bf56c06422e9df4dfae817aa11fb3d88
+generated: "2022-02-17T00:32:47.813171138Z"

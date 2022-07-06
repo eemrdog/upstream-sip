@@ -26,7 +26,7 @@ data:
     logging:
       loglevel: {{ .Values.logLevel | upper }}
       logfile:
-      logformat: "json"
+      logformat: "default"
       blacklist: ["elasticsearch", "urllib3"]
   actions.yaml: |
     actions:

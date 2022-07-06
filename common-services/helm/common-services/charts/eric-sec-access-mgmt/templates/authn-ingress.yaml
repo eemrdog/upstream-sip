@@ -7,14 +7,15 @@ kind: HTTPProxy
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-authn
   annotations:
-    {{- $ingressAnnotations := (.Values.authenticationProxy.ingress.annotations) -}}
-    {{- $annotations := dict -}}
-    {{- if .Values.authenticationProxy.ingress.ingressClass }}
-      {{- $_ := set $annotations "kubernetes.io/ingress.class" (.Values.authenticationProxy.ingress.ingressClass) -}}
-    {{- end }}
-    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $annotations $ingressAnnotations $common)) | trim | nindent 4 }}
-  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+{{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+{{- if .Values.authenticationProxy.ingress.annotations }}
+{{ toYaml .Values.authenticationProxy.ingress.annotations | indent 4 }}
+{{- end }}
+{{- if .Values.authenticationProxy.ingress.ingressClass }}
+    kubernetes.io/ingress.class: {{.Values.authenticationProxy.ingress.ingressClass | quote }}
+{{- end }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
 spec:
   virtualhost:
     fqdn: {{ .Values.authenticationProxy.ingress.hostname | quote }}

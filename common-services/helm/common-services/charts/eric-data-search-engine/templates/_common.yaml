@@ -1,74 +1,40 @@
-{{- define "eric-data-search-engine.labels" }}
-{{- $k8sLabels := dict }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/name" (include "eric-data-search-engine.name" . | toString) }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/version" (include "eric-data-search-engine.version" . | toString) }}
-{{- $_ := set $k8sLabels "app.kubernetes.io/instance" (.Release.Name | toString) }}
-
-{{- $global := (.Values.global).labels -}}
-{{- $service := .Values.labels -}}
-{{- include "eric-data-search-engine.mergeLabels" (dict "location" .Template.Name "sources" (list $k8sLabels $global $service)) | trim -}}
+{{- define "eric-data-search-engine.labels"}}
+app.kubernetes.io/name: {{ include "eric-data-search-engine.name" . | quote }}
+app.kubernetes.io/version: {{ include "eric-data-search-engine.version" . | quote }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
+{{- end }}
 {{- end }}
 
 {{- define "eric-data-search-engine.helm-labels" }}
-{{- $helmLabels := dict }}
-{{- $_ := set $helmLabels "release" .Release.Name }}
-{{- $_ := set $helmLabels "heritage" .Release.Service }}
-{{- $_ := set $helmLabels "chart" (include "eric-data-search-engine.chart" . | toString) }}
-
-{{- $commonLabels := include "eric-data-search-engine.labels" . | fromYaml }}
-{{- include "eric-data-search-engine.mergeLabels" (dict "location" .Template.Name "sources" (list $helmLabels $commonLabels)) | trim -}}
+{{- $chartver := .Chart.Version | replace "+" "_" }}
+labels:
+  {{- include "eric-data-search-engine.labels" . | indent 2 }}
+  release: {{ .Release.Name }}
+  heritage: {{ .Release.Service }}
+  chart: {{ include "eric-data-search-engine.chart" . | quote }}
 {{- end }}
 
 {{- define "eric-data-search-engine.annotations" }}
-{{- $productAnn := dict }}
-{{- $_ := set $productAnn "ericsson.com/product-name" (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
-{{- $_ := set $productAnn "ericsson.com/product-number" (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
-{{- $_ := set $productAnn "ericsson.com/product-revision" (split "-" (.Chart.Version | replace "+" "-" ))._0 | quote }}
-
-{{- $global := (.Values.global).annotations -}}
-{{- $service := .Values.annotations -}}
-{{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productAnn $global $service)) | trim -}}
+ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
+ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
+ericsson.com/product-revision: {{ (split "-" (.Chart.Version | replace "+" "-" ))._0 | quote }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
 {{- end }}
-
-{{- define "eric-data-search-engine.logshipper-labels" }}
-{{- println "" -}}
-{{- include "eric-data-search-engine.labels" . -}}
 {{- end }}
-
-{{- define "eric-data-search-engine.logshipper-annotations" }}
-{{- println "" -}}
-{{- include "eric-data-search-engine.annotations" . -}}
-{{- end }}
-
 {{- define "eric-data-search-engine.deployment-init-containers" -}}
 {{- $g := fromJson (include "eric-data-search-engine.global" . ) }}
 - name: sysctl
   image: {{ include "eric-data-search-engine.image-registry-url" . | quote }}
   args:
-    - /opt/redirect/stdout-redirect
-    - -redirect
-    - {{ include "eric-data-search-engine.log-redirect" . }}
-    - -service-id
-    - {{ include "eric-data-search-engine.fullname" . }}
-    {{- if has "stream" .Values.log.outputs }}
-    - -logfile
-    - {{ .Values.logshipper.storagePath }}/sysctl.log
-    - -size
-    - "1"
-    {{- end }}
-    - --
     - /set_sysctl.sh
     - --max-map-count
     - "262144"
-  volumeMounts:
-  {{- if has "stream" .Values.log.outputs }}
-    {{- include "eric-data-search-engine.logshipper-storage-path" . | indent 4 }}
-  {{- end}}
   env:
   - name: SERVICE_ID
     value: {{ include "eric-data-search-engine.fullname" . }}
-  - name: TZ
-    value: {{ $g.timezone | quote }}
   securityContext:
     allowPrivilegeEscalation: true
     privileged: true
@@ -89,8 +55,6 @@ args:
   - /opt/redirect/stdout-redirect
   - -redirect
   - {{ include "eric-data-search-engine.log-redirect" .root }}
-  - -service-id
-  - {{ include "eric-data-search-engine.fullname" .root }}
   - -run
   - /init.sh
   {{- if has "stream" .root.Values.log.outputs }}
@@ -110,58 +74,58 @@ securityContext:
 volumeMounts:
   {{- if not (contains "ingest" .context.pod) }}
 - name: storage
-  mountPath: /opt/opensearch/data
+  mountPath: /opt/elasticsearch/data
     {{- if and .root.Values.brAgent.enabled (eq .root.Values.brAgent.backupRepository.type "fs") }}
 - name: repository
-  mountPath: /opt/opensearch/repository
+  mountPath: /opt/elasticsearch/repository
     {{- end }}
   {{- end }}
   {{- if (contains "ingest" .context.pod) }}
 - name: ingest-data
-  mountPath: /opt/opensearch/data
+  mountPath: /opt/elasticsearch/data
   {{- end }}
 - name: plugins-src
-  mountPath: "/opt/opensearch/tmp/plugins/*"
+  mountPath: "/opt/elasticsearch/tmp/plugins/*"
   subPath: "*"
-- name: os-tmp
+- name: es-tmp
   mountPath: "/tmp"
-- name: os-conf
-  mountPath: "/etc/opensearch"
-- name: os-logs
-  mountPath: "/opt/opensearch/logs"
-- name: os-plugins
-  mountPath: "/opt/opensearch/plugins"
+- name: es-conf
+  mountPath: "/etc/elasticsearch"
+- name: es-logs
+  mountPath: "/opt/elasticsearch/logs"
+- name: es-plugins
+  mountPath: "/opt/elasticsearch/plugins"
 - name: config
-  mountPath: "/etc/opensearch/opensearch.yml"
-  subPath: "opensearch.yml"
+  mountPath: "/etc/elasticsearch/elasticsearch.yml"
+  subPath: "elasticsearch.yml"
 - name: config
-  mountPath: "/etc/opensearch/log4j2.properties"
+  mountPath: "/etc/elasticsearch/log4j2.properties"
   subPath: "log4j2.properties"
 - name: config
-  mountPath: "/etc/opensearch/jvm.options"
+  mountPath: "/etc/elasticsearch/jvm.options"
   subPath: "jvm.options"
 - name: config
-  mountPath: "/etc/opensearch/java.policy"
+  mountPath: "/etc/elasticsearch/java.policy"
   subPath: "java.policy"
 - name: "config"
-  mountPath: "/etc/opensearch/template.json"
+  mountPath: "/etc/elasticsearch/template.json"
   subPath: "template.json"
 - name: "config"
-  mountPath: "/etc/opensearch/settings.json"
+  mountPath: "/etc/elasticsearch/settings.json"
   subPath: "settings.json"
   {{- if (contains "ingest" .context.pod) }}
 - name: "jvmingest"
-  mountPath: "/etc/opensearch/jvm.options.d/jvm.options"
+  mountPath: "/etc/elasticsearch/jvm.options.d/jvm.options"
   subPath: "jvmingest.options"
   {{- end }}
   {{- if (contains "data" .context.pod) }}
 - name: "jvmdata"
-  mountPath: "/etc/opensearch/jvm.options.d/jvm.options"
+  mountPath: "/etc/elasticsearch/jvm.options.d/jvm.options"
   subPath: "jvmdata.options"
   {{- end }}
   {{- if (contains "master" .context.pod) }}
 - name: "jvmmaster"
-  mountPath: "/etc/opensearch/jvm.options.d/jvm.options"
+  mountPath: "/etc/elasticsearch/jvm.options.d/jvm.options"
   subPath: "jvmmaster.options"
   {{- end }}
   {{- if and .root.Values.brAgent.enabled (eq .root.Values.brAgent.backupRepository.type "s3") }}
@@ -198,31 +162,31 @@ imagePullSecrets:
   valueFrom:
     fieldRef:
       fieldPath: metadata.name
-- name: OPENSEARCH_PATH_CONF
-  value: /etc/opensearch
-- name: OS_ENV_CN
+- name: ES_PATH_CONF
+  value: /etc/elasticsearch
+- name: ES_ENV_CN
   value: cluster.name={{ include "eric-data-search-engine.fullname" .root }}
-- name: OS_ENV_NN
+- name: ES_ENV_NN
   value: node.name=$(NODE_NAME)
-- name: OS_ENV_BM
+- name: ES_ENV_BM
   value: bootstrap.memory_lock=false
+- name: ES_LOG4J2_ROOTLOGGER_LEVEL
+  value: {{ .root.Values.debugLevel | default "info" | quote }}
 - name: TZ
   value: {{ $g.timezone | quote }}
 {{- if eq .root.Values.brAgent.backupRepository.type "s3" }}
 - name: REPOTYPE
   value: s3
 {{- end }}
-- name: "OS_PORT"
+- name: "ES_PORT"
   value: "9200"
-- name: "SERVICE_ID"
-  value: {{ include "eric-data-search-engine.fullname" .root }}
-- name: "OS_INTERNODE_TLS"
+- name: "ES_INTERNODE_TLS"
 {{- if $g.security.tls.enabled }}
   value: "true"
 {{- else }}
   value: "false"
 {{- end }}
-- name: "OPENSEARCH_REST_TLS"
+- name: "ES_REST_TLS"
 {{- if and $g.security.tls.enabled (eq .context "tls") }}
   value: "true"
 {{- else }}
@@ -230,11 +194,11 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 
-{{- define "eric-data-search-engine.os-volume" }}
-- name: os-tmp
-- name: os-conf
-- name: os-plugins
-- name: os-logs
+{{- define "eric-data-search-engine.es-volume" }}
+- name: es-tmp
+- name: es-conf
+- name: es-plugins
+- name: es-logs
 - name: plugins-src
 {{- end }}
 
@@ -256,8 +220,8 @@ imagePullSecrets:
     {{- end }}
     {{- end }}
     items:
-      - key: opensearch.yml
-        path: opensearch.yml
+      - key: elasticsearch.yml
+        path: elasticsearch.yml
       - key: log4j2.properties
         path: log4j2.properties
       - key: jvm.options
@@ -341,7 +305,7 @@ volumes:
     name: s3secrets
   {{- end }}
   {{ include "eric-data-search-engine.configmap-volume" . | indent 2 }}
-  {{ include "eric-data-search-engine.os-volume" . | indent 2 }}
+  {{ include "eric-data-search-engine.es-volume" . | indent 2 }}
   {{ include "eric-data-search-engine.ingest-data-volume" . | indent 2 }}
   {{ include "eric-data-search-engine.ingest-configmap-volume" . | indent 2 }}
   {{- if $g.security.tls.enabled }}

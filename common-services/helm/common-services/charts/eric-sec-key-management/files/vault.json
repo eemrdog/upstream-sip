@@ -56,7 +56,6 @@
         "tls_cert_file": "/run/secrets/tls-client-certs/clicert.pem",
         "tls_key_file": "/run/secrets/tls-client-certs/cliprivkey.pem",
         {{- end }}
-        "request_timeout": {{ .Values.persistence.etcd.requestTimeout | quote }},
         "lock_timeout": "11s"
     }
     {{- else }}

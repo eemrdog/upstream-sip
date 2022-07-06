@@ -5,34 +5,34 @@ images:
     productName: "Alarm Handler Image"
     productNumber: "CXU 101 0364"
     registry: "selndocker.mo.sw.ericsson.se"
-    repoPath: proj-pc-gs-released
+    repoPath: proj-pc-gs-drop
     name: "eric-fh-alarm-handler"
-    tag: 8.3.0-63
+    tag: 7.5.0-23
   topiccreator:
     productName: "Alarm Handler Init Image"
     productNumber: "CXU 101 0087"
     registry: "selndocker.mo.sw.ericsson.se"
-    repoPath: proj-pc-gs-released
+    repoPath: proj-pc-gs-drop
     name: "eric-fh-alarm-handler-init"
-    tag: 8.3.0-63
+    tag: 7.5.0-23
   logshipper:
     productName: "Log Shipper Image"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: "9.2.0-13"
+    tag: "7.3.0-23"
   ericsecoauthsap:
     productName: "Authorization Proxy OAuth2 Init Image"
     productNumber: "CXU 101 0039"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-common-assets-cd/security"
     name: "eric-sec-authorization-proxy-oauth2-sap"
-    tag: "1.15.0-11"
+    tag: "1.9.0-15"
   ericsecoauthproxy:
     productName: "Authorization Proxy OAuth2 Image"
     productNumber: "CXU 101 0038"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-common-assets-cd/security"
     name: "eric-sec-authorization-proxy-oauth2"
-    tag: "1.15.0-11"
+    tag: "1.9.0-15"

@@ -7,12 +7,10 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- $helmAnn := dict -}}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
     {{- if .Values.persistence.pvc.keep }}
-    {{- $_ := set $helmAnn "helm.sh/resource-policy" "keep" -}}
+    "helm.sh/resource-policy": keep
     {{- end }}
-    {{- $commonAnn := include "eric-sec-key-management.annotations" . | fromYaml -}}
-    {{- include "eric-sec-key-management.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmAnn $commonAnn)) | trim | nindent 4 }}
 spec:
   accessModes:
     - "ReadWriteOnce"

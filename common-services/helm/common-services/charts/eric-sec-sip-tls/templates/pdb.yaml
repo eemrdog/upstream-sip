@@ -3,7 +3,7 @@
 {{- if .Capabilities.APIVersions.Has "policy/v1" }}
 apiVersion: policy/v1
 {{- else }}
-apiVersion: policy/v1beta1
+apiVersion: policy/v1
 {{- end }}
 kind: PodDisruptionBudget
 metadata:
@@ -11,7 +11,7 @@ metadata:
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
 spec:
 {{- if .Values.podDisruptionBudget.minAvailable }}
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}

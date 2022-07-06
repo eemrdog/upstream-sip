@@ -22,12 +22,7 @@ spec:
       labels:
         {{- include "eric-lm-combined-server.lch-labels" . | nindent 8 }}
       annotations:
-        {{- $podTempAnn := dict -}}
-        {{- if index .Values "bandwidth" "eric-lm-license-consumer-handler" "maxEgressRate" }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (index .Values "bandwidth" "eric-lm-license-consumer-handler" "maxEgressRate") -}}
-        {{- end }}
-        {{- $commonAnn := include "eric-lm-combined-server.annotations" . | fromYaml -}}
-        {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        {{- include "eric-lm-combined-server.annotations" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "eric-lm-combined-server.name" . }}
       {{- if include "eric-lm-combined-server.pullSecrets" . }}
@@ -310,14 +305,6 @@ spec:
               containerPort: {{ .Values.tls.lch.ingressAPIPort }}
               protocol: TCP
             {{- end }}
-          startupProbe:
-            httpGet:
-              path: "/license-manager/api/v1/health/liveness"
-              port: internal-http
-            initialDelaySeconds: {{ index .Values "probes" "eric-lm-license-consumer-handler" "startupProbe" "initialDelaySeconds" }}
-            periodSeconds: {{ index .Values "probes" "eric-lm-license-consumer-handler" "startupProbe" "periodSeconds" }}
-            failureThreshold: {{ index .Values "probes" "eric-lm-license-consumer-handler" "startupProbe" "failureThreshold" }}
-            timeoutSeconds: {{ index .Values "probes" "eric-lm-license-consumer-handler" "startupProbe" "timeoutSeconds" }}
           livenessProbe:
             httpGet:
               path: "/license-manager/api/v1/health/liveness"
@@ -360,7 +347,7 @@ spec:
           {{- end }}
       {{- if include "eric-lm-combined-server.nodeSelector.licenseConsumerHandler" . }}
       nodeSelector:
-        {{- include "eric-lm-combined-server.nodeSelector.licenseConsumerHandler" . | nindent 8 }}
+        {{ template "eric-lm-combined-server.nodeSelector.licenseConsumerHandler" . }}
       {{- end }}
       affinity:
       {{- with .Values.licenseConsumerHandler.affinity }}
@@ -396,7 +383,4 @@ spec:
       {{- if .Values.topologySpreadConstraints.licenseConsumerHandler }}
       topologySpreadConstraints:
         {{- toYaml .Values.topologySpreadConstraints.licenseConsumerHandler | nindent 8 }}
-      {{- end }}
-      {{- if (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") }}
-      priorityClassName: {{ (index .Values "podPriority" "eric-lm-combined-server-license-consumer-handler" "priorityClassName") | quote }}
       {{- end }}

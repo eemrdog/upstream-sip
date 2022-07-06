@@ -11,14 +11,9 @@ updateStrategy:
 productInfo:
   # R-State of the product. R State should match helm chart version (3.1.0 -> R2A)
   # Value is auto-generated from the chart.
-  rstate: R6A
+  rstate: R2A
 
 tolerations: []
-
-nodeSelector: {}
-
-networkPolicy:
-  enabled: true
 
 terminationGracePeriodSeconds: 30
 
@@ -47,7 +42,6 @@ bro:
   enableConfigurationManagement: false
   # Value is auto-generated from the chart
   namespaceEnvironmentVariable: ORCHESTRATOR_NAMESPACE
-  vBRMAutoCreate: NONE
 
   backupLocation: /bro
   CMMediatorUrl: http://eric-cm-mediator:5003/cm
@@ -107,9 +101,6 @@ keyValueDatabaseRd:
   retry:
     maxAttempts: 10
     maxDelay: 3000
-  acl:
-    enabled: false
-    username: userbro
 
 sftp:
   retry:
@@ -171,10 +162,6 @@ persistence:
     storageClassName: "default"
     storageConnectivity: networked
 
-podPriority:
-  eric-ctrl-bro:
-    priorityClassName:
-
 resources:
   backupAndRestore:
     limits:
@@ -194,7 +181,7 @@ service:
       ttl: 604800
     broToAgent:
       tls:
-        enforced: required # WHEN GLOBAL.SECURITY.TLS.ENABLED IS TRUE, ALL AGENTS MUST SUPPORT AT LEAST TLS SO THIS IS ALWAYS REQUIRED
+        enforced: required
         verifyClientCertificate: required
     restActions:
       tls:
@@ -211,6 +198,3 @@ service:
         verifyClientCertificate: required
 
 labels: {}
-
-bandwidth:
-  maxEgressRate: # maximum outgoing traffic rate from BRO

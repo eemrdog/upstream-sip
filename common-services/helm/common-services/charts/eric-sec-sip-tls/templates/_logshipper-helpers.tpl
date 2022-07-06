@@ -1,6 +1,6 @@
 {{/*
 Template of Log Shipper sidecar
-Version: 9.3.0-24
+Version: 7.3.0-23
 */}}
 
 {{/*
@@ -8,20 +8,15 @@ Create a map from ".Values.global" with defaults if missing in values file.
 This hides defaults from values file.
 */}}
 {{- define "eric-sec-sip-tls.logshipper-global" -}}
-  {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
   {{- $globalDefaults := dict "timezone" "UTC" -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "tls" (dict "enabled" true))) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent" )) -}}
-  {{- if $productInfo -}}
-    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" $productInfo.images.logshipper.registry )) -}}
-  {{- else -}}
-    {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se" )) -}}
-  {{- end -}}
-  {{- if .Values.global }}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com" )) -}}
+  {{ if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
-  {{- else -}}
+  {{ else }}
     {{- $globalDefaults | toJson -}}
-  {{- end -}}
+  {{ end }}
 {{- end -}}
 
 {{/*
@@ -66,7 +61,7 @@ Create product name, version and revision
 {{- define "eric-sec-sip-tls.logshipper-product-info" -}}
 ericsson.com/logshipper-product-name: "Log Shipper"
 ericsson.com/logshipper-product-number: "CXU 101 0642"
-ericsson.com/logshipper-product-revision: "9.3.0"
+ericsson.com/logshipper-product-revision: "7.3.0"
 {{- end -}}
 
 {{/*
@@ -79,29 +74,71 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Parameterize and service specific image path
+The logshipper image path
 */}}
-{{- define "eric-sec-sip-tls.logshipper-image" }}
-{{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") }}
-{{- $registry := default $productInfo.images.logshipper.registry (default (((.Values).global).registry).url (default (((.Values).imageCredentials).registry).url ((((.Values).imageCredentials).logshipper).registry).url)) }}
-{{- $repoPath := default $productInfo.images.logshipper.repoPath (default ((.Values).imageCredentials).repoPath (((.Values).imageCredentials).logshipper).repoPath) }}
-{{- $name := $productInfo.images.logshipper.name }}
-{{- $tag := default $productInfo.images.logshipper.tag (default (((.Values).images).logshipper).tag) }}
-{{- printf "%s/%s/%s:%s" $registry $repoPath $name $tag }}
-{{- end }}
+{{- define "eric-sec-sip-tls.logshipperPath" }}
+    {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
+    {{- $registryUrl := $productInfo.images.logshipper.registry -}}
+    {{- $repoPath := $productInfo.images.logshipper.repoPath -}}
+    {{- $name := $productInfo.images.logshipper.name -}}
+    {{- $tag := $productInfo.images.logshipper.tag -}}
+    {{- if .Values.global -}}
+        {{- if .Values.global.registry -}}
+            {{- if .Values.global.registry.url -}}
+                {{- $registryUrl = .Values.global.registry.url -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if .Values.imageCredentials -}}
+        {{- if .Values.imageCredentials.logshipper -}}
+            {{- if .Values.imageCredentials.logshipper.registry -}}
+                {{- if .Values.imageCredentials.logshipper.registry.url -}}
+                    {{- $registryUrl = .Values.imageCredentials.logshipper.registry.url -}}
+                {{- end -}}
+            {{- end -}}
+            {{- if .Values.imageCredentials.logshipper.repoPath -}}
+                {{- $repoPath = .Values.imageCredentials.logshipper.repoPath -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if .Values.images -}}
+        {{- if .Values.images.logshipper -}}
+            {{- if .Values.images.logshipper.name -}}
+                {{- $name = .Values.images.logshipper.name -}}
+            {{- end -}}
+            {{- if .Values.images.logshipper.tag -}}
+                {{- $tag = .Values.images.logshipper.tag -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if $repoPath -}}
+        {{- $repoPath = printf "%s/" $repoPath -}}
+    {{- end -}}
+    {{- printf "%s/%s%s:%s" $registryUrl $repoPath $name $tag -}}
+{{- end -}}
 
 {{/*
-seccompProfile for logshipper container
+Create image pull policy for logshipper image
 */}}
-{{- define "eric-sec-sip-tls.LsSeccompProfile" -}}
-{{- $default := fromJson (include "eric-sec-sip-tls.logshipper-default-value" .) }}
-{{- if and $default.seccompProfile.logshipper $default.seccompProfile.logshipper.type }}
-seccompProfile:
-  type: {{ $default.seccompProfile.logshipper.type }}
-  {{- if eq $default.seccompProfile.logshipper.type "Localhost" }}
-  localhostProfile: {{ $default.seccompProfile.logshipper.localhostProfile }}
-  {{- end }}
-{{- end }}
+{{- define "eric-sec-sip-tls.logshipper.imagePullPolicy" -}}
+    {{- $globalRegistryImagePullPolicy := "IfNotPresent" -}}
+    {{- if .Values.global -}}
+        {{- if .Values.global.registry -}}
+            {{- if .Values.global.registry.imagePullPolicy -}}
+                {{- $globalRegistryImagePullPolicy = .Values.global.registry.imagePullPolicy -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- if .Values.imageCredentials -}}
+        {{- if .Values.imageCredentials.logshipper -}}
+            {{- if .Values.imageCredentials.logshipper.registry -}}
+                {{- if .Values.imageCredentials.logshipper.registry.imagePullPolicy -}}
+                    {{- $globalRegistryImagePullPolicy = .Values.imageCredentials.logshipper.registry.imagePullPolicy -}}
+                {{- end -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+    {{- print $globalRegistryImagePullPolicy -}}
 {{- end -}}
 
 {{/*
@@ -111,8 +148,8 @@ Log Shipper sidecar container spec
 {{- $g := fromJson (include "eric-sec-sip-tls.logshipper-global" .) }}
 {{- $default := fromJson (include "eric-sec-sip-tls.logshipper-default-value" .) }}
 - name: "logshipper"
-  imagePullPolicy: {{ or $default.imageCredentials.logshipper.registry.imagePullPolicy $g.registry.imagePullPolicy }}
-  image: {{ include "eric-sec-sip-tls.logshipper-image" . }}
+  imagePullPolicy: {{ template "eric-sec-sip-tls.logshipper.imagePullPolicy" . }}
+  image: "{{ template "eric-sec-sip-tls.logshipperPath" . }}"
   args:
     - /opt/filebeat/init.sh
   securityContext:
@@ -123,7 +160,6 @@ Log Shipper sidecar container spec
     capabilities:
       drop:
         - "all"
-    {{ include "eric-sec-sip-tls.LsSeccompProfile" . | indent 4 }}
   env:
   - name: TZ
     value: {{ $g.timezone | quote }}
@@ -172,7 +208,7 @@ Log Shipper sidecar container spec
       command:
         - "/bin/bash"
         - "-c"
-        - "[[ ! -f {{ $default.logshipper.storagePath }}/data/started ]] || exec pgrep -l filebeat"
+        - "[[ ! -f /run/filebeat/started ]] || exec pgrep -l filebeat"
     initialDelaySeconds: {{ $default.probes.logshipper.livenessProbe.initialDelaySeconds }}
     timeoutSeconds: {{ $default.probes.logshipper.livenessProbe.timeoutSeconds }}
     periodSeconds: {{ $default.probes.logshipper.livenessProbe.periodSeconds }}
@@ -186,7 +222,7 @@ Log Shipper sidecar container spec
       memory: {{ $default.resources.logshipper.limits.memory  | quote }}
       {{- end }}
       {{- if index $default.resources.logshipper.limits "ephemeral-storage" }}
-      ephemeral-storage: {{ index $default.resources.logshipper.limits "ephemeral-storage"  | quote }}
+      ephemeral-storage: {{ index $default.resources.logshipper.limits "ephemeral-storage" | quote }}
       {{- end }}
     requests:
       {{- if $default.resources.logshipper.requests.cpu }}
@@ -233,12 +269,12 @@ Log Shipper sidecar related volumes
 {{- $default := fromJson (include "eric-sec-sip-tls.logshipper-default-value" .) }}
 - name: "eric-log-shipper-storage-path"
   emptyDir:
-  {{- if $default.logshipper.storageAllocation }}
+    {{- if $default.logshipper.storageAllocation }}
     sizeLimit: {{ $default.logshipper.storageAllocation | quote }}
-  {{- end }}
-  {{- if $default.logshipper.storageMedium }}
+    {{- end }}
+    {{- if $default.logshipper.storageMedium }}
     medium: {{ $default.logshipper.storageMedium | quote }}
-  {{- end }}
+    {{- end }}
 - name: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-logshipper-cfg"
   configMap:
     name: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-logshipper-cfg"
@@ -254,23 +290,17 @@ Log Shipper sidecar related volumes
 {{- end }}
 {{- end -}}
 
+
 {{- define "eric-sec-sip-tls.logshipper-default-value" -}}
-  {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
   {{- $default := dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "initialDelaySeconds" 1 ))) -}}
   {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "timeoutSeconds" 10 )))) -}}
   {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "periodSeconds" 10 )))) -}}
   {{- $default := merge $default (dict "probes" (dict "logshipper" (dict "livenessProbe" (dict "failureThreshold" 3 )))) -}}
   {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "registry" (dict "url" )))) -}}
   {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "registry" (dict "imagePullPolicy" )))) -}}
-  {{- if $productInfo -}}
-    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" $productInfo.images.logshipper.repoPath ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" $productInfo.images.logshipper.name ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" $productInfo.images.logshipper.tag ))) -}}
-  {{- else -}}
-    {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" "eric-log-shipper" ))) -}}
-    {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "9.3.0-24" ))) -}}
-  {{- end -}}
+  {{- $default := merge $default (dict "imageCredentials" (dict "logshipper" (dict "repoPath" "proj-adp-log-released" ))) -}}
+  {{- $default := merge $default (dict "images" (dict "logshipper" (dict "name" "eric-log-shipper" ))) -}}
+  {{- $default := merge $default (dict "images" (dict "logshipper" (dict "tag" "7.3.0-23" ))) -}}
   {{- $default := merge $default (dict "logshipper" (dict "runAndExit" false )) -}}
   {{- $default := merge $default (dict "logshipper" (dict "shutdownDelay" 10 )) -}}
   {{- $default := merge $default (dict "logshipper" (dict "storagePath" "/logs" )) -}}
@@ -280,8 +310,9 @@ Log Shipper sidecar related volumes
   {{- $default := merge $default (dict "logshipper" (dict "logtransformer" (dict "host" "eric-log-transformer" ))) -}}
   {{- $default := merge $default (dict "logshipper" (dict "logplane" "adp-app-logs")) -}}
   {{- $default := merge $default (dict "log" (dict "logshipper" (dict "level" "info" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "type" "" ))) -}}
-  {{- $default := merge $default (dict "seccompProfile" (dict "logshipper" (dict "localhostProfile" "" ))) -}}
   {{- $default := mergeOverwrite $default .Values -}}
+  {{- if ((.Values.livenessProbe).logshipper) }}
+     {{- $default := mergeOverwrite $default.probes.logshipper.livenessProbe .Values.livenessProbe.logshipper -}}
+  {{- end }}
   {{- $default | toJson -}}
 {{- end -}}

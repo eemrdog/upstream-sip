@@ -1,4 +1,4 @@
-{{- define "eric-sec-key-management.product-labels" -}}
+{{- define "eric-sec-key-management.labels" -}}
 app.kubernetes.io/name: {{ template "eric-sec-key-management.name" . }}
 app.kubernetes.io/version: {{ template "eric-sec-key-management.version" . }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -6,4 +6,9 @@ app: {{ template "eric-sec-key-management.name" . }}
 chart: {{ template "eric-sec-key-management.chart" . }}
 release: {{ .Release.Name | quote }}
 heritage: {{ .Release.Service | quote }}
+{{- if .Values.labels -}}
+{{- range $key, $val := .Values.labels }}
+{{ $key }}: {{ $val | quote }}
+{{- end }}
+{{- end -}}
 {{- end -}}

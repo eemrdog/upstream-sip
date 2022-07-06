@@ -2,7 +2,7 @@
 ## This is a YAML-formatted file.
 ## Declare variables to be passed into your templates.
 
-# global:
+#global:
 #  annotations: {}
 #  labels: {}
 #  security:
@@ -10,58 +10,51 @@
 #      create: false
 #    policyReferenceMap:
 #      default-restricted-security-policy: default-restricted-security-policy
-#  # pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
-#  pullSecret:
-#  # internalIPFamily, IP version can be chosen in dual stack cluster
-#  internalIPFamily:
-#  registry:
-#    # Docker registry url
-#    url: armdocker.rnd.ericsson.se
-#    # imagePullPolicy, desired policy under which condition the images are pulled from registry
-#    imagePullPolicy: IfNotPresent
-#  # nodeSelector, to influence the Pod placement decision and instruct Kubernetes to schedule a Pod on certain node(s)
-#  nodeSelector: {}
-#  # fsGroup, to set up the proper gid value for accessing mounted persistent data (default is 10000 if not defined)
-#  fsGroup:
-#    # 'manual' to enforce a specific value (this has the highest precedence)
-#    manual: 15000
-#    # 'namespace' to use the value defined for the namespace set by the cluster admin (second highest precedence)
-#    namespace: true
-#  timezone: UTC
+  ## pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
+  #pullSecret:
+  ## internalIPFamily, IP version can be chosen in dual stack cluster
+  #internalIPFamily:
+  #registry:
+    ## Docker registry url
+    #url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
+    ## imagePullPolicy, desired policy under which condition the images are pulled from registry
+    #imagePullPolicy: IfNotPresent
+  ## nodeSelector, to influence the Pod placement decision and instruct Kubernetes to schedule a Pod on certain node(s)
+  #nodeSelector: {}
+  ## fsGroup, to set up the proper gid value for accessing mounted persistent data (default is 10000 if not defined)
+  #fsGroup:
+    ## 'manual' to enforce a specific value (this has the highest precedence)
+    #manual: 15000
+    ## 'namespace' to use the value defined for the namespace set by the cluster admin (second highest precedence)
+    #namespace: true
+  #timezone: UTC
 #  networkPolicy:
 #    enabled: false
-#  featureGates:
-#    # flag to use the new way of doing the bootstrap logic done by KMS
-#    caBootstrap_v2: false
 
 imageCredentials:
   ## pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
   ## overrides the global value when set
   pullSecret:
   sip:
-    # see default in eric-product-info.yaml
-    repoPath:
+    repoPath: # see default in eric-product-info.yaml
     registry:
       ## url, service specific Docker registry url, overrides the global value when set
       url:
       ## imagePullPolicy, service specific policy, overrides the global value when set
       imagePullPolicy:
   init:
-    # see default in eric-product-info.yaml
-    repoPath:
+    repoPath: # see default in eric-product-info.yaml
     registry:
       url:
       imagePullPolicy:
   supervisor:
-    # see default in eric-product-info.yaml
-    repoPath:
+    repoPath: # see default in eric-product-info.yaml
     registry:
       url:
       imagePullPolicy:
   ## settings for logshipper sidecar
   logshipper:
-    # see default in eric-product-info.yaml
-    repoPath:
+    repoPath: # see default in eric-product-info.yaml
     registry:
       url:
       imagePullPolicy:
@@ -75,16 +68,16 @@ updateStrategy:
 images:
   sip:
     name: eric-sec-sip-tls-main
-    tag: 4.2.0-32
+    tag: 3.0.0-46
   init:
     name: eric-sec-sip-tls-init
-    tag: 4.2.0-32
+    tag: 3.0.0-46
   supervisor:
     name: eric-sec-sip-tls-supervisor
-    tag: 4.2.0-32
+    tag: 3.0.0-46
   logshipper:
     name: eric-log-shipper
-    tag: 9.3.0-24
+    tag: 7.3.0-23
 
 ## replicas, number of SIP-TLS pod instances. Only one of them is processing and watching CRs.
 replicaCount: 2
@@ -106,7 +99,7 @@ resources:
       ephemeral-storage:
     limits:
       memory: "400Mi"
-      cpu: "1000m"
+      cpu: "3000m"
       ephemeral-storage:
   sip-tls-supervisor:
     requests:
@@ -115,16 +108,16 @@ resources:
       ephemeral-storage:
     limits:
       memory: "400Mi"
-      cpu: "300m"
+      cpu: "3000m"
       ephemeral-storage:
   sip-tls-init:
     requests:
-      memory: "100Mi"
+      memory: "200Mi"
       cpu: "100m"
       ephemeral-storage:
     limits:
-      memory: "200Mi"
-      cpu: "300m"
+      memory: "400Mi"
+      cpu: "3000m"
       ephemeral-storage:
   logshipper:
     requests:
@@ -160,7 +153,7 @@ probes:
       failureThreshold: 3
   sip-tls-supervisor:
     livenessProbe:
-      initialDelaySeconds: 0
+      initialDelaySeconds: 180
       timeoutSeconds: 5
       periodSeconds: 10
       successThreshold: 1
@@ -187,14 +180,14 @@ probes:
 ## Tolerations to influence scheduling decisions made by Kubernetes scheduler
 ## If SIP-TLS is deployed as a single replica, it is recommended to use the following tolerations
 tolerations: []
-#  - key: node.kubernetes.io/not-ready
-#    operator: Exists
-#    effect: NoExecute
-#    tolerationSeconds: 0
-#  - key: node.kubernetes.io/unreachable
-#    operator: Exists
-#    effect: NoExecute
-#    tolerationSeconds: 0
+  #- key: node.kubernetes.io/not-ready
+  #  operator: Exists
+  #  effect: NoExecute
+  #  tolerationSeconds: 0
+  #- key: node.kubernetes.io/unreachable
+  #  operator: Exists
+  #  effect: NoExecute
+  #  tolerationSeconds: 0
 
 serverCertificate:
   ## The time in seconds that certificates are valid
@@ -333,43 +326,17 @@ topologySpreadConstraints: []
 ## terminationGracePeriodSeconds, time duration after process termination before they are forcibly killed
 terminationGracePeriodSeconds: 5
 
+alarmInstanceModel:
+  compliantWithFHDRs:
+    enabled: false
+
 # Pod priority configuration for deployment
 podPriority:
-  # No priority set
-  priorityClassName: ""
+  priorityClassName: "" # No priority set
 
 networkPolicy:
-  enabled: true
+  known:
+    enabled: false
 
 bandwidth:
   maxEgressRate: 10M
-
-# DR-D1123-127 The AppArmor profile will be present as annotations on a pod level
-appArmorProfile:
-  sip-tls:
-    type: ""  # { choice='unconfined, runtime/default, localhost, "" '  } [ default="" ]
-    localhostProfile:  # profiles/apparmorprofile.json # @conditional: apparmorProfile.sip-tls.type= 'localhost'
-  sip-tls-supervisor:
-    type: ""  # { choice='unconfined, runtime/default, localhost, "" '  } [ default="" ]
-    localhostProfile:  # profiles/apparmorprofile.json # @conditional: apparmorProfile.sip-tls-supervisor.type= 'localhost'
-  sip-tls-init:
-    type: ""  # { choice='unconfined, runtime/default, localhost, "" '  } [ default="" ]
-    localhostProfile:  # profiles/apparmorprofile.json # @conditional: apparmorProfile.sip-tls-init.type= 'localhost'
-  logshipper:
-    type: ""  # { choice='unconfined, runtime/default, localhost, "" '  } [ default="" ]
-    localhostProfile:  # profiles/apparmorprofile.json # @conditional: apparmorProfile.logshipper.type= 'localhost'
-
-# DR-D1123-128 The Seccomp profile will be present in security context on a container level
-seccompProfile:
-  sip-tls:
-    type: ""  # { choice='Unconfined, RuntimeDefault, Localhost, "" ' } [ default="" ]
-    localhostProfile:  # profiles/seccompprofile.json # @conditional: seccompProfile.sip-tls.type= 'Localhost'
-  sip-tls-supervisor:
-    type: ""  # { choice='Unconfined, RuntimeDefault, Localhost, "" ' } [ default="" ]
-    localhostProfile:  # profiles/seccompprofile.json # @conditional: seccompProfile.sip-tls-supervisor.type= 'Localhost'
-  sip-tls-init:
-    type: ""  # { choice='Unconfined, RuntimeDefault, Localhost, "" ' } [ default="" ]
-    localhostProfile:  # profiles/seccompprofile.json # @conditional: seccompProfile.sip-tls-init.type= 'Localhost'
-  logshipper:
-    type: ""  # { choice='Unconfined, RuntimeDefault, Localhost, "" ' } [ default="" ]
-    localhostProfile:  # profiles/seccompprofile.json # @conditional: seccompProfile.logshipper.type= 'Localhost'

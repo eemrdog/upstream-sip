@@ -7,9 +7,10 @@ kind: InternalCertificate
 metadata:
   name: {{ template "eric-data-message-bus-kf.fullname" . }}-zk-client-cert
   labels:
-    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.labels" . | indent 4}}
   annotations:
-    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.productinfo" . | indent 4 }}
+{{- include "eric-data-message-bus-kf.config-annotations" . | indent 4}}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-data-message-bus-kf.dczk.client.cert.secret" . }}

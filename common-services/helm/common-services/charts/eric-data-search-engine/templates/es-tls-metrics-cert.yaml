@@ -1,0 +1,63 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if and ($g.security.tls.enabled) .Values.metrics.enabled -}}
+{{- $ti := fromJson (include "eric-data-search-engine.testInternal" .) -}}
+{{- if and (.Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate") (not $ti.oldTls) -}}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-pm-server-cert
+  annotations: {{ include "eric-data-search-engine.annotations" . | indent 4 }}
+  labels: {{ include "eric-data-search-engine.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-data-search-engine.fullname" . }}-pm-server-cert
+    certificateName: "srvcert.pem"
+    privateKeyName: "srvprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-data-search-engine.fullname" . }}-metrics-tls
+    subjectAlternativeName:
+      dns:
+        - "localhost"
+        - certified-scrape-target
+        - "{{ include "eric-data-search-engine.fullname" . }}-tls"
+        - "{{ include "eric-data-search-engine.fullname" . }}-tls.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+        - "{{ include "eric-data-search-engine.fullname" . }}-discovery"
+        - "{{ include "eric-data-search-engine.fullname" . }}-discovery.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+        - "{{ include "eric-data-search-engine.fullname" . }}-transport-data"
+        - "{{ include "eric-data-search-engine.fullname" . }}-transport-data.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: false
+      tlsServerAuth: true
+
+{{- else -}}
+
+apiVersion: com.ericsson.sec.tls/v1alpha1
+kind: ServerCertificate
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-pm-server-cert
+  annotations: {{ include "eric-data-search-engine.annotations" . | indent 4 }}
+  labels: {{ include "eric-data-search-engine.labels" . | indent 4 }}
+spec:
+  generated-secret-name: {{ include "eric-data-search-engine.fullname" . }}-pm-server-cert
+  common-name: {{ include "eric-data-search-engine.fullname" . }}-metrics-tls
+  additional-sans:
+    - "DNS:localhost"
+    - DNS:certified-scrape-target
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-tls"
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-tls.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-discovery"
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-discovery.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-transport-data"
+    - "DNS:{{ include "eric-data-search-engine.fullname" . }}-transport-data.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+  {{- if $ti.tlsTtl }}
+  override-ttl: {{ $ti.tlsTtl }}
+  {{- end }}
+
+{{- end -}}
+{{- end -}}

@@ -1,19 +1,17 @@
 {{- if .Values.podDisruptionBudget -}}
 {{- if .Values.podDisruptionBudget.maxUnavailable -}}
-apiVersion: {{ ternary "policy/v1" "policy/v1beta1" (.Capabilities.APIVersions.Has "policy/v1") }}
+apiVersion: {{ ternary "policy/v1" "policy/v1" (.Capabilities.APIVersions.Has "policy/v1") }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-pdb
   labels:
-    {{- $labels := dict -}}
-    {{- $_ := set $labels "app" (include "eric-log-transformer.fullname" .) -}}
-    {{- $_ := set $labels "chart" (include "eric-log-transformer.chart" .) -}}
-    {{- $_ := set $labels "release" .Release.Name -}}
-    {{- $_ := set $labels "heritage" .Release.Service -}}
-    {{- $defaultLabels := fromYaml (include "eric-log-transformer.labels" .) -}}
-    {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $defaultLabels)) | trim | nindent 4 }}
+{{- include "eric-log-transformer.labels" . | indent 4 }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    app: {{ include "eric-log-transformer.fullname" . | quote }}
+    chart: {{ include "eric-log-transformer.chart" . | quote }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 spec:
   maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
   selector:

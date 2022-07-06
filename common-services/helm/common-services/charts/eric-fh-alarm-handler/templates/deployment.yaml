@@ -1,13 +1,12 @@
 {{- $tls := (include "eric-fh-alarm-handler.tls.enabled" .) -}}
 {{- $probesTLSOnly :=  (include "eric-fh-alarm-handler.probes.server.tlsOnly" .) -}}
-{{- $metricsEnabled := (include "eric-fh-alarm-handler.metrics.server.enabled" . | toString | lower) -}}
+{{- $metricsEnabled := ( .Values.service.endpoints.metrics.enabled | quote) -}}
 {{- $metricsTLSOnly := (include "eric-fh-alarm-handler.metrics.server.tlsOnly" .) -}}
 {{- $logRedirect := (include "eric-fh-alarm-handler.logRedirect" .) -}}
 {{- $logshipperEnabled := (has "stream" .Values.log.outputs) }}
 {{- $redisWriterEnabled := (include "eric-fh-alarm-handler.redisAsiWriterEnabled" .) -}}
 {{- $redisACLEnabled := (.Values.redis.acl.enabled | toString | lower) -}}
 {{- $kafkaEnabled := (include "eric-fh-alarm-handler.kafkaEnabled" .) -}}
-{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,51 +30,31 @@ spec:
 {{- end }}
 {{- end }}
   replicas: {{ .Values.replicaCount }}
+{{- if .Values.podPriority.priorityClassName }}
+  priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
+{{- end }}
   selector:
     matchLabels:
       app: {{ template "eric-fh-alarm-handler.name" . }}
   template:
     metadata:
       labels:
-{{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
-{{- $ingressAccess := include "eric-fh-alarm-handler.ingressAccess.labels" . | fromYaml -}}
-{{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $ingressAccess)) | indent 8 }}
+{{- include "eric-fh-alarm-handler.labels" . | indent 8 }}
       annotations:
-{{- $service := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
-{{- $metricsAnnotations := include "eric-fh-alarm-handler.metrics.annotations" . | fromYaml -}}
-{{- $ahAppArmorAnn := include "eric-fh-alarm-handler.appArmorProfileAnnotations" . | fromYaml -}}
-        {{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
-          {{- $authzProxyAnnotations := dict }}
-          {{- if $authorizationProxy.metrics.enabled }}
-          {{- $authzProxyAnnotations := include "eric-fh-alarm-handler.authz-proxy-metrics-annotations" . | fromYaml -}}
-          {{- end }}
-          {{- $oauthproxysapAppArmor := include "eric-fh-alarm-handler.authz-proxy-sap-container.appArmorAnnotations" . | fromYaml -}}
-          {{- $oauthproxyAppArmor := include "eric-fh-alarm-handler.authz-proxy-container.appArmorAnnotations" . | fromYaml -}}
-          {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $ahAppArmorAnn $authzProxyAnnotations $oauthproxysapAppArmor $oauthproxyAppArmor $metricsAnnotations)) | indent 8}}
-        {{- else -}}
-          {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $ahAppArmorAnn $metricsAnnotations)) | indent 8}}
-        {{- end }}
-    spec:
-{{- if not (empty (include "eric-fh-alarm-handler.podSeccompProfile" .)) }}
-      securityContext:
-{{ include "eric-fh-alarm-handler.podSeccompProfile" . | indent 8 }}
+{{- include "eric-fh-alarm-handler.annotations" . | indent 8 }}
+{{- if and .Values.authorizationProxy.enabled .Values.ingress.enabled }}
+{{- printf "\n" -}}
+{{- include "eric-fh-alarm-handler.authz-proxy-metrics-annotations" . | indent 8 }}
 {{- end }}
+    spec:
       serviceAccountName: {{ template "eric-fh-alarm-handler.name" . }}-service-account
       restartPolicy: Always
-      {{- if (or .Values.nodeSelector (.Values.global).nodeSelector) }}
-      nodeSelector: {{- include "eric-fh-alarm-handler.nodeSelector" . | nindent 8 }}
-      {{- end }}
-{{- if .Values.podPriority.alarmHandler.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.alarmHandler.priorityClassName | quote }}
-{{- end }}
 {{- if (not (empty (include "eric-fh-alarm-handler.pullSecrets" .))) }}
       imagePullSecrets:
       - name: {{ template "eric-fh-alarm-handler.pullSecrets" . }}
 {{- end }}
       initContainers:
-{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
       {{- include "eric-fh-alarm-handler.authz-proxy-sap-container.spec" . | nindent 6 }}
-{{- end }}
       - name: topic-creator
         image: {{ template "eric-fh-alarm-handler.initImagePath" . }}
         imagePullPolicy: {{ template "eric-fh-alarm-handler.initImagePullPolicy" . }}
@@ -87,22 +66,7 @@ spec:
           capabilities:
             drop:
               - all
-{{- include "eric-fh-alarm-handler.topicCreator.seccompProfile" . | indent 10 }}
         env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONTAINER_NAME
-          value: topic-creator
 {{- if $logshipperEnabled }}
         - name: LOG_OUTPUTS_BOTH
           value: {{ include "eric-fh-alarm-handler.logOutputsBoth" . | quote }}
@@ -213,37 +177,10 @@ spec:
         args: ["-c", "./run.sh"]
 {{- end }}
         resources:
-          requests:
-{{- if (include "eric-fh-alarm-handler.resources.topiccreator.requests.memory" .) }}
-            memory: {{ template "eric-fh-alarm-handler.resources.topiccreator.requests.memory" .}}
-{{- end }}
-{{- if (include "eric-fh-alarm-handler.resources.topiccreator.requests.cpu" .) }}
-            cpu: {{ template "eric-fh-alarm-handler.resources.topiccreator.requests.cpu" . }}
-{{- end }}
-{{- if (include "eric-fh-alarm-handler.resources.topiccreator.requests.ephemeral-storage" .) }}
-            ephemeral-storage: {{ template "eric-fh-alarm-handler.resources.topiccreator.requests.ephemeral-storage" .}}
-{{- end }}
-          limits:
-            memory: {{ template "eric-fh-alarm-handler.resources.topiccreator.limits.memory" .}}
-            cpu: {{ template "eric-fh-alarm-handler.resources.topiccreator.limits.cpu" . }}
-            ephemeral-storage: {{ template "eric-fh-alarm-handler.resources.topiccreator.limits.ephemeral-storage" .}}
+{{ include "eric-fh-alarm-handler.resources.topiccreator" . | indent 10 }}
       containers:
       - name: eric-fh-alarm-handler
         env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONTAINER_NAME
-          value: eric-fh-alarm-handler
 {{- if $logshipperEnabled }}
         - name: LOG_OUTPUTS_BOTH
           value: {{ include "eric-fh-alarm-handler.logOutputsBoth" . | quote }}
@@ -284,16 +221,15 @@ spec:
           capabilities:                   # Drop all capabilities.
             drop:
               - all
-{{- include "eric-fh-alarm-handler.alarmHandler.seccompProfile" . | indent 10 }}
         resources:
-{{ include "eric-fh-alarm-handler.resources.alarmhandler" . | indent 10 }}
+{{ include "eric-fh-alarm-handler.resources.alarmhandler.merged" . | indent 10 }}
         imagePullPolicy: {{ include "eric-fh-alarm-handler.ImagePullPolicy" . }}
         ports:
-{{- if eq (include "eric-fh-alarm-handler.aalAPI.httpEnabled" .) "true" }}
+{{- if or (not (eq $tls "true")) (eq .Values.service.endpoints.restapi.tls.enforced "optional") }}
         - containerPort: {{ include "eric-fh-alarm-handler.restapi.server.port" . }}
           name: http-rest-api
 {{- end }}
-{{- if eq (include "eric-fh-alarm-handler.aalAPI.httpsEnabled" .) "true" }}
+{{- if eq $tls "true" }}
         - containerPort: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . }}
           name: https-rest-api
 {{- end }}
@@ -305,10 +241,6 @@ spec:
         - containerPort: {{ include "eric-fh-alarm-handler.rest.fi.server.httpsPort" . }}
           name: https-fi-api
 {{- end }}
-{{- if eq $metricsEnabled "true" }}
-        - containerPort: {{ include "eric-fh-alarm-handler.metrics.port" . }}
-          name: {{ include "eric-fh-alarm-handler.metrics.portName" . }}
-{{- end }}
         envFrom:
           - configMapRef:
               name: {{ template "eric-fh-alarm-handler.name" . }}
@@ -318,6 +250,9 @@ spec:
             path: /health
             port: {{ template "eric-fh-alarm-handler.probes.port" . }}
             scheme: {{ template "eric-fh-alarm-handler.probes.scheme" . }}
+{{- if (semverCompare "<1.20-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }}
+          initialDelaySeconds: {{ .Values.probes.alarmHandler.livenessProbe.initialDelaySeconds }}
+{{- end }}
           periodSeconds: {{ .Values.probes.alarmHandler.livenessProbe.periodSeconds }}
           timeoutSeconds: {{ .Values.probes.alarmHandler.livenessProbe.timeoutSeconds }}
           successThreshold: {{ .Values.probes.alarmHandler.livenessProbe.successThreshold }}
@@ -327,10 +262,14 @@ spec:
             path: /ready
             port: {{ template "eric-fh-alarm-handler.probes.port" . }}
             scheme: {{ template "eric-fh-alarm-handler.probes.scheme" . }}
+{{- if (semverCompare "<1.20-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }}
+          initialDelaySeconds: {{ .Values.probes.alarmHandler.readinessProbe.initialDelaySeconds }}
+{{- end }}
           periodSeconds: {{ .Values.probes.alarmHandler.readinessProbe.periodSeconds }}
           timeoutSeconds: {{ .Values.probes.alarmHandler.readinessProbe.timeoutSeconds }}
           successThreshold: {{ .Values.probes.alarmHandler.readinessProbe.successThreshold }}
           failureThreshold: {{ .Values.probes.alarmHandler.readinessProbe.failureThreshold }}
+{{- if (semverCompare ">=1.20-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }}
         startupProbe:
           httpGet:
             path: /health
@@ -340,6 +279,7 @@ spec:
           periodSeconds: {{ .Values.probes.alarmHandler.startupProbe.periodSeconds }}
           timeoutSeconds: {{ .Values.probes.alarmHandler.startupProbe.timeoutSeconds }}
           failureThreshold: {{ .Values.probes.alarmHandler.startupProbe.failureThreshold }}
+{{- end }}
         volumeMounts:
           - name: log-level-config
             mountPath: {{ template "eric-fh-alarm-handler.loglevel.mountFolder" . }}
@@ -423,9 +363,11 @@ spec:
 {{- if $logshipperEnabled }}
 {{- include "eric-fh-alarm-handler.logshipper-container" . | indent 6 }}
 {{- end }}
-{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
 {{- include "eric-fh-alarm-handler.authz-proxy-container.spec" . | nindent 6 }}
-{{- end }}
+      {{- if include "eric-fh-alarm-handler.nodeSelector" . }}
+      nodeSelector:
+        {{ template "eric-fh-alarm-handler.nodeSelector" . }}
+      {{- end }}
       volumes:
       - name: faultmappings
         configMap:
@@ -509,9 +451,7 @@ spec:
 {{- if $logshipperEnabled }}
 {{- include "eric-fh-alarm-handler.logshipper-volume" . | indent 6 }}
 {{- end }}
-{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
 {{ include "eric-fh-alarm-handler.authz-proxy-volume.spec" . | indent 6 }}
-{{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
     {{- with .Values.tolerations }}
       tolerations:

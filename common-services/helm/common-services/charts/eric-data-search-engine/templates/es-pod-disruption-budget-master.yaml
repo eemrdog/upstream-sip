@@ -1,0 +1,19 @@
+{{- if .Values.podDisruptionBudget -}}
+{{- if .Values.podDisruptionBudget.master -}}
+{{- if .Values.podDisruptionBudget.master.maxUnavailable -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-master-pdb
+  {{- include "eric-data-search-engine.helm-labels" . | indent 2 }}
+  annotations:
+    {{- include "eric-data-search-engine.annotations" . | indent 4 }}
+spec:
+  maxUnavailable: {{ .Values.podDisruptionBudget.master.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: {{ include "eric-data-search-engine.fullname" . | quote }}
+      role: master
+{{- end }}
+{{- end }}
+{{- end }}

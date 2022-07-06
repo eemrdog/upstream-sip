@@ -6,7 +6,7 @@ This hides defaults from values file.
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "security" (dict "policyBinding" (dict "create" false))) -}}
@@ -37,10 +37,20 @@ Deprecation notices
 Create a merged set of nodeSelectors from global and service level.
 */}}
 {{ define "eric-data-search-engine-curator.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-data-search-engine-curator.nodeSelector" -}}
-  {{- include "eric-data-search-engine-curator.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $global $service)) | trim -}}
+  {{- $g := fromJson (include "eric-data-search-engine-curator.global" .) -}}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $g.nodeSelector $key -}}
+          {{- $globalValue := index $g.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $g.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $g.nodeSelector | trim -}}
+  {{- end -}}
 {{ end }}
 
 {{/*
@@ -97,43 +107,25 @@ Create image url
 {{/*
 Create product name, version and revision
 */}}
-{{- define "eric-data-search-engine-curator.product-info" }}
+{{- define "eric-data-search-engine-curator.annotations" }}
 ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
 ericsson.com/product-number: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productNumber | quote }}
 ericsson.com/product-revision: {{ (split "-" (.Chart.Version | replace "+" "-" ))._0 | quote }}
+{{- if .Values.annotations }}
+{{ toYaml .Values.annotations }}
 {{- end }}
-
-{{/*
-Default merged annotations
-*/}}
-{{- define "eric-data-search-engine-curator.annotations" }}
-  {{- $base := include "eric-data-search-engine-curator.product-info" . | fromYaml -}}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{ include "eric-data-search-engine-curator.mergeAnnotations" (dict "location" .Template.Name "sources" (list $base $global $service)) }}
 {{- end }}
 
 {{/*
 Create kubernetes.io name and version
 */}}
-{{- define "eric-data-search-engine-curator.k8sLabels" -}}
+{{- define "eric-data-search-engine-curator.labels" }}
 app.kubernetes.io/name: {{ include "eric-data-search-engine-curator.name" . | quote }}
 app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" | quote }}
 app.kubernetes.io/instance: {{ .Release.Name | quote }}
+{{- if .Values.labels }}
+{{ toYaml .Values.labels }}
 {{- end -}}
-
-{{/*
-Default merged labels
-*/}}
-{{- define "eric-data-search-engine-curator.labels" -}}
-  {{- $base := include "eric-data-search-engine-curator.k8sLabels" . | fromYaml -}}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-data-search-engine-curator.mergeLabels" (dict "location" .Template.Name "sources" (list $base $global $service)) }}
-{{- end -}}
-
-{{- define "eric-data-search-engine-curator.logshipper-labels" -}}
-  {{- include "eric-data-search-engine-curator.labels" . }}
 {{- end -}}
 
 {{/*

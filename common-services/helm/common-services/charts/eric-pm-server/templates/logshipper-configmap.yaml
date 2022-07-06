@@ -8,8 +8,10 @@ apiVersion: "v1"
 kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-pm-server.logshipper-service-fullname" . }}-logshipper-cfg"
-  annotations: {{- include "eric-pm-server.logshipper-annotations" . | nindent 4 }}
-  labels: {{- include "eric-pm-server.logshipper-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-pm-server.annotations" . | indent 2 }}
+  labels:
+    {{- include "eric-pm-server.logshipper-labels" . | indent 4 }}
 data:
   {{- $closeTimeout := $default.logshipper.harvester.closeTimeout | quote }}
   {{- $storagePath := $default.logshipper.storagePath }}
@@ -98,9 +100,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
-        - '^{{ $storagePath }}/pm-server.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -118,7 +117,6 @@ data:
             - "message"
           target: "json"
           overwrite_keys: true
-    {{- include "eric-pm-server.3pp-to-adp-json" . | nindent 4 }}
     {{- range $key, $value := $default.logshipper.harvester.logData }}
     - type: log
       paths:
@@ -149,9 +147,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
-        - '^{{ $storagePath }}/pm-server.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -180,7 +175,7 @@ data:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:

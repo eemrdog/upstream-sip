@@ -9,18 +9,15 @@ metadata:
   name: {{ include "eric-log-shipper.fullname" . }}-restricted-security-policy
  {{- end }}
   labels:
-    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+    {{- include "eric-log-shipper.labels" . | indent 4 }}
   annotations:
-    {{- $securityPolicyAnn := dict -}}
-    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.capabilities" "" -}}
-    {{- if .Values.logshipper.privileged }}
-    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.type" "privileged/custom" -}}
-    {{- else }}
-    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.type" "restricted/custom" -}}
-    {{- end }}
-
-    {{- $baseAnn := include "eric-log-shipper.annotations" . | fromYaml -}}
-    {{- include "eric-log-shipper.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicyAnn $baseAnn)) | trim | nindent 4 }}
+    {{- include "eric-log-shipper.annotations" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+  {{- if .Values.logshipper.privileged }}
+    ericsson.com/security-policy.type: "privileged/custom"
+  {{- else }}
+    ericsson.com/security-policy.type: "restricted/custom"
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

@@ -9,7 +9,7 @@
 #pullSecret: armdocker_secret_name
   #registry:
     #Global image registry
-    #url: armdocker.rnd.ericsson.se
+    #url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
   #back up orchestrator service config that agent communicates with
   #adpBR:
     #service name
@@ -35,7 +35,7 @@ productInfo:
   # R-State of the product. R State should match helm chart version (3.1.0 -> R2A)
   # To automate it when packaging the helm chart rstate can be generated
   # and below value replaced with correct R-State
-  rstate: "R4A"
+  rstate: "R1A"
 
 # Additional labels allow a list of key/values to be appended to the list of labels of the resource object.
 labels: {}
@@ -393,16 +393,6 @@ brAgent:
 logshipper:
   storageAllocation: "500Mi" # This should not be changed
   shutdownDelay: 2 # This should not be changed
-  storagePath: "/logs"
-  harvester:
-    closeTimeout: "5m"
-    logData:
-    - subPaths:
-      - "/initContainer.log"
-      - "/etcd.log"
-      - "/brAgent.log"
-      - "/metricsexporter.log"
-      logplane: "adp-app-logs"
   logtransformer:
     host: eric-log-transformer
 

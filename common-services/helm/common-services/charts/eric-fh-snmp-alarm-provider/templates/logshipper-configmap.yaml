@@ -8,8 +8,10 @@ apiVersion: "v1"
 kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-fh-snmp-alarm-provider.logshipper-service-fullname" . }}-logshipper-cfg"
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
-  labels: {{- include "eric-fh-snmp-alarm-provider.logshipper-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
+  labels:
+    {{- include "eric-fh-snmp-alarm-provider.logshipper-labels" . | indent 4 }}
 data:
   {{- $closeTimeout := $default.logshipper.harvester.closeTimeout | quote }}
   {{- $storagePath := $default.logshipper.storagePath }}
@@ -98,8 +100,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -147,8 +147,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -177,7 +175,7 @@ data:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:

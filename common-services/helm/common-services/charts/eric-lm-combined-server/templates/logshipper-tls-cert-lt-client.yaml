@@ -14,7 +14,7 @@ metadata:
   labels:
     {{- include "eric-lm-combined-server.logshipper-labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-lm-combined-server.logshipper-annotations" . | nindent 4 }}
+    {{- include "eric-lm-combined-server.product-info" . | nindent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-lm-combined-server.logshipper-service-fullname" . }}-lt-client-cert"

@@ -38,6 +38,18 @@ Create Search Engine Service Name
 {{- end -}}
 
 {{/*
+Create Search Engine host address
+*/}}
+{{- define "eric-data-search-engine-elasticsearch-host" -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+  {{- printf "%s-tls:%d" .Values.searchengine.host 9200 -}}
+{{- else -}}
+  {{- printf "%s:%d" .Values.searchengine.host 9200 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "eric-data-search-engine.chart" -}}
@@ -152,7 +164,7 @@ This hides defaults from values file.
 {{ define "eric-data-search-engine.global" }}
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}

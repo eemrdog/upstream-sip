@@ -6,9 +6,9 @@ kind: ConfigMap
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-cfg
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+{{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 data:
   log4j2.properties: |
     status = error
@@ -32,17 +32,16 @@ data:
     pipeline.batch.size: 2048
     pipeline.batch.delay: 50
     path.logs: /opt/logstash/resource
-    pipeline.ecs_compatibility: disabled
   logstash.conf: |
     # Don't remove below comment, this is used for certificate reload
     # CERT_HASH="%%CERT_HASH%%"
     input {
-      {{- if or (or (not $g.security.tls.enabled) (eq .Values.service.endpoints.filebeat.tls.enforced "optional")) (or $d.security.tls.logshipper.enabled $d.security.tls.eda) }}
+      {{- if or (or (not $g.security.tls.enabled) (eq .Values.service.endpoints.filebeat.tls.enforced "optional")) $d.security.tls.logshipper.enabled }}
       beats {
         id => "filebeat_cleartext"
         port => 5045
         type => filebeat
-        {{- if or $d.security.tls.logshipper.enabled $d.security.tls.eda}}
+        {{- if $d.security.tls.logshipper.enabled }}
         {{- include "eric-log-transformer.beats-tls-config-options" . | indent 8 }}
         {{- end }}
       }
@@ -85,18 +84,6 @@ data:
         ssl_certificate_authorities => ["/run/secrets/input-ca-cert/client-cacertbundle.pem"]
         ssl_verify => true
       }
-      http {
-        id => "http_tls"
-        port => 9443
-        codec => json
-        type => http
-        add_field => [ "logplane", {{ .Values.http.logplane | quote }} ]
-        ssl => true
-        ssl_key => "/run/secrets/input-cert/srvprivkey.pem"
-        ssl_certificate => "/run/secrets/input-cert/srvcert.pem"
-        ssl_certificate_authorities => ["/run/secrets/input-ca-cert/client-cacertbundle.pem"]
-        ssl_verify_mode => "force_peer"
-      }
       {{- end }}
       {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.syslogIn.tls.enforced "optional") }}
       tcp {
@@ -121,31 +108,10 @@ data:
         add_field => [ "logplane", {{ .Values.json.logplane | quote }} ]
       }
       {{- end }}
-      {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.httpIn.tls.enforced "optional") }}
-      http {
-        id => "http_txt"
-        port => 9080
-        codec => json
-        type => http
-        add_field => [ "logplane", {{ .Values.http.logplane | quote }} ]
-      }
-      {{- end }}
       http {
         port => 8080
         type => readiness
       }
-{{- if .Values.input }}
-{{- if .Values.input.tcp }}
-{{- if .Values.input.tcp.enable }}
-      tcp {
-        port => 5018
-        type => "json-tcp"
-        codec => json
-{{- include "eric-log-transformer.tcp-eda-tls-config-options" . | indent 8 }}
-      }
-{{- end }}
-{{- end }}
-{{- end }}
 {{- if .Values.config.input }}
 {{ .Values.config.input | indent 6 }}
 {{- end }}
@@ -160,15 +126,6 @@ data:
         {{- include "eric-log-transformer.logstash-config.adp-json" . | nindent 8 }}
       }
       else if [type] == "json-tcp" {
-        {{- include "eric-log-transformer.logstash-config.json-validation" . | nindent 8 }}
-        {{- if .Values.config.adpJson.transformation.enabled }}
-          {{- include "eric-log-transformer.logstash-config.json-transformation" . | nindent 8 }}
-        {{- end }}
-      }
-      else if [type] == "http" {
-        mutate {
-          remove_field => [ "headers", "host", "type" ]
-        }
         {{- include "eric-log-transformer.logstash-config.json-validation" . | nindent 8 }}
         {{- if .Values.config.adpJson.transformation.enabled }}
           {{- include "eric-log-transformer.logstash-config.json-transformation" . | nindent 8 }}
@@ -522,7 +479,6 @@ data:
 {{- end }}
 
 {{- if .Values.egress.lumberjack.enabled }}
-  {{- $certPath := (include "eric-log-transformer.lumberjack-certificate-path" . | quote) -}}
   {{- range $index, $remoteHosts := .Values.egress.lumberjack.remoteHosts }}
 
   lumberjack_output_{{ .id | replace "-" "_" }}.conf: |
@@ -556,7 +512,7 @@ data:
         hosts => [{{ $remoteHosts.host  | quote }}]
         codec => {{ $remoteHosts.codec | quote }}
         port => {{ $remoteHosts.port }}
-        ssl_certificate => {{ $certPath }}
+        ssl_certificate => "/run/secrets/lumberjackOutput-certs/tls.crt"
       }
     }
   {{- end }}

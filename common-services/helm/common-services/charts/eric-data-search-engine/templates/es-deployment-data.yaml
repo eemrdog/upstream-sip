@@ -1,0 +1,213 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- $startupProbe := semverCompare ">=1.18" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) -}}
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-data
+  {{- include "eric-data-search-engine.helm-labels" . | indent 2 }}
+  annotations:
+  {{- include "eric-data-search-engine.annotations" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.data }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.data.type | quote }}
+    {{- if eq .Values.updateStrategy.data.type "RollingUpdate" }}
+    rollingUpdate:
+      partition: {{ .Values.updateStrategy.data.rollingUpdate.partition }}
+    {{- end }}
+  serviceName: {{ include "eric-data-search-engine.fullname" . }}-data
+  selector:
+    matchLabels:
+      {{ include "eric-data-search-engine.selectorLabels.data" . | indent 6 }}
+      role: data
+  template:
+    metadata:
+      labels:
+        {{- include "eric-data-search-engine.labels" . | indent 8 }}
+        app: {{ include "eric-data-search-engine.fullname" . | quote }}
+        component: eric-data-search-engine
+        role: data
+      annotations:
+        {{- include "eric-data-search-engine.annotations" . | indent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/es-configmap.yaml") . | sha256sum }}
+        {{- if and (.Values.metrics.enabled) (not $g.security.tls.enabled) }}
+          {{- include "eric-data-search-engine.metrics-annotations" . | indent 8 }}
+        {{- end }}
+    spec:
+    {{- if .Capabilities.APIVersions.Has "v1/ServiceAccount" }}
+      serviceAccount: ""
+    {{- end }}
+      serviceAccountName: {{ include "eric-data-search-engine.fullname" . }}-sa
+      {{- include "eric-data-search-engine.pod-anti-affinity" (dict "context" "data" "root" .) | indent 6 }}
+      securityContext:
+        fsGroup: {{ include "eric-data-search-engine.fsGroup.coordinated" . }}
+        supplementalGroups:
+          - 232772
+    {{- if .Values.tolerations }}
+    {{- if .Values.tolerations.data }}
+      tolerations: {{- toYaml .Values.tolerations.data | nindent 6 }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.topologySpreadConstraints.data }}
+      topologySpreadConstraints: {{- toYaml .Values.topologySpreadConstraints.data | nindent 6 }}
+    {{- end }}
+{{- include "eric-data-search-engine.pullSecrets" . | indent 6 }}
+      initContainers:
+      {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+        {{- include "eric-data-search-engine.deployment-init-containers" . | nindent 6 }}
+      {{- end }}
+      - name: chmod
+        image: {{ include "eric-data-search-engine.image-registry-url" . | quote }}
+        imagePullPolicy: {{ .Values.imageCredentials.registry.imagePullPolicy | default $g.registry.imagePullPolicy | quote }}
+        env:
+        - name: ES_DATA_PATH
+          value: /opt/elasticsearch/data
+        - name: SERVICE_ID
+          value: {{ include "eric-data-search-engine.fullname" . }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONTAINER_NAME
+          value: chmod
+        - name: LOG_LEVEL
+          value: {{ .Values.logLevel | quote }}
+        - name: TZ
+          value: {{ $g.timezone | quote }}
+        args:
+        - "/bin/bash"
+        - "-c"
+        - |
+          #!/bin/bash
+          declare -A LOG_LEVELS=([debug]=1 [info]=2 [warn]=3 [error]=4 [fatal]=5)
+          LOG () {
+            if [[ "${LOG_LEVELS[$1]}" -ge "${LOG_LEVELS[${LOG_LEVEL,,}]}" ]]; then
+              printf "{\"version\": \"1.1.0\", \"timestamp\": \"%s\", \"severity\": \"%s\", \"service_id\": \"${SERVICE_ID}\", \"metadata\" : {\"pod_name\": \"${POD_NAME}\", \"container_name\": \"${CONTAINER_NAME}\"}, \"message\": \"%s\"}\n" $(date +%FT%T.%3N%:z) "$1" "$2"
+            fi
+          }
+          if [[ -n $(find ${ES_DATA_PATH}/ -mindepth 1 ! -path "${ES_DATA_PATH}/.snapshot" ! -perm -g+w,u+w 2>&1) ]]; then
+            LOG "info" "Updating files in ${ES_DATA_PATH}/ with write permissions for group to allow upgrade from previous version of eric-data-search-engine"
+            IFS=$'\n'
+            RES_CHMOD=($(find ${ES_DATA_PATH}/ -mindepth 1 ! -path "${ES_DATA_PATH}/.snapshot" ! -perm -g+w,u+w -exec chmod g=u {} + 2>&1))
+            for failed_chmod in "${RES_CHMOD[@]}"; do
+              LOG "warn" "Failed to set group permissions: ${failed_chmod}"
+            done
+            LOG "info" "Updating files in ${ES_DATA_PATH}/ with new ownership (grp 0) to allow rollback to previous version of eric-data-search-engine"
+            RES_CHOWN=($(find ${ES_DATA_PATH}/ -mindepth 1 ! -path "${ES_DATA_PATH}/.snapshot" ! -group 0 -exec chgrp 0 {} + 2>&1))
+            for failed_chown in "${RES_CHOWN[@]}"; do
+              LOG "warn" "Failed to set group ownership: ${failed_chown}"
+            done
+            LOG "info" "Updating folders in ${ES_DATA_PATH}/ with group sticky bit to allow rollback to previous version of eric-data-search-engine"
+            RES_CHMOD=($(find ${ES_DATA_PATH}/ -mindepth 1 ! -path "${ES_DATA_PATH}/.snapshot" -type d ! -perm -g+s -exec chmod g+s {} + 2>&1))
+            for failed_chmod in "${RES_CHMOD[@]}"; do
+              LOG "warn" "Failed to set group sticky: ${failed_chmod}"
+            done
+            unset IFS
+          else
+            LOG "debug" "No changes needed to files in ${ES_DATA_PATH}/"
+          fi
+          exit 0
+        securityContext:
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+        volumeMounts:
+        - name: storage
+          mountPath: /opt/elasticsearch/data
+        resources: {{- include "eric-data-search-engine.resources" .Values.resources.chmod | nindent 10 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.data }}
+      containers:
+      - name: "data"
+        readinessProbe:
+          exec:
+            command:
+              - /readiness-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.readinessProbe.initialDelaySeconds | default .Values.readinessProbe.data.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.readinessProbe.periodSeconds | default .Values.readinessProbe.data.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.readinessProbe.timeoutSeconds | default .Values.readinessProbe.data.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.readinessProbe.successThreshold | default .Values.readinessProbe.data.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.readinessProbe.failureThreshold | default .Values.readinessProbe.data.failureThreshold }}
+        livenessProbe:
+          exec:
+            command:
+              - /liveness-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.livenessProbe.initialDelaySeconds | default .Values.livenessProbe.data.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.livenessProbe.periodSeconds | default .Values.livenessProbe.data.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.livenessProbe.timeoutSeconds | default .Values.livenessProbe.data.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.livenessProbe.successThreshold | default .Values.livenessProbe.data.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.livenessProbe.failureThreshold | default .Values.livenessProbe.data.failureThreshold }}
+        {{- if $startupProbe }}
+        {{- if and (not .Values.fastButUnsafeUpgrade.enabled) (.Release.IsUpgrade) }}
+        startupProbe:
+          exec:
+            command:
+              - /startup-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.startupProbe.initialDelaySeconds | default .Values.startupProbe.data.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.startupProbe.periodSeconds | default .Values.startupProbe.data.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.startupProbe.timeoutSeconds | default .Values.startupProbe.data.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.startupProbe.successThreshold | default .Values.startupProbe.data.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.startupProbe.failureThreshold | default .Values.startupProbe.data.failureThreshold }}
+        {{- end }}
+        {{- end }}
+        resources: {{- include "eric-data-search-engine.resources" .Values.resources.data| nindent 10 }}
+      {{- include "eric-data-search-engine.deployment-containers" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        env:
+        {{- include "eric-data-search-engine.deployment-env" (dict "context" "tls" "root" . ) | indent 8 }}
+        - name: ES_ENV_NI
+          value: node.ingest=false
+        - name: ES_ENV_NM
+          value: node.master=false
+        - name: ES_ENV_ND
+          value: node.data=true
+        ports:
+        - containerPort: 9300
+          name: transport
+          protocol: TCP
+    {{- if .Values.metrics.enabled }}
+      {{- include "eric-data-search-engine.metrics-container" (dict "context" "tls" "root" . ) | indent 6 }}
+     {{- if $g.security.tls.enabled }}
+      {{- include "eric-data-search-engine.tlsproxy-container" (dict "context" "tls" "root" . ) | indent 6 }}
+     {{- end }}
+    {{- end }}
+    {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-data-search-engine.logshipper-container" . | indent 6 }}
+    {{- end }}
+    {{- if (or .Values.nodeSelector.data $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-data-search-engine.nodeSelector" (dict "context" "data" "root" .) | nindent 8 }}
+    {{- end }}
+      volumes:
+        {{- include "eric-data-search-engine.repository-volume" . | indent 8 }}
+        {{- include "eric-data-search-engine.es-volume" . | indent 8 }}
+        {{- include "eric-data-search-engine.configmap-volume" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        {{- include "eric-data-search-engine.data-configmap-volume" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        {{- if and .Values.brAgent.enabled (eq .Values.brAgent.backupRepository.type "s3") }}
+        {{- include "eric-data-search-engine.secret-volume" . | indent 8 }}
+        {{- end }}
+        {{- if $g.security.tls.enabled }}
+          {{- include "eric-data-search-engine.security-tls-secret-volumes-http-server" . | indent 8 }}
+          {{- include "eric-data-search-engine.security-tls-secret-volumes-transport" . | indent 8 }}
+          {{- if .Values.metrics.enabled }}
+            {{- include "eric-data-search-engine.security-tls-secret-volumes-metrics-client" . | indent 8 }}
+            {{- include "eric-data-search-engine.security-tls-secret-volumes-metrics-server" . | indent 8 }}
+          {{- end }}
+        {{- end }}
+        {{- if has "stream" .Values.log.outputs }}
+          {{- include "eric-data-search-engine.logshipper-volume" . | indent 8 }}
+        {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: storage
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      {{- if .Values.persistence.data.persistentVolumeClaim.storageClassName }}
+      storageClassName: {{ .Values.persistence.data.persistentVolumeClaim.storageClassName | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.data.persistentVolumeClaim.size }}

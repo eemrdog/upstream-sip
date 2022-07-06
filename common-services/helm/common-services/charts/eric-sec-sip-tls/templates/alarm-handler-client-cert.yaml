@@ -1,14 +1,21 @@
 {{- if eq (include "eric-sec-sip-tls.alarmHandler.useAPIDefinition" .) "true" }}
 {{- if eq (include "eric-sec-sip-tls.alarmHandler.tls.enabled" .) "true" }}
 
+{{- $intcert_v1       := .Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate" }}
+{{- $intcert_v1alpha1 := .Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1alpha1/InternalCertificate"}}
+
+{{- if $intcert_v1 }}
 apiVersion: siptls.sec.ericsson.com/v1
+{{- else }}
+apiVersion: siptls.sec.ericsson.com/v1alpha1
+{{- end }}
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.secret" . }}
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.secret" . }}

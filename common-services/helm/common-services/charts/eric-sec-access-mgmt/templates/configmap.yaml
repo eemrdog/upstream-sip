@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
   annotations:
     {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
 data:
@@ -71,13 +71,7 @@ data:
   post.txt: |-
 {{ .Values.postLoginMessage.messageString | indent 4 }}
 
-  legal_notice.txt: |
 {{- if .Values.preLoginMessage.messageString }}
+  legal_notice.txt: |-
 {{ .Values.preLoginMessage.messageString | indent 4 }}
-{{- else }}
-    Important legal notice
-
-    IF YOU ARE NOT AN AUTHORIZED USER STOP ANY ACTIVITY YOU ARE PERFORMING ON THIS SYSTEM AND EXIT IMMEDIATELY.
-
-    This system is provided for authorized and official use only. The usage of this system is monitored and audited. Unauthorized or improper usage may result in disciplinary action, civil or criminal penalties.
 {{- end }}

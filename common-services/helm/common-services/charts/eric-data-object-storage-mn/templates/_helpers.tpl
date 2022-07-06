@@ -15,7 +15,7 @@ This hides defaults from values file.
 {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
 {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
 {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "pullSecret")) -}}
-{{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+{{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
 {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
 {{- $globalDefaults := merge $globalDefaults (dict "serviceNames" (dict "ctrl" (dict "bro" "eric-ctrl-bro"))) -}}
 {{- $globalDefaults := merge $globalDefaults (dict "servicePorts" (dict "ctrl" (dict "bro" 3000))) -}}
@@ -59,7 +59,9 @@ If release name contains chart name it will be used as a full name.
 Semi-colon separated list of backup types
 */}}
 {{- define "eric-data-object-storage-mn.backupTypes" }}
-{{- .Values.brAgent.backupTypeList | join ";" -}}
+{{- range $i, $e := .Values.brAgent.backupTypeList -}}
+{{- if eq $i 0 -}}{{- printf " " -}}{{- else -}}{{- printf ";" -}}{{- end -}}{{- . -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
