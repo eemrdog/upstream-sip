@@ -141,7 +141,7 @@ eric-data-distributed-coordinator-ed:
   persistence:
     persistentVolumeClaim:
       size: "1Gi"
-      storageClassName: local-storage
+      storageClassName: gp2
 
 eric-sec-key-management:
   enabled: true
@@ -597,15 +597,15 @@ eric-data-search-engine:
     data:
       persistentVolumeClaim:
         size: "1Gi"
-        storageClassName: local-storage
+        storageClassName: gp2
     backup:
       persistentVolumeClaim:
         size: "1Gi"
-        storageClassName: local-storage
+        storageClassName: gp2
     master:
       persistentVolumeClaim:
         size: "64Mi"
-        storageClassName: local-storage
+        storageClassName: gp2
 
 eric-data-search-engine-curator:
   enabled: false
@@ -671,7 +671,7 @@ eric-data-coordinator-zk:
   persistence:
     persistentVolumeClaim:
       size: "5Gi"
-      storageClassName: local-storage
+      storageClassName: gp2
   security:
     tls:
       agentToBro:
@@ -706,7 +706,7 @@ eric-data-message-bus-kf:
     persistentVolumeClaim:
       enabled: true
       size: "5Gi"
-      storageClassName: local-storage
+      storageClassName: gp2
   readynessProbeTimeoutSeconds: 10 # default 5 seconds is not enough
   service:
     endpoints:
@@ -930,7 +930,7 @@ eric-idam-database-pg:
     rollingUpdate:
       partition: 0
   persistentVolumeClaim:
-    storageClassName: local-storage
+    storageClassName: gp2
     enabled: true
     size: 2Gi
   patroni:
@@ -1031,7 +1031,7 @@ eric-bss-notification-service-database-pg:
     rollingUpdate:
       partition: 0
   persistentVolumeClaim:
-    storageClassName: local-storage
+    storageClassName: gp2
     enabled: true
     size: 8Gi
   patroni:
@@ -1120,7 +1120,7 @@ eric-fm-database-pg:
     pullPolicy: IfNotPresent
   postgresDatabase: "adp_gs_ah"
   persistentVolumeClaim:
-    storageClassName: local-storage
+    storageClassName: gp2
     enabled: true
     size: 2Gi
   service:
@@ -1218,7 +1218,7 @@ eric-cm-database-pg:
     pullPolicy: IfNotPresent
   postgresDatabase: "adp_gs_cm"
   persistentVolumeClaim:
-    storageClassName: local-storage
+    storageClassName: gp2
     enabled: true
     size: 2Gi
   service:
@@ -1317,7 +1317,7 @@ eric-ctrl-bro:
     port: 9092
   persistence:
     persistentVolumeClaim:
-      storageClassName: local-storage
+      storageClassName: gp2
       size: 5Gi
   resources:
     backupAndRestore:
@@ -1556,7 +1556,7 @@ eric-pm-server:
       storageConnectivity: networked
       subPath: ''
       retention: '15d'
-      # storageClass: local-storage # Use when storageConnectivity is local
+      # storageClass: gp2 # Use when storageConnectivity is local
     #replicaCount: 1
   rbac:
     appMonitoring:
@@ -1924,7 +1924,7 @@ eric-nels-database-pg:
     rollingUpdate:
       partition: 0
   persistentVolumeClaim:
-    storageClassName: local-storage
+    storageClassName: gp2
     enabled: true
     size: 8Gi
   patroni:
@@ -2099,7 +2099,7 @@ eric-data-object-storage-mn:
 
   persistentVolumeClaim:
     # The storage class name for persistent volume,
-    storageClassName: "local-storage"
+    storageClassName: "gp2"
     # The connectivity of the storage, either local or networked, networked is default
     storageConnectivity: local
     #size of each pvc
