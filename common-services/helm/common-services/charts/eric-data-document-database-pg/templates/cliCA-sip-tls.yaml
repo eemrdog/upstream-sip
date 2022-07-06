@@ -1,0 +1,15 @@
+{{- if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+ name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-client-ca
+ annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+ labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+spec:
+ kubernetes:
+  generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-client-ca
+  certificateName: cliCAcertbundle.pem
+ certificate:
+  subject:
+   cn: {{ template "eric-data-document-database-pg.secretBaseName" . }}-client-ca
+{{- end }}

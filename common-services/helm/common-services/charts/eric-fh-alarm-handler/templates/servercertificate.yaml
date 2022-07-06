@@ -1,0 +1,52 @@
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if $g.security.tls.enabled }}
+{{/* Certificate for the Alarm REST server */}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-server-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.name" . }}-tls-server-secret
+    certificateName: srvcert.pem
+    privateKeyName: srvprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}
+    subjectAlternativeName:
+      dns:
+        - localhost
+    extendedKeyUsage:
+      tlsClientAuth: false
+      tlsServerAuth: true
+{{- if eq (include "eric-fh-alarm-handler.fiAPI.httpsEnabled" .) "true" }}
+{{/* Certificate for the FI REST server */}}
+---
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.fiAPI.server.secretname" . }}
+    certificateName: cert.pem
+    privateKeyName: privkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}
+    subjectAlternativeName:
+      dns:
+        - localhost
+    extendedKeyUsage:
+      tlsClientAuth: false
+      tlsServerAuth: true
+{{- end }}
+{{- end }}

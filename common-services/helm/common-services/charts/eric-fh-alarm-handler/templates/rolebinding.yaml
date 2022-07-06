@@ -1,0 +1,22 @@
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) }}
+  {{- if $g.security -}}
+    {{- if $g.security.policyBinding -}}
+      {{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-security-policy
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "eric-fh-alarm-handler.securityPolicy.reference" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "eric-fh-alarm-handler.name" . }}-service-account
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}

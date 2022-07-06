@@ -1,0 +1,8 @@
+users:
+ - user: nemo
+   groups: [adp-pm-core]
+   encryptedPass: $1$A0yamp6h$h0iaFhWEi41Z6lCR7TNzI0
+
+ - user: daffy
+   groups: [adp-pm-users]
+   encryptedPass: $1$XBlzv39a$JHif9BytJI/MvTb81Esun1

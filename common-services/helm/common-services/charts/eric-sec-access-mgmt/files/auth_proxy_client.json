@@ -1,0 +1,43 @@
+{
+      "secret": "@@CLIENT_SECRET@@",
+      "clientId": "adp-iam-aa-client",
+      "rootUrl": "@@ROOT_URL@@",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "/adp-iam-auth-proxy/authenticate/openid-callback",
+        "/adp-iam-auth-proxy/authenticate/logout-done"
+      ],
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": false,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "decisionStrategy": "AFFIRMATIVE"
+      },
+      "optionalClientScopes": [
+        "roles",
+        "profile-adp-auth"
+      ],
+      "attributes": {
+        "x509.subjectdn": ""
+      },
+      "protocolMappers": [
+        {
+          "name": "Last Login Time Mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-last-login-time-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "false",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "last-login-time"
+          }
+        }
+      ]
+}

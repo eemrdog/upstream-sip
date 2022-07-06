@@ -1,0 +1,278 @@
+# Default values for eric-cm-mediator.
+# This is a YAML-formatted file.
+
+# Global parameters shall be defined in the top level values.yaml
+# They are kept here for indicating which are supported and their default values.
+# global:
+#   annotations: {}
+#   internalIPFamily: null
+#   labels: {}
+#   timezone: UTC
+#   pullSecret: ""
+#   registry:
+#     imagePullPolicy: IfNotPresent
+#     url: "armdocker.rnd.ericsson.se"
+#   security:
+#     policyBinding:
+#       create: false
+#     policyReferenceMap:
+#       default-restricted-security-policy: "default-restricted-security-policy"
+#     tls:
+#       enabled: true
+#   nodeSelector: {}
+#   networkPolicy:
+#     enabled: false
+
+replicaCount: 2
+
+service:
+  endpoints:
+    restapi:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+
+cmm:
+  configReloadTimer: 120
+  debug: false
+  gunicornLogLevel: "Info"
+  gunicornAccessLogLevel: "Info"
+  accessLogging: false
+  kafkaLogLevel: "Info"
+  kafkaProducerConfig: ""
+  logFormat: "adpjson"
+  logLevel: "Info"
+  logMaxMsgSize: 32
+  logOutput: ["stdout"]
+  redisConfig: ""
+  redisLogLevel: "Error"
+  restWorkers: 2
+  restWorkerTimeout: 30
+  restWorkerQueueLimit: 32
+  subCleanerInterval: 60
+
+backend:
+  type: postgres
+  hostname: "eric-data-document-database-pg"
+  dbname: adp_gs_cm
+  dbuser: cm
+  port: 5432
+
+credentials:
+  kubernetesSecretName: ""
+  keyForUserId: custom-user
+  keyForUserPw: custom-pwd
+
+dbbr:
+  enabled: true
+  backupType: "configuration-data"
+
+logtransformer:
+  hostname: eric-log-transformer
+  jsonPort: 5025
+  tlsJsonPort: 5024
+
+kafka:
+  hostname: ""
+  port: 9092
+  tlsPort: 9093
+
+redis:
+  acl:
+    enabled: true
+    user: default
+  hostname: ""
+  port: 6379
+  tlsPort: 6380
+
+pmserver:
+  hostname: "eric-pm-server"
+
+annotations: {}
+
+affinity:
+  podAntiAffinity: "soft"
+
+autoScaling:
+  eric-cm-mediator:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+
+bandwidth:
+  eric-cm-mediator:
+    maxEgressRate: ""
+  eric-cm-mediator-notifier:
+    maxEgressRate: ""
+
+imageCredentials:
+  pullSecret: ""
+  registry:
+    imagePullPolicy: ""
+    url: ""
+  repoPath:
+
+labels: {}
+
+networkPolicy:
+    enabled: true
+
+nodeSelector:
+  eric-cm-mediator: {}
+  eric-cm-mediator-notifier: {}
+  eric-cm-key-init: {}
+
+podDisruptionBudget:
+  eric-cm-mediator:
+    minAvailable: 50%
+    #maxUnavailable:
+
+podPriority:
+    eric-cm-mediator:
+        priorityClassName: ""
+    eric-cm-mediator-notifier:
+        priorityClassName: ""
+    eric-cm-key-init:
+      priorityClassName: ""
+
+probes:
+  eric-cm-mediator:
+    livenessProbe:
+      initialDelaySeconds: 7
+      periodSeconds: 17
+      timeoutSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+  eric-cm-mediator-notifier:
+    livenessProbe:
+      initialDelaySeconds: 7
+      periodSeconds: 17
+      timeoutSeconds: 10
+      failureThreshold: 3
+
+resources:
+  eric-cm-mediator:
+    requests:
+      memory: "256Mi"
+      cpu: "500m"
+      ephemeral-storage: "250Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "2000m"
+      ephemeral-storage: "500Mi"
+  eric-cm-mediator-notifier:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+      ephemeral-storage: "200Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "2000m"
+      ephemeral-storage: "250Mi"
+  eric-cm-key-init:
+    requests:
+      memory: "32Mi"
+      cpu: "100m"
+      ephemeral-storage: "10Mi"
+    limits:
+      memory: "64Mi"
+      cpu: "200m"
+      ephemeral-storage: "10Mi"
+  eric-cm-mediator-init-container:
+    requests:
+      memory: "16Mi"
+      cpu: "50m"
+      ephemeral-storage: "10Mi"
+    limits:
+      memory: "32Mi"
+      cpu: "100m"
+      ephemeral-storage: "10Mi"
+
+appArmorProfile:
+  eric-cm-mediator-init:
+    type: ""
+  eric-cm-mediator:
+    type: ""
+  eric-cm-mediator-notifier-init:
+    type: ""
+  eric-cm-mediator-notifier:
+    type: ""
+  eric-cm-key-init-init:
+    type: ""
+  eric-cm-key-init:
+    type: ""
+
+seccompProfile:
+  eric-cm-mediator:
+    type: ""
+  eric-cm-mediator-notifier:
+    type: ""
+  eric-cm-key-init:
+    type: ""
+
+terminationGracePeriodSeconds:
+  eric-cm-mediator: 30
+  eric-cm-mediator-notifier: 30
+
+tolerations:
+  eric-cm-mediator: []
+  eric-cm-mediator-notifier:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+  eric-cm-key-init: []
+
+topologySpreadConstraints: []
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 50%
+    maxSurge: 50%
+
+cmkey:
+  enable: false
+  jobname: "eric-cm-key"
+  key:
+    name: "eric-cm-key-v1"
+    algorithm: "aes256-gcm96"
+  kms:
+    hostname: "eric-sec-key-management"
+    port: 8200
+
+# Alpha feature for using Exilis CM as CM backend.
+#
+# Parameter features.cmm_notifications.enabled must be set to true
+# in eric-cm-backend.
+# Parameter newCMArch must be set to true in eric-cm-yang-provider.
+exilis:
+  cm:
+    enabled: false
+    backend:
+      hostname: eric-cm-backend
+      port: 80
+      tlsPort: 443
+    storage:
+      hostname: eric-data-document-database-pg
+      port: 5432
+      dbname: cmbackend
+    transformer:
+      hostname: eric-data-transformer-json
+      port: 80
+      tlsPort: 443
+      stateDataProviderApiEnabled: false
+    yangprovider:
+      hostname: eric-cm-yang-provider
+      port: 80
+      tlsPort: 443
+      dynamicValidationApiEnabled: false

@@ -1,0 +1,17 @@
+{{- if eq (include "eric-lm-combined-server.tls.enabled" .) "true" -}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+  name: {{ include "eric-lm-combined-server.lch.client-ca-name" . }}
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-lm-combined-server.lch.client-ca-name" . | quote }}
+    certificateName: {{ include "eric-lm-combined-server.lch.client-ca.cert-file" . | quote }}
+  certificate:
+    subject:
+      cn: {{ printf "%s CA" (include "eric-lm-combined-server.name" .) | quote }}
+{{- end -}}

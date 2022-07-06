@@ -1,0 +1,29 @@
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- $kafkaEnabled := (include "eric-fh-alarm-handler.kafkaEnabled" .) -}}
+{{- if $g.security.tls.enabled }}
+{{- if (eq $kafkaEnabled "true") }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-client-certificate-kafka
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.name" . }}-tls-kafka-client-secret
+    certificateName: clicert-kafka.pem
+    privateKeyName: cliprivkey-kafka.pem
+  certificate:
+    subject:
+      cn: kafkaclient
+    issuer:
+      reference: {{ .Values.kafka.hostname }}-client-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end }}
+{{- end }}

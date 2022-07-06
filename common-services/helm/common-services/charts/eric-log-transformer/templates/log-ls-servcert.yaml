@@ -1,0 +1,35 @@
+{{- $d := fromJson (include "eric-log-transformer.deprecated" .) -}}
+{{- if and $d.security.tls.logshipper.enabled (not $d.security.tls.eda) }}
+# ServerCertificate Resource declaration file for TLS (LT-LS)
+
+apiVersion: com.ericsson.sec.tls/v1alpha1
+kind: ServerCertificate
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . | quote }}
+  labels:
+    {{- $labels := dict -}}
+    {{- $_ := set $labels "release" .Release.Name -}}
+    {{- $_ := set $labels "heritage" .Release.Service -}}
+    {{- $_ := set $labels "chart" (include "eric-log-transformer.chart" .) -}}
+    {{- $defaultLabels := fromYaml (include "eric-log-transformer.labels" .) -}}
+    {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $defaultLabels)) | trim | nindent 4 }}
+  annotations:
+    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+
+spec:
+
+  # Required
+  # The common name of the certificate
+  common-name: {{ include "eric-log-transformer.fullname" . }}
+
+  # Required
+  # The secret which SIP-TLS will create and use to store the server certificate
+  # and corresponding private key
+  generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-server-cert
+
+  # Optional
+  # Override default time to live (in sec)
+  ## Min: 600, default: 3600, max: 604800
+  override-ttl: 604800
+
+{{- end -}}

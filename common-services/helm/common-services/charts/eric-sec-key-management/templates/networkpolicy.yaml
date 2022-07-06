@@ -1,0 +1,83 @@
+{{- $networkPolicy := eq (include "eric-sec-key-management.networkPolicy" .) "true" -}}
+{{- if $networkPolicy }}
+{{- if .Values.metrics.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-pm-allow
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-sec-key-management.name" . }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.metrics.serviceName }}
+    ports:
+    - port: 8888
+      protocol: TCP
+{{- end }}
+
+---
+
+{{- if .Values.service.tls.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-siptls-allow
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-sec-key-management.name" . }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.service.tls.serviceName }}
+    ports:
+    {{- if .Values.shelter.enabled }}
+    - port: 8210
+    {{- else }}
+    - port: {{ .Values.service.port }}
+    {{- end }}
+      protocol: TCP
+{{- end }}
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-default-access
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-sec-key-management.name" . }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          {{ template "eric-sec-key-management.name" . }}-access: "true"
+    ports:
+    - port: {{ .Values.service.port }}
+      protocol: TCP
+{{- end }}

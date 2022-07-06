@@ -1,0 +1,28 @@
+{{- if or .Release.IsUpgrade .Release.IsInstall }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
+  labels:
+    {{- $labels := dict -}}
+    {{- $_ := set $labels "app" (include "eric-data-document-database-pg.name" .) -}}
+    {{- $_ := set $labels "release" (.Release.Name | toString) -}}
+    {{- $_ := set $labels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
+    {{- $_ := set $labels "heritage" "Tiller" -}} {{- /* workaround after migrate from helm2 to helm3. Avoid upgrade fail. ADPPRG-26626 */ -}}
+    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
+    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $commonLabels)) | trim | nindent 4 }}
+  annotations:
+    {{- $helmHooks := dict -}}
+    {{- $_ := set $helmHooks "helm.sh/hook" "pre-rollback" -}}
+    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "before-hook-creation" -}}
+    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-5" -}}
+    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
+    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ template "eric-data-document-database-pg.persistentVolumeClaim.size" . }}
+  storageClassName: {{ template "eric-data-document-database-pg.persistentVolumeClaim.defaultStorageClassName" . }}
+{{- end }}

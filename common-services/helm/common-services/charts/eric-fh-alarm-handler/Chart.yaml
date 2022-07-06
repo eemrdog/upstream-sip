@@ -1,0 +1,10 @@
+apiVersion: v1
+appVersion: hb81f030b
+description: A Helm chart for ADP Fault Handling (FH) Alarm Handler (AH) Service
+maintainers:
+- email: PDLPCADPTE@pdl.internal.ericsson.com
+  name: Evergreen
+name: eric-fh-alarm-handler
+sources:
+- https://gerrit.ericsson.se/plugins/gitiles/pc/adp-gs-ah/
+version: 8.3.0+63

@@ -1,0 +1,27 @@
+{{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-sec-sip-tls.name" . }}
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+spec:
+  ports:
+    # PM Server requires the name to end with '*-tls'
+    - name: {{ template "eric-sec-sip-tls.metrics.server.name" . }}
+      port: {{ template "eric-sec-sip-tls.metrics.server.port" . }}
+      protocol: TCP
+      targetPort: {{ template "eric-sec-sip-tls.metrics.server.port" . }}
+  selector:
+    app.kubernetes.io/name: {{ template "eric-sec-sip-tls.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    eric-sec-sip-tls-ha-leader-follower-label: "leader"
+  type: "ClusterIP"
+{{- if .Values.global }}
+{{- if .Values.global.internalIPFamily }}
+  ipFamilies: [{{ .Values.global.internalIPFamily | quote }}]
+{{- end }}
+{{- end }}
+{{- end }}

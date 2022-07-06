@@ -1,0 +1,122 @@
+{{- if .Values.oamVIP.enabled }}
+{{- $logRedirect := (include "eric-fh-snmp-alarm-provider.logRedirect" .) }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-daemonset-vip
+  labels:
+    {{- $static := dict -}}
+    {{- $_ := set $static "app" (printf "%s-daemonset-vip" (include "eric-fh-snmp-alarm-provider.name" .)) -}}
+    {{- $_ := set $static "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
+    {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
+    {{- $_ := set $static "release" (.Release.Name | toString) -}}
+    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
+    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 4 }}
+  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "eric-fh-snmp-alarm-provider.name" . }}-daemonset-vip
+      release: {{ .Release.Name }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 100%
+  template:
+    metadata:
+      labels:
+        {{- $static := dict -}}
+        {{- $_ := set $static "app" (printf "%s-daemonset-vip" (include "eric-fh-snmp-alarm-provider.name" .)) -}}
+        {{- $_ := set $static "release" (.Release.Name | toString) -}}
+        {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
+        {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- $service := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
+        {{- $vipAppArmorAnn := include "eric-fh-snmp-alarm-provider.vip.appArmorProfileAnnotations" . | fromYaml -}}
+        {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $vipAppArmorAnn)) | indent 8 }}
+    spec:
+      serviceAccountName: {{ template "eric-fh-snmp-alarm-provider.name" . }}-service-account
+    {{- include "eric-fh-snmp-alarm-provider.podpriority" . }}
+{{- if include "eric-fh-snmp-alarm-provider.nodeSelector" . }}
+      nodeSelector: {{- include "eric-fh-snmp-alarm-provider.nodeSelector" . | nindent 8 }}
+{{- end }}
+      hostNetwork: true
+      containers:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-fh-snmp-alarm-provider.logshipper-container" . | indent 8 }}
+{{- end }}
+        - name: {{ template "eric-fh-snmp-alarm-provider.name" . }}-daemonset-vip
+          image: {{ template "eric-fh-snmp-alarm-provider.snmpAPPath" . }}
+          imagePullPolicy: {{ template "eric-fh-snmp-alarm-provider.imagePullPolicy" . }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","/usr/bin/vip-cleanup.sh"]
+          command: [ "sh" ]
+          args: [ "-c", "/usr/bin/vip-watcher.sh -r {{ $logRedirect }}" ]
+{{- if has "stream" .Values.log.outputs }}
+          volumeMounts:
+{{- include "eric-fh-snmp-alarm-provider.logshipper-storage-path" . | indent 10 }}
+{{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsUser: 0
+            capabilities:
+              drop:
+                - all
+              add:
+                - NET_ADMIN
+                - NET_RAW
+{{- include "eric-fh-snmp-alarm-provider.vip.seccompProfile" . | indent 12 }}
+          env:
+            - name: oamVIP
+              value: {{ required ".Values.oamVIP.vip is required" .Values.oamVIP.vip | quote }}
+            - name: DEST_IPS
+              value: {{ required ".Values.oamVIP.destIp is required" .Values.oamVIP.destIp | quote }}
+            - name: SNMP_AGENT_PORT
+              value: {{ required ".Values.service.snmpAgentPort is required" .Values.service.snmpAgentPort | quote }}
+            - name: IPV6_STACK
+              value: {{ required ".Values.oamVIP.ipv6Stack is required" .Values.oamVIP.ipv6Stack | quote }}
+            - name: LOG_LEVEL
+              value: {{ template "eric-fh-snmp-alarm-provider.loglevel" . }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace | quote}}
+            - name: APP_NAME
+              value: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+            - name: TZ
+              value: {{ template "eric-fh-snmp-alarm-provider.timezone" . }}
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            initialDelaySeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-initialDelaySeconds" . }}
+            periodSeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-periodSeconds" . }}
+            timeoutSeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-timeoutSeconds" . }}
+            successThreshold: 1
+            failureThreshold: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-failureThreshold" . }}
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            initialDelaySeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-initialDelaySeconds" . }}
+            periodSeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-periodSeconds" . }}
+            timeoutSeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-timeoutSeconds" . }}
+            successThreshold: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-successThreshold" . }}
+            failureThreshold: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-failureThreshold" . }}
+{{- if .Values.resources.vip }}
+          resources:
+{{ toYaml .Values.resources.vip | indent 12 }}
+{{- end }}
+{{- if include "eric-fh-snmp-alarm-provider.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-fh-snmp-alarm-provider.pullSecrets" . }}
+{{- end }}
+{{- if has "stream" .Values.log.outputs }}
+      volumes:
+{{- include "eric-fh-snmp-alarm-provider.logshipper-volume" . | indent 6 }}
+{{- end }}
+{{- end }}

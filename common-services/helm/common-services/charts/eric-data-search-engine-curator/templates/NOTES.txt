@@ -1,0 +1,10 @@
+Welcome to eric-data-search-engine-curator on kubernetes
+
+{{- if ne (include "eric-data-search-engine-curator.deprecation-notices" .) "" }}
+
+DEPRECATION NOTICE: The following parameters have been specified but are deprecated.
+{{ include "eric-data-search-engine-curator.deprecation-notices" . }}
+
+See deployment guide for more information.
+
+{{- end }}

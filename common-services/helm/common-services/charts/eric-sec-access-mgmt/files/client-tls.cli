@@ -1,0 +1,23 @@
+# Commands to enable secure authentication to servers
+# when Keycloak acts as a client
+
+## The following will configure a Truststore used by the IAM server for performing SSL requests
+## env.KEYSTORE_SECRET needs to exist and is used to access the keystore contents
+## In the current implementation env.KEYSTORE_SECRET is not permanently stored in the ENV of the container
+
+/subsystem=keycloak-server/spi=truststore:add
+/subsystem=keycloak-server/spi=truststore/provider=file:add(enabled=true)
+/subsystem=keycloak-server/spi=truststore/provider=file/:map-put(name=properties,key=file, value="${env.RUNDIR_SAFE_PATH}/server.truststore")
+/subsystem=keycloak-server/spi=truststore/provider=file/:map-put(name=properties,key=password, value="${env.KEYSTORE_SECRET}")
+/subsystem=keycloak-server/spi=truststore/provider=file/:map-put(name=properties,key=hostname-verification-policy, value="WILDCARD")
+
+/subsystem=elytron/key-store=clientKS:add(path=${env.RUNDIR_SAFE_PATH}/client.keystore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+/subsystem=elytron/key-manager=clientKM:add(key-store=clientKS,credential-reference={clear-text=${env.KEYSTORE_SECRET}})
+
+/subsystem=elytron/key-store=defaultTS:add(path=${env.RUNDIR_SAFE_PATH}/server.truststore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+/subsystem=elytron/trust-manager=defaultTM:add(key-store=defaultTS)
+
+/subsystem=elytron/client-ssl-context=default-client-ssl-context:add(key-manager=clientKM, trust-manager=defaultTM, protocols=["TLSv1.3","TLSv1.2"])
+# TLS 1.3 is enabled only when cipher-suite-names are provided
+/subsystem=elytron/client-ssl-context=default-client-ssl-context:write-attribute(name=cipher-suite-names,value=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256)
+/subsystem=elytron:write-attribute(name=default-ssl-context, value=default-client-ssl-context)

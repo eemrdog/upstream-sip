@@ -1,0 +1,25 @@
+{{- if eq (include "eric-lm-combined-server.db.tls.enabled" .) "true" -}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ include "eric-lm-combined-server.db.admin-certificate-name" . }}
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-lm-combined-server.db.admin-certificate-name" . }}
+    certificateName: {{ include "eric-lm-combined-server.db.admin-cert.cert-file" . }}
+    privateKeyName: {{ include "eric-lm-combined-server.db.admin-cert.pem-key-file" . }}
+  certificate:
+    subject:
+      cn: postgres
+    issuer:
+      reference:  {{ include "eric-lm-combined-server.db.client-ca-name" . | quote }}
+    validity:
+      overrideTtl: {{ .Values.tls.db.certTtl }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end -}}

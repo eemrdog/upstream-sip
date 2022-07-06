@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+data:
+  ##############################################################
+  ###### AH business logic related environments variables ######
+  ##############################################################
+  LOG_LEVEL: {{ .Values.alarmhandler.logLevel | lower | quote }}
+  LOG_CONTROL_FILE: "/home/service/log/logcontrol.json"
+  LOG_SCHEMA_VERSION: "1.0.0"
+  SERVICE_ID: {{ template "eric-fh-alarm-handler.name" . }}
+  MAIN_EXEC_RETRIES: "-1"          # on errors events retry forever
+  MAIN_EXEC_RETRY_INTERVAL: "1000"
+  ROOT_FOLDER: {{ template "eric-fh-alarm-handler.rootFolder" . }}
+  FAULT_ALARM_MAPPINGS_DIR: {{ template "eric-fh-alarm-handler.faultmappings.mountFolder" . }}
+  AH_FAULT_MAPPER_RELOAD_TIMER: {{ .Values.alarmhandler.faultMapperReloadTimer | quote }}
+  STORAGE_TYPE: "postgres"
+  MESSAGEBUS_TYPE: "kafka"
+  ALARM_EXPIRATION_TIMER: {{ .Values.alarmhandler.alarmExpirationTimer | quote }}
+  ALARM_HISTORY_SIZE_LIMIT: {{ .Values.alarmhandler.alarmHistorySize | quote }}
+
+  ################################################
+  ###### TLS related environments variables ######
+  ################################################
+  TLS_ENABLED: {{ include "eric-fh-alarm-handler.tls.enabled" . | quote }}
+  ROOT_CERT_PATH: {{ template "eric-fh-alarm-handler.siptls.root.certPath" . }}
+
+  ####################################################
+  ###### Metrics-related environments variables ######
+  ####################################################
+  METRICS_SERVER_ENABLED: {{ include "eric-fh-alarm-handler.metrics.server.enabled" . | quote }}
+  METRICS_SERVER_PORT: {{ include "eric-fh-alarm-handler.metrics.port" . | quote }}
+  METRICS_SERVER_TLS_ONLY: {{ include "eric-fh-alarm-handler.metrics.server.tlsOnly" . | quote }}
+  METRICS_SERVER_TLS_VERIFY_CLIENT: {{ include "eric-fh-alarm-handler.metrics.server.tls.verifyClientCertificate" . | quote }}
+  METRICS_SERVER_CERT_PATH: {{ template "eric-fh-alarm-handler.metrics.server.certPath" . }}
+  METRICS_SERVER_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.metrics.server.keyPath" . }}
+  METRICS_CLIENT_CACERT_PATH: {{ template "eric-fh-alarm-handler.metrics.client.cacertPath" . }}
+
+  ####################################################
+  ###### Probes-related environments variables #######
+  ####################################################
+  PROBES_SERVER_PORT: {{ include "eric-fh-alarm-handler.probes.port" . | quote }}
+  PROBES_SERVER_TLS_ONLY: {{ include "eric-fh-alarm-handler.probes.server.tlsOnly" . | quote }}
+  PROBES_SERVER_CERT_PATH: {{ template "eric-fh-alarm-handler.probes.server.certPath" . }}
+  PROBES_SERVER_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.probes.server.keyPath" . }}
+  PROBES_READINESS_FAILURE_THRESHOLD: {{ .Values.probes.alarmHandler.readinessProbe.failureThreshold | quote }}
+
+  #####################################################
+  ###### Restapi-related environments variables #######
+  #####################################################
+  REST_SERVER_PORT: {{ include "eric-fh-alarm-handler.restapi.server.port" . | quote }}
+  REST_SERVER_TLS_PORT: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . | quote }}
+  REST_SERVER_TLS_ONLY: {{ include "eric-fh-alarm-handler.restapi.server.tlsOnly" . | quote }}
+  REST_SERVER_TLS_VERIFY_CLIENT: {{ include "eric-fh-alarm-handler.restapi.server.tls.verifyClientCertificate" . | quote }}
+  REST_SERVER_CERT_PATH: {{ template "eric-fh-alarm-handler.restapi.server.certPath" . }}
+  REST_SERVER_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.restapi.server.keyPath" . }}
+  REST_CLIENT_CACERT_PATH: {{ template  "eric-fh-alarm-handler.client.cacertPath" . }}
+
+  #####################################################
+  #### FI REST API related environments variables #####
+  #####################################################
+  FI_SERVER_ENABLED: {{ include "eric-fh-alarm-handler.rest.fi.api.enabled" . | quote }}
+  FI_SERVER_HTTP_PORT: {{ include "eric-fh-alarm-handler.rest.fi.server.httpPort" . | quote }}
+  FI_SERVER_HTTPS_PORT: {{ include "eric-fh-alarm-handler.rest.fi.server.httpsPort" . | quote }}
+  FI_SERVER_HTTP_ENABLED: {{ include "eric-fh-alarm-handler.fiAPI.httpEnabled" . | quote }}
+  FI_SERVER_HTTPS_ENABLED: {{ include "eric-fh-alarm-handler.fiAPI.httpsEnabled" . | quote }}
+  FI_SERVER_VERIFY_CLIENT: {{ (ne (.Values.service.endpoints.fiapi.tls.verifyClientCertificate | toString) "optional") | quote }}
+  FI_SERVER_CERT_PATH: {{ template "eric-fh-alarm-handler.fiAPI.server.certPath" . }}
+  FI_SERVER_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.fiAPI.server.keyPath" . }}
+  FI_CLIENT_CACERT_PATH: {{ template  "eric-fh-alarm-handler.fiAPI.client.cacertPath" . }}
+
+
+  ######################################################
+  ###### Postgres-related environments variables #######
+  ######################################################
+  POSTGRES_HOST: {{ .Values.backend.hostname | quote }}
+  POSTGRES_PORT: {{ .Values.backend.port | quote }}
+  POSTGRES_DB_NAME: {{ .Values.backend.dbname | quote }}
+  POSTGRES_CLIENT_CERT_PATH: {{ template "eric-fh-alarm-handler.pg.client.certPath" . }}
+  POSTGRES_CLIENT_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.pg.client.keyPath" . }}
+
+  ######################################################
+  ###### Kafka-related environments variables #######
+  ######################################################
+  KAFKA_HOST: {{ .Values.kafka.hostname | quote }}
+  KAFKA_PORT: {{ .Values.kafka.port | quote }}
+  KAFKA_TLS_PORT: {{ .Values.kafka.tlsport | quote }}
+  KAFKA_SERVERS: {{ .Values.kafka.hostname }}:{{ .Values.kafka.port }}
+  KAFKA_TLS_SERVERS: {{ .Values.kafka.hostname }}:{{ .Values.kafka.tlsport }}
+  KAFKA_FI_READER_ENABLED: {{ .Values.kafka.fiReaderEnabled | quote }}
+  KAFKA_ASI_WRITER_ENABLED: {{ include "eric-fh-alarm-handler.kafkaAsiWriterEnabled" . | quote }}
+
+  ######################################################
+  ###### Redis-related environments variables ##########
+  ######################################################
+  REDIS_HOST: {{ .Values.redis.hostname | quote }}
+  REDIS_PORT: {{ .Values.redis.port | quote }}
+  REDIS_TLS_PORT: {{ .Values.redis.tlsport | quote }}
+  REDIS_WRITER_ENABLED: {{ include "eric-fh-alarm-handler.redisAsiWriterEnabled" . | quote }}
+  REDIS_ACL_ENABLED: {{ .Values.redis.acl.enabled | quote }}
+  REDIS_CLIENT_CERT_PATH: {{ template "eric-fh-alarm-handler.redis.client.certPath" . }}
+  REDIS_CLIENT_PRIVKEY_PATH: {{ template "eric-fh-alarm-handler.redis.client.keyPath" . }}
+  REDIS_ASI_STREAM_MAXLENGTH: {{ .Values.redis.asi.streamMaxLength | quote }}
+  REDIS_CLUSTER_MODE: {{ .Values.redis.clustermode | quote }}
+
+  #####################################
+  ###### System-related env vars ######
+  #####################################
+  TZ: {{ include "eric-fh-alarm-handler.timezone" . }}
+
+  MEMORY_STORAGE_ROOT_FOLDER: {{ template "eric-fh-alarm-handler.memoryStorage.mountFolderAlarmHandler" . }}

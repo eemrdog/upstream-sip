@@ -1,0 +1,25 @@
+{{- if gt (.Values.replicas | int64) 1 }}
+
+{{- if semverCompare ">=1.21-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+spec:
+{{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+{{- else }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "eric-sec-key-management.name" . }}
+
+{{- end }}

@@ -1,0 +1,16 @@
+1. Below are commands to get IP address and port for the pm-bulk-reporter:
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "eric-pm-bulk-reporter.name" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  export SERVICE_PORT={{ .Values.service.servicePort }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get svc -w {{ template "eric-pm-bulk-reporter.name" . }}'
+
+{{- if .Values.updateStrategy.rollingUpdate}}
+
+2. Configuration for RollingUpdate can't be changed, following values will be used
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+{{- end }}
+
+Bulk Reporter Configuration:
+  helm -n {{ .Release.Namespace }} get values {{ .Release.Name }}

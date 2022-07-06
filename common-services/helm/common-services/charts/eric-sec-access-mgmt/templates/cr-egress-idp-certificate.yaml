@@ -1,0 +1,14 @@
+{{- if and (not .Values.egress.identityProvider.certificates.trustedCertificateListSecret) .Values.egress.identityProvider.certificates.trustedCertificateListName -}}
+apiVersion: com.ericsson.sec.certm/v1alpha2
+kind: ExternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-egress-idp-cacertificate
+  annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+
+spec:
+  generated-secret-name: {{ template "eric-sec-access-mgmt.name" . }}-egress-idp-ca-cert
+  generated-secret-type: opaque
+  trusted-certificates-file-name: "cacertbundle.pem"
+  trusted-certificate-list-name: {{ .Values.egress.identityProvider.certificates.trustedCertificateListName | quote }}
+{{- end -}}

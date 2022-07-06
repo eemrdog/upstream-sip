@@ -1,0 +1,32 @@
+{{/*
+InternalCertificate Resource declaration file for TLS between logshipper and logtransformer
+*/}}
+{{- $default := fromJson (include "eric-sec-sip-tls.logshipper-default-value" . ) -}}
+{{- $g := fromJson (include "eric-sec-sip-tls.logshipper-global" . ) -}}
+{{- if $g.security.tls.enabled -}}
+apiVersion: "siptls.sec.ericsson.com/v1"
+kind: "InternalCertificate"
+metadata:
+  name: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-lt-client-cert"
+  annotations:
+    {{- $logShipperProductInfo := include "eric-sec-sip-tls.logshipper-product-info" . | fromYaml -}}
+    {{- $commonAnn := include "eric-sec-sip-tls.annotations" . | fromYaml -}}
+    {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $logShipperProductInfo $commonAnn)) | trim | nindent 4 }}
+  labels:
+    {{- $logShipperLabels := include "eric-sec-sip-tls.logshipper-labels" . | fromYaml -}}
+    {{- $commonLabels := include "eric-sec-sip-tls.labels" . | fromYaml -}}
+    {{- include "eric-sec-sip-tls.mergeLabels" (dict "location" .Template.Name "sources" (list $logShipperLabels $commonLabels)) | trim | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: "{{ include "eric-sec-sip-tls.logshipper-service-fullname" . }}-lt-client-cert"
+    certificateName: "clicert.pem"
+    privateKeyName: "cliprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-sec-sip-tls.logshipper-service-fullname" . | quote }}
+    issuer:
+      reference: "{{ $default.logshipper.logtransformer.host }}-input-ca-cert"
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end -}}

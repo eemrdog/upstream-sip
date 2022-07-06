@@ -1,0 +1,45 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-rolebinding
+  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "eric-data-document-database-pg.name" . }}-role
+subjects:
+- kind: ServiceAccount
+  name: {{ template "eric-data-document-database-pg.name" . }}-sa
+
+---
+
+{{- if .Values.global -}}
+  {{- if .Values.global.security -}}
+    {{- if .Values.global.security.policyBinding -}}
+      {{- if .Values.global.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  {{- if .Values.securityContext.allowPrivilegeEscalation }}
+  name: {{ template "eric-data-document-database-pg.name" . }}-sa-plc-security-policy
+  {{- else }}
+  name: {{ template "eric-data-document-database-pg.name" . }}-sa-def-security-policy
+  {{- end }}
+  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  {{- if .Values.securityContext.allowPrivilegeEscalation }}
+  name: {{ include "eric-data-document-database-pg.securityPolicy.reference" . }}
+  {{- else }}
+  name: {{ include "eric-data-document-database-pg.securityPolicy.reference-default" . }}
+  {{- end }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "eric-data-document-database-pg.name" . }}-sa
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

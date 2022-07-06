@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eric-lm-combined-server.name" . }}-lch-migration-conf-configmap
+  labels:
+    {{- include "eric-lm-combined-server.lch-labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+data:
+  lch.conf: |
+    flyway.schemas=lch
+    flyway.locations=filesystem:/opt/flyway/sql
+    flyway.target={{ include "eric-lm-combined-server.database.lchMigrationVersion" . }}

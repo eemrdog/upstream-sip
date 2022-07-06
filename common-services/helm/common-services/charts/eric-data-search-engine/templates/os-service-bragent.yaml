@@ -1,0 +1,19 @@
+{{- if .Values.brAgent.enabled -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-bragent
+  labels: {{- include "eric-data-search-engine.helm-labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-search-engine.annotations" . | nindent 4 }}
+spec:
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: {{ template "eric-data-search-engine.agentname" . }}
+    app.kubernetes.io/version: {{ template "eric-data-search-engine.version" . }}
+    app.kubernetes.io/instance: {{.Release.Name | quote }}
+  clusterIP: None
+  type: ClusterIP
+{{- end -}}
+{{ end }}

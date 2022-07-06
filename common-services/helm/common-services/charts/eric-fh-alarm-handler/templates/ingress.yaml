@@ -1,0 +1,84 @@
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if .Values.ingress.enabled }}
+{{- if not .Values.ingress.hostname -}}
+  {{- printf "An ingress URI (ingress.hostname) is required for eric-fh-alarm-handler when ingress is enabled (ingress.enabled=%t)" .Values.ingress.enabled | fail -}}
+{{- end -}}
+{{- if .Values.ingress.useHttpProxy }}{{/* Use HTTPProxy instead of Ingress */}}
+{{- if not .Values.authorizationProxy.enabled -}}
+  {{- printf "HTTPProxy (ingress.useHttpProxy=true) is only supported when Authorization Proxy is enabled (authorizationProxy.enabled=true)." | fail -}}
+{{- end -}}
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-ingress
+  annotations:
+    {{- $ingressClass := dict }}
+    {{- if .Values.ingress.ingressClass -}}
+    {{- $_ := set $ingressClass "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) -}}
+    {{- end -}}
+    {{- $ingressAnn := .Values.ingress.annotations -}}
+    {{- $baseAnn := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $ingressClass $ingressAnn $baseAnn)) | indent 4}}
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels )) | indent 4}}
+spec:
+  virtualhost:
+    fqdn: {{ .Values.ingress.hostname | quote }}
+    tls:
+  {{- if (eq .Values.ingress.tls.passthrough false) }}
+      secretName: {{ .Values.ingress.certificates.secretName | default (printf "%s-external-server-certificate-secret" (include "eric-fh-alarm-handler.name" .)) | quote }}
+      {{- if eq .Values.ingress.tls.verifyClientCertificate true }}
+      clientValidation:
+        caSecret: {{ .Values.ingress.certificates.caSecret | default (printf "%s-external-ca-certificate-secret" (include "eric-fh-alarm-handler.name" .)) | quote }}
+      {{- end }}
+  routes:
+    {{- include "eric-fh-alarm-handler.authz-proxy-ingress-routes" . | nindent 4 }}
+  {{- else }}
+      passthrough: true
+  tcpproxy:
+    services:
+    - name: {{ include "eric-fh-alarm-handler.name" . }}
+      port: {{ include "eric-fh-alarm-handler.restapi.server.tls.port" . }}
+  {{- end }}
+{{- else -}} {{/* Use Ingress instead of HTTPProxy */}}
+{{- if .Values.authorizationProxy.enabled -}}
+  {{- printf "Only HTTPProxy (ingress.useHttpProxy=true) is supported for eric-fh-alarm-handler when Authorization Proxy is enabled (authorizationProxy.enabled=true)" | fail -}}
+{{- end -}}
+apiVersion: {{ include "eric-fh-alarm-handler.ingress.apiversion" . }}
+kind: Ingress
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-ingress
+  labels:
+    {{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+  annotations:
+    {{- $nginxAnn := dict }}
+    {{- $_ := set $nginxAnn "nginx.ingress.kubernetes.io/ssl-redirect" "false" -}}
+    {{- $_ := set $nginxAnn "nginx.ingress.kubernetes.io/ssl-passthrough" (toString .Values.ingress.tls.passthrough) -}}
+
+    {{- $ingressTLS := include "eric-fh-alarm-handler.ingress.tls.annotations" . | fromYaml -}}
+    {{- $clientVerification := include "eric-fh-alarm-handler.ingress.clientverification.annotations" . | fromYaml -}}
+
+    {{- $ingressAnn := .Values.ingress.annotations -}}
+    {{- $baseAnn := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $nginxAnn $ingressTLS $clientVerification $ingressAnn $baseAnn)) | indent 4}}
+spec:
+  {{- if .Values.ingress.ingressClass }}
+  ingressClassName: {{ .Values.ingress.ingressClass | quote }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.ingress.hostname | quote }}
+    http:
+      paths:
+      - path: {{ .Values.ingress.path |quote }}
+        pathType: ImplementationSpecific
+{{ include "eric-fh-alarm-handler.ingress.backend" . | indent 8 }}
+  {{- if $g.security.tls.enabled }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.hostname | quote }}
+    secretName: {{ .Values.ingress.certificates.secretName | default (printf "%s-external-server-certificate-secret" (include "eric-fh-alarm-handler.name" .)) | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

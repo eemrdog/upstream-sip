@@ -1,0 +1,35 @@
+{{- if .Values.global -}}
+  {{- if .Values.global.security -}}
+    {{- if .Values.global.security.policyBinding -}}
+      {{- if .Values.global.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  {{- if .Values.securityContext.allowPrivilegeEscalation }}
+  name: {{ template "eric-data-document-database-pg.name" . }}-pgdata-security-policy
+  {{- else }}
+  name: {{ template "eric-data-document-database-pg.name" . }}-pgdata-secdef-policy
+  {{- end }}
+  labels: {{- include "eric-data-document-database-pg.labels" . | nindent 4 }}
+  annotations:
+    {{- $helmHooks := dict -}}
+    {{- $_ := set $helmHooks "helm.sh/hook" "pre-upgrade,pre-rollback" -}}
+    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "before-hook-creation" -}}
+    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-5" -}}
+    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
+    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmHooks $commonAnn)) | trim | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  {{- if .Values.securityContext.allowPrivilegeEscalation }}
+  name: {{ include "eric-data-document-database-pg.securityPolicy.reference" . }}
+  {{- else }}
+  name: {{ include "eric-data-document-database-pg.securityPolicy.reference-default" . }}
+  {{- end }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "eric-data-document-database-pg.name" . }}-pgdata-hook
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

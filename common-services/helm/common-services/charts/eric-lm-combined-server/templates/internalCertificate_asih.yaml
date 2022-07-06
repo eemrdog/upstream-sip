@@ -1,0 +1,25 @@
+{{- if eq (include "eric-lm-combined-server.asih.tls.enabled" .) "true" -}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ include "eric-lm-combined-server.asih.client-certificate-name" . }}
+  labels:
+    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-lm-combined-server.asih.client-certificate-name" . }}
+    certificateName: {{ include "eric-lm-combined-server.asih.client-cert.cert-file" . }}
+    privateKeyName: {{ include "eric-lm-combined-server.asih.client-cert.key-file" . }}
+  certificate:
+    subject:
+      cn: {{ include "eric-lm-combined-server.name" . }}
+    issuer:
+      reference: {{ .Values.licenseServerClient.asih.certIssuerRef | quote }}
+    validity:
+      overrideTtl: {{ .Values.licenseServerClient.asih.certTtl }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end -}}

@@ -1,0 +1,9 @@
+{{- $enabled := index .Values "eric-fh-alarm-handler" "enabled" }}
+{{- if eq $enabled true }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eric-fh-alarm-handler-faultmappings
+data:
+{{ (.Files.Glob "faultmappings/*").AsConfig | indent 2 }}
+{{- end -}}

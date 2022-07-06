@@ -1,0 +1,9 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-metrics
+  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+data:
+  queries.yaml: |-
+{{ toYaml .Values.metrics.queryMetrics | indent 4 }}

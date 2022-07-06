@@ -1,0 +1,6 @@
+{{/*
+ClientCertificate Resource declaration file for TLS between logshipper and logtransformer
+*/}}
+{{- if (has "stream" .Values.log.outputs) -}}
+{{ template "eric-fh-alarm-handler.logshipper-tls-cert-lt-client" . }}
+{{- end -}}

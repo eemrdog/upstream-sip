@@ -1,0 +1,19 @@
+productName: "SNMP Alarm Provider"
+productNumber: "CXD 101 0393"
+images:
+  snmpAP:
+    productName: "SNMP Alarm Provider"
+    productNumber: "CXU 101 0217"
+    registry: "selndocker.mo.sw.ericsson.se"
+    # env variable set by running BOB (ruleset2.0.yaml)
+    repoPath: "proj-pc-gs-released"
+    name: "eric-fh-snmp-alarm-provider"
+    # env variable set by running BOB (ruleset2.0.yaml)
+    tag: "6.3.0-49"
+  logshipper:
+    productName: "eric-log-shipper"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.2.0-13"

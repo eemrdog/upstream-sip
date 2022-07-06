@@ -1,0 +1,35 @@
+{{- $g := fromJson (include "eric-log-shipper.global" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+ {{- if .Values.logshipper.privileged }}
+  name: {{ include "eric-log-shipper.fullname" . }}-privileged-security-policy
+ {{- else }}
+  name: {{ include "eric-log-shipper.fullname" . }}-restricted-security-policy
+ {{- end }}
+  labels:
+    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+  annotations:
+    {{- $securityPolicyAnn := dict -}}
+    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.capabilities" "" -}}
+    {{- if .Values.logshipper.privileged }}
+    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.type" "privileged/custom" -}}
+    {{- else }}
+    {{- $_ := set $securityPolicyAnn "ericsson.com/security-policy.type" "restricted/custom" -}}
+    {{- end }}
+
+    {{- $baseAnn := include "eric-log-shipper.annotations" . | fromYaml -}}
+    {{- include "eric-log-shipper.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicyAnn $baseAnn)) | trim | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+ {{- if .Values.logshipper.privileged }}
+  name: {{ index $g.security.policyReferenceMap "plc-29c4b823c87a16cad810082eb11106" | quote }}
+ {{- else }}
+  name: {{ index $g.security.policyReferenceMap "plc-e393f1841dfc4cbcca713b5a97eb83" | quote }}
+ {{- end }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-log-shipper.fullname" . }}
+{{- end -}}

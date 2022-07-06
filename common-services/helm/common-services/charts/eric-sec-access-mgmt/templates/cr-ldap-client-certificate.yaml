@@ -1,0 +1,34 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if and $global.security.tls.enabled .Values.ldap.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-ldap-client-certificate
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    # Mandatory
+    # The name of the secret where the CA certificate is stored.
+    # Note: the same secret must not be used for multiple purposes.
+    generatedSecretName: {{ template "eric-sec-access-mgmt.name" . }}-ldap-client-certs
+    certificateName: clicert.pem
+    privateKeyName: cliprivkey.pem
+  certificate:
+    subject:
+      # Mandatory
+      # The Subject Common Name (CN) of the CA certificate.
+      cn: federator
+    issuer:
+      # Optional
+      # The identifier for the Issuer CA. Decides from which CA to request the certificate.
+      # It must be the same as the InternalUserCA custom resource metadata.name field.
+      reference: {{ .Values.tls.client.ldap.issuer }}
+    extendedKeyUsage:
+      # Whether Extended Key Usage flag TLS Web Client Authentication is set or not.
+      tlsClientAuth: true
+      # Whether Extended Key Usage flag TLS Web Server Authentication is set or not.
+      tlsServerAuth: false
+{{- end }}

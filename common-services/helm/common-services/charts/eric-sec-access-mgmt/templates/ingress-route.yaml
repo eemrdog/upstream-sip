@@ -1,0 +1,44 @@
+{{- if .Values.ingress.enabled -}}
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}
+  annotations:
+    {{- $ingressAnnotations := (.Values.ingress.annotations) -}}
+    {{- $ingress := dict -}}
+    {{- if .Values.ingress.ingressClass }}
+      {{- $_ := set $ingress "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) -}}
+    {{- end }}
+    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $common $ingressAnnotations $ingress)) | trim | nindent 4 }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+spec:
+  virtualhost:
+    fqdn: {{ .Values.ingress.hostname | quote }}
+    {{- if or (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "true") (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "optional") }}
+    tls:
+      secretName: {{ template "eric-sec-access-mgmt.ingressTLSSecret" . }}
+    {{- end }}
+  routes:
+    - conditions:
+      - prefix: {{ .Values.ingress.path | quote }}
+      {{- if eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .)  "optional" }}
+      permitInsecure: true
+      {{- end }}
+      services:
+        - name: {{ template "eric-sec-access-mgmt.name" $ }}-http
+          {{- if $global.security.tls.enabled }}
+          protocol: tls
+          port: {{ template "eric-sec-access-mgmt.serviceHttpsPort" . }}
+          validation:
+            caSecret: {{ .Values.tls.client.rootCaSecret }}
+            subjectName: {{ template "eric-sec-access-mgmt.name" . }}
+          {{- else }}
+          port: {{ template "eric-sec-access-mgmt.serviceHttpPort" . }}
+          {{- end }}
+      timeoutPolicy:
+        response: {{ .Values.ingress.responseTimeout | quote }}
+        idle: {{ .Values.ingress.idleTimeout | quote }}
+{{- end -}}{{- /* if ingress is enabled */}}

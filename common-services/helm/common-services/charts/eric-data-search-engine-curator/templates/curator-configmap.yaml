@@ -1,0 +1,33 @@
+{{- $g := fromJson (include "eric-data-search-engine-curator.global" .) -}}
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  name: "{{ include "eric-data-search-engine-curator.fullname" . }}-cm"
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+data:
+  config.yaml: |
+    client:
+      hosts: {{ include "eric-data-search-engine-curator.elasticsearch-host" . | quote }}
+      port: {{ .Values.searchengine.port }}
+      timeout: 30
+      url_prefix:
+      use_ssl: {{ $g.security.tls.enabled }}
+    {{- if $g.security.tls.enabled }}
+      certificate: "/run/secrets/sip-tls-trusted-root-cert/ca.crt"
+      client_cert: "/run/secrets/se-http-client-cert/clicert.pem"
+      client_key: "/run/secrets/se-http-client-cert/cliprivkey.pem"
+      ssl_no_validate: false
+    {{- end }}
+      http_auth:
+      master_only:
+    logging:
+      loglevel: {{ .Values.logLevel | upper }}
+      logfile:
+      logformat: "json"
+      blacklist: ["elasticsearch", "urllib3"]
+  actions.yaml: |
+    actions:
+      {{ .Values.actions | indent 6 | trim }}

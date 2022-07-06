@@ -1,0 +1,9 @@
+{{- if ne (include "eric-fh-alarm-handler.deprecation.notices" .) "" }}
+
+DEPRECATION NOTICE: The following configuration parameters have been specified but are deprecated.
+
+{{ include "eric-fh-alarm-handler.deprecation.notices" . }}
+
+See Alarm Handler's User Guide for more information.
+
+{{- end }}

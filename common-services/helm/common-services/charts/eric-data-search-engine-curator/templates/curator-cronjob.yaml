@@ -1,0 +1,27 @@
+{{- if .Values.cronjob.curator.enabled -}}
+apiVersion: "batch/v1beta1"
+kind: "CronJob"
+{{- else -}}
+apiVersion: "batch/v1"
+kind: "Job"
+{{- end }}
+metadata:
+  name: {{ include "eric-data-search-engine-curator.fullname" . | quote }}
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+{{ if .Values.cronjob.curator.enabled -}}
+spec:
+  schedule: {{ .Values.cronjob.curator.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.curator.successfulJobHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.curator.failedJobHistoryLimit }}
+  startingDeadlineSeconds: 300
+  concurrencyPolicy: "Forbid"
+  jobTemplate:
+    spec:
+      {{- include "eric-data-search-engine-curator.container-template" . | indent 6 }}
+{{- else -}}
+spec:
+  {{- include "eric-data-search-engine-curator.container-template" . | indent 2 }}
+{{- end -}}

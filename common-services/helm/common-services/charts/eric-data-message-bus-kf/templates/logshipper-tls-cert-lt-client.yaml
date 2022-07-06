@@ -1,0 +1,6 @@
+{{/*
+File for TLS between logshipper and logtransformer
+*/}}
+{{- if has "stream" .Values.log.outputs }}
+  {{- include "eric-data-message-bus-kf.logshipper-tls-cert-lt-client" . }}
+{{- end }}

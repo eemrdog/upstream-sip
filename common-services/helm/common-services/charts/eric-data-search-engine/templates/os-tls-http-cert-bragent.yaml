@@ -1,0 +1,34 @@
+{{- if .Values.brAgent.enabled -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+{{- $ti := fromJson (include "eric-data-search-engine.testInternal" .) -}}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-http-client-cert-bra
+  annotations: {{ include "eric-data-search-engine.annotations" . | nindent 4 }}
+  labels: {{ include "eric-data-search-engine.labels" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-data-search-engine.fullname" . }}-http-client-cert-bra
+    certificateName: "clicert.pem"
+    privateKeyName: "cliprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-data-search-engine.fullname" . }}-bragent
+    subjectAlternativeName:
+      dns:
+        - "*.{{ include "eric-data-search-engine.fullname" . }}-bragent.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    issuer:
+      reference: {{ include "eric-data-search-engine.fullname" . }}-http-ca-cert
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- end -}}
+{{ end }}

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eric-bss-ecmeoc-common-configmap
+data:
+  MULTITENANCY: {{ .Values.iamAuth.multitenancy | quote }}
+  SUPERUSER_ORGANIZATION_NAME: {{ .Values.iamAuth.superUserOrganizationName | quote }}
+  SUPERUSER_ORGANIZATION_ID: {{ .Values.iamAuth.superUserOrganizationId | quote }}
+  SUPERUSER_PRIVILEGE_NAME: {{ .Values.iamAuth.superUserPrivilegeName | quote }}

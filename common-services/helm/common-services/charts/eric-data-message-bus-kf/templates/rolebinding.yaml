@@ -1,0 +1,23 @@
+{{- $g := fromJson (include "eric-data-message-bus-kf.globalMap" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "eric-data-message-bus-kf.fullname" . }}-rb
+  annotations:
+    {{- $securityPolicyAnnotations := dict -}}
+    {{- $_ := set $securityPolicyAnnotations "ericsson.com/security-policy.capabilities" "" -}}
+    {{- $_ := set $securityPolicyAnnotations "ericsson.com/security-policy.type" "restricted/default" -}}
+
+    {{- $defaultAnnotations := include "eric-data-message-bus-kf.annotations" . | fromYaml  -}}
+    {{- include "eric-data-message-bus-kf.mergeAnnotations" (dict "location" .Template.Name "sources" (list $defaultAnnotations $securityPolicyAnnotations)) | trim | nindent 4 }}
+  labels:
+    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-data-message-bus-kf.fullname" . }}-sa
+{{- end -}}

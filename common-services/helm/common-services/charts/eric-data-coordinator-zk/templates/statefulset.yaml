@@ -1,0 +1,401 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "eric-data-coordinator-zk.fullname" . }}
+  annotations:
+    {{- $custom := dict -}}
+    {{- $_ := set $custom "helm.sh/created" (now.Unix | toString) -}}
+    {{- $default_annotations := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
+    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $default_annotations $custom)) | trim |nindent 4}}
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+{{- include "eric-data-coordinator-zk.selectorLabels" . | indent 6 }}
+  serviceName:  {{ template "eric-data-coordinator-zk.ensembleService.fullname" . }}
+  podManagementPolicy: "Parallel"
+  replicas: {{ template "eric-data-coordinator-zk.replicas" . }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type | quote }}
+  template:
+    metadata:
+      labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 8 }}
+      annotations:
+        {{- $custom := dict -}}
+        {{- $_ := set $custom "checksum/config" (print $.Template.BasePath "/configmap.yaml" . | sha256sum) -}}
+        {{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
+          {{- $_ := set $custom "prometheus.io/scrape" "true" -}}
+          {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+            {{- $_ := set $custom "pprometheus.io/scheme" "https" -}}
+          {{- else }}
+            {{- $_ := set $custom "pprometheus.io/scheme" "http" -}}
+          {{- end }}
+        {{- end }}
+        {{- $bandwidth_annotations := include "eric-data-coordinator-zk.bandwidth-annotations" . | fromYaml }}
+        {{- $default_annotations := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
+        {{- $dczkAppArmorAnn := include "eric-data-coordinator-zk.datacoordinatorzk.appArmorAnnotations" . | fromYaml -}}
+        {{- $metricsExporterAppArmorAnn := include "eric-data-coordinator-zk.metricsexporter.appArmorAnnotations" . | fromYaml -}}
+        {{- $logShipperAppArmorAnn := include "eric-data-coordinator-zk.logshipper.appArmorAnnotations" . | fromYaml -}}
+        {{- $apparmorAnn := dict -}}
+        {{- $apparmorAnn = merge $apparmorAnn $dczkAppArmorAnn }}
+        {{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
+        {{- $apparmorAnn = merge $apparmorAnn $metricsExporterAppArmorAnn }}
+        {{- end }}
+        {{- if has "stream" .Values.log.outputs }}
+        {{- $apparmorAnn = merge $apparmorAnn $logShipperAppArmorAnn }}
+        {{- end }}
+        {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $default_annotations $bandwidth_annotations $custom $apparmorAnn)) | trim | nindent 8 }}
+    spec:
+      {{- include "eric-data-coordinator-zk.podPriority" . }}
+      serviceAccountName: {{ template "eric-data-coordinator-zk.fullname" . }}-sa
+      {{ template "eric-data-coordinator-zk.serviceAccount" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.datacoordinatorzk }}
+      securityContext:
+        fsGroup: {{ include "eric-data-coordinator-zk.fsGroup.coordinated" . }}
+{{- if .Values.seccompProfile }}
+{{- if .Values.seccompProfile.type }}
+{{- $profiledefault := .Values.seccompProfile }}
+{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profiledefault) | indent 8 }}
+{{- end }}
+{{- end }}
+      {{- if include "eric-data-coordinator-zk.pullSecret" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-data-coordinator-zk.pullSecret" . }}
+      {{- end }}
+      {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ template "eric-data-coordinator-zk.name" . }}
+            topologyKey: "kubernetes.io/hostname"
+      {{- else if eq .Values.affinity.podAntiAffinity  "soft" }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - {{ template "eric-data-coordinator-zk.name" . }}
+              topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      containers:
+{{- if and (.Values.metricsexporter.enabled) (.Values.metrics.enabled) }}
+      - name: metricsexporter
+        image: {{ template "eric-data-coordinator-zk.imagePath" (merge (dict "imageName" "metricsexporter") .) }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.metricsexporter.requests.memory | quote }}
+            cpu: {{ .Values.resources.metricsexporter.requests.cpu | quote }}
+            {{- if index .Values.resources.metricsexporter.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.metricsexporter.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            memory: {{ .Values.resources.metricsexporter.limits.memory | quote }}
+            cpu: {{ .Values.resources.metricsexporter.limits.cpu | quote }}
+            {{- if index .Values.resources.metricsexporter.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.metricsexporter.limits "ephemeral-storage" | quote }}
+            {{- end }}
+        args:
+          - /bin/bash
+          - -c
+          {{- if has "stream" .Values.log.outputs }}
+            {{- if has "stdout" .Values.log.outputs }}
+          - /usr/bin/stdout-redirect
+            -service-id=eric-data-coordinator-zk
+            -container=metricsexporter
+            -redirect=all
+            -logfile=/logs/metricsexporter.log
+            -run="/metrics-exporter
+                  -service-id=eric-data-coordinator-zk
+                  -container-name=metricsexporter"
+            {{- else }}
+          - /usr/bin/stdout-redirect
+            -service-id=eric-data-coordinator-zk
+            -container=metricsexporter
+            -redirect=file
+            -logfile=/logs/metricsexporter.log
+            -run="/metrics-exporter
+                  -service-id=eric-data-coordinator-zk
+                  -container-name=metricsexporter"
+            {{- end }}
+          {{- else }}
+          - /metrics-exporter
+            -service-id=eric-data-coordinator-zk
+            -container-name=metricsexporter
+          {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+{{- if .Values.seccompProfile }}
+{{- if .Values.seccompProfile.metricsexporter }}
+{{- include "eric-data-coordinator-zk.metricsexporter.seccompProfile" . | indent 10 }}
+{{- end }}
+{{- end }}
+          capabilities:
+            drop:
+              - all
+        env:
+  {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+        - name: ENABLE_TLS_METRIC
+          value: "true"
+        - name: SERVER_CERT_DIR
+          value: "/run/zookeeper/secrets/servercert"
+        - name: SERVER_CERT_NAME
+          value: "srvcert.pem"
+        - name: SERVER_CERT_KEY
+          value: "srvprivkey.pem"
+        - name: SCRAPE_CA_CERT_DIR
+          value: "/run/pm/secrets/"
+        - name: SCRAPE_CA_CERT_NAME
+          value: "client-cacertbundle.pem"
+  {{- else }}
+        - name: ENABLE_TLS_METRIC
+          value: "false"
+  {{- end }}
+        - name: TZ
+          value: {{ template "eric-data-coordinator-zk.timezone" . }}
+        - name: DATADIR
+          value: "/var/lib/zookeeper"
+        - name: METRIC_PREFIX
+          value: "dczk"
+        - name: METRIC_PORT
+          value: {{.Values.metricsexporter.port | quote }}
+        - name: HEALTH_PORT
+          value: "9086"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: PVCNAME
+{{- if .Values.persistence.persistentVolumeClaim.enabled }}
+          value: datadir-{{ template "eric-data-coordinator-zk.fullname" . }}
+{{- else }}
+          value: "none"
+{{- end }}
+        ports:
+        {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+          - name: https-pm-tls
+        {{- else }}
+          - name: http-metrics
+        {{- end }}
+            containerPort: {{.Values.metricsexporter.port }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9086
+            scheme: HTTP
+          {{ include "eric-data-coordinator-zk.readinessProbeConfig" (merge (dict "imageName" "metricsexporter") .) | indent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9086
+            scheme: HTTP
+          {{ include "eric-data-coordinator-zk.livenessProbeConfig" (merge (dict "imageName" "metricsexporter") .) | indent 10 }}
+        volumeMounts:
+      {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+        - name: eric-pm-server-ca
+          mountPath: "/run/pm/secrets/"
+        - name: server-cert
+          mountPath: "/run/zookeeper/secrets/servercert"
+      {{- end }}
+        - name: datadir
+          mountPath: "/var/lib/zookeeper"
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-data-coordinator-zk.logshipper-storage-path" . | indent 8 }}
+      {{- end }}
+{{- end }}
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-container" . | indent 6 }}
+{{- end }}
+      - name:  datacoordinatorzk
+        imagePullPolicy: {{ template "eric-data-coordinator-zk.dczk.imagePullPolicy" . }}
+        image: {{ template "eric-data-coordinator-zk.imagePath" (merge (dict "imageName" "datacoordinatorzk") .) }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.datacoordinatorzk.requests.memory | quote }}
+            cpu: {{ .Values.resources.datacoordinatorzk.requests.cpu | quote }}
+            {{- if index .Values.resources.datacoordinatorzk.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.datacoordinatorzk.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            memory: {{ .Values.resources.datacoordinatorzk.limits.memory | quote }}
+            cpu: {{ .Values.resources.datacoordinatorzk.limits.cpu | quote }}
+            {{- if index .Values.resources.datacoordinatorzk.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.datacoordinatorzk.limits "ephemeral-storage" | quote }}
+            {{- end }}
+        ports:
+{{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+        - containerPort: {{ .Values.network.datacoordinatorzk.client.tlsPort }}
+          name: zab-tls-client
+          protocol: TCP
+{{- end }}
+{{- if or (and (eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.service.endpoints.datacoordinatorzk.tls.enforced "optional" )) (not (eq (include "eric-data-coordinator-zk.tls" .) "true" ))  }}
+        - containerPort: {{ .Values.clientPort }}
+          name: zab-client
+          protocol: TCP
+{{- end }}
+        - containerPort: {{ .Values.serverPort }}
+          name: zab-server
+          protocol: TCP
+        - containerPort: {{ .Values.leaderElectionPort }}
+          name: zab-leader
+          protocol: TCP
+{{- if contains "TLS" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+        - containerPort: {{ .Values.service.endpoints.pm.tls.port }}
+          name: https-pm-tls
+          protocol: TCP
+{{- end }}
+{{- if contains "clearText" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+        - containerPort: {{ .Values.service.endpoints.datacoordinatorzk.metricsPort }}
+          name: http-metrics
+          protocol: TCP
+{{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+{{- if .Values.seccompProfile }}
+{{- if .Values.seccompProfile.datacoordinatorzk }}
+{{- include "eric-data-coordinator-zk.datacoordinatorzk.seccompProfile" . | indent 10 }}
+{{- end }}
+{{- end }}
+          capabilities:
+            drop:
+              - all
+        env:
+{{- if (eq (include "eric-data-coordinator-zk.sasl" .) "true") }}
+        - name: KAFKA_SASL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ index  .Values "security" "sasl" "credentials" "kubernetesSecretName" }}
+              key: admin-password
+{{- end }}
+        - name: TZ
+          value: {{ template "eric-data-coordinator-zk.timezone" . }}
+        - name: ZOOBINDIR
+          value: "/opt/zookeeper/bin"
+        - name: ZK_ADMIN_SERVER_PORT
+          value: {{ .Values.network.datacoordinatorzk.adminServer.port | quote }}
+        - name: ZOO_LOG4J_PROP
+          value: "{{ .Values.logLevel }},CONSOLE"
+{{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
+        - name: SSL_CERTS_PROVIDER
+          value: {{ .Values.service.endpoints.datacoordinatorzk.tls.provider }}
+{{- end }}
+{{- if contains "TLS" (include "eric-data-coordinator-zk.pm.connectors" . ) }}
+        - name: PM_ENDPOINT_WITH_TLS
+          value: "true"
+{{- end }}
+        - name: SERVICE_ID
+          value: {{ template "eric-data-coordinator-zk.ensembleService.fullname" . }}
+      {{- if has "stream" .Values.log.outputs }}
+        - name: LOG_OUTPUT
+            {{- if has "stdout" .Values.log.outputs }}
+          value: "all"
+            {{- else }}
+          value: "stream"
+            {{- end }}
+      {{- else }}
+        - name: LOG_OUTPUT
+          value: "stdout"
+      {{- end }}
+        - name: ZOOCFGDIR
+          value: /var/lib/zookeeper/config-dynamic
+        livenessProbe:
+          exec:
+            command:
+      {{- if and ( eq (include "eric-data-coordinator-zk.tls" .) "true" ) ( eq .Values.service.endpoints.datacoordinatorzk.tls.enforced "required" ) }}
+            - /bin/bash
+            - -c
+            - 'exec /opt/zookeeper/conf/zkOkSSL.sh'
+      {{- else }}
+            - /bin/bash
+            - -c
+            - 'exec zkOk.sh'
+      {{- end }}
+          {{ include "eric-data-coordinator-zk.livenessProbeConfig" (merge (dict "imageName" "datacoordinatorzk") .) | indent 10 }}
+        readinessProbe:
+          exec:
+            command:
+      {{- if and ( eq (include "eric-data-coordinator-zk.tls" .) "true" ) ( eq .Values.service.endpoints.datacoordinatorzk.tls.enforced "required" ) }}
+            - /bin/bash
+            - -c
+            - 'exec /opt/zookeeper/conf/zkOkSSL.sh'
+      {{- else }}
+            - /bin/bash
+            - -c
+            - 'exec zkOk.sh'
+      {{- end }}
+          {{ include "eric-data-coordinator-zk.readinessProbeConfig" (merge (dict "imageName" "datacoordinatorzk") .) | indent 10 }}
+        volumeMounts:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-storage-path" . | indent 8 }}
+{{- end}}
+        - name: datadir
+          mountPath: /var/lib/zookeeper
+        - name: {{ template "eric-data-coordinator-zk.name" . }}
+          mountPath: /opt/zookeeper/conf
+{{- include "eric-data-coordinator-zk.secretsMountPath" . | nindent 6 }}
+      volumes:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-coordinator-zk.logshipper-volume" . | indent 6 }}
+{{- end}}
+      - name: {{ template "eric-data-coordinator-zk.name" . }}
+        configMap:
+          defaultMode: 493
+          name: {{ template "eric-data-coordinator-zk.name" . }}
+{{- if ( not .Values.persistence.persistentVolumeClaim.enabled ) }}
+      - name: datadir
+        emptyDir:
+        {{- if index .Values.resources.datacoordinatorzk.limits "ephemeral-storage" }}
+          sizeLimit: {{ index .Values.resources.datacoordinatorzk.limits "ephemeral-storage" }}
+          {{- end }}
+{{- end }}
+{{- include "eric-data-coordinator-zk.volumes" . | nindent 6 -}}
+      {{- if or (.Values.nodeSelector.datacoordinatorzk) ((.Values.global).nodeSelector) }}
+      nodeSelector: {{- include "eric-data-coordinator-zk.dczkNodeSelector" . | nindent 8 }}
+      {{- end }}
+    {{- if .Values.tolerations.datacoordinatorzk }}
+      tolerations:
+        {{- toYaml .Values.tolerations.datacoordinatorzk | nindent 6 }}
+    {{- end }}
+    {{- if .Values.topologySpreadConstraints.datacoordinatorzk }}
+      topologySpreadConstraints:
+        {{- range $constraint := .Values.topologySpreadConstraints.datacoordinatorzk }}
+      - maxSkew: {{ $constraint.maxSkew }}
+        topologyKey: {{ $constraint.topologyKey }}
+        whenUnsatisfiable: {{ $constraint.whenUnsatisfiable }}
+        labelSelector:
+          matchLabels:
+            {{- include "eric-data-coordinator-zk.selectorLabels" $ | indent 12}}
+        {{- end }}
+    {{- end }}
+{{- if .Values.persistence.persistentVolumeClaim.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        {{- $vctName := "datadir" -}}
+        {{- $name := include "eric-data-coordinator-zk.fullname" . }}
+        name: {{ $vctName }}
+        labels: {{- include "eric-data-coordinator-zk.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
+        {{- if .Values.annotations }}
+        annotations: {{- include "eric-data-coordinator-zk.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.persistentVolumeClaim.size | quote }}
+        {{- if .Values.persistence.persistentVolumeClaim.storageClassName }}
+        storageClassName: {{ .Values.persistence.persistentVolumeClaim.storageClassName | quote }}
+        {{- end }}
+  {{- end }}

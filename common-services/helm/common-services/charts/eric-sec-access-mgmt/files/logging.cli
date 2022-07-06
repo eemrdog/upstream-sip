@@ -1,0 +1,20 @@
+# Allow log level to be configured via environment variable
+/subsystem=logging/console-handler=CONSOLE:write-attribute(name=level, value=ALL)
+/subsystem=logging/root-logger=ROOT:write-attribute(name=level, value=${env.ROOT_LOGLEVEL:INFO})
+
+# Add custom json formatter
+/subsystem=logging/custom-formatter=custom-json-formatter:add(class=adp.keycloak.formatters.AdpJSONLogFormatter, module=adp.keycloak.formatters.adp-log-formatter)
+/subsystem=logging/console-handler=CONSOLE:write-attribute(name=named-formatter, value=custom-json-formatter)
+
+# Add dedicated eventsListener config element to allow configuring elements for audit-events-listener
+/subsystem=keycloak-server/spi=eventsListener:add()
+/subsystem=keycloak-server/spi=eventsListener/provider=audit-events-listener:add(enabled=true)
+# Propagate success events to INFO instead of DEBUG, to expose successful logins for log analysis
+/subsystem=keycloak-server/spi=eventsListener/provider=audit-events-listener:write-attribute(name=properties.success-level,value=info)
+/subsystem=keycloak-server/spi=eventsListener/provider=audit-events-listener:write-attribute(name=properties.error-level,value=warn)
+
+# Add dedicated eventsListener config element to allow configuring elements for jboss-logging
+/subsystem=keycloak-server/spi=eventsListener/provider=jboss-logging:add(enabled=true)
+# Propagate success events to INFO instead of DEBUG, to expose successful logins for log analysis
+/subsystem=keycloak-server/spi=eventsListener/provider=jboss-logging:write-attribute(name=properties.success-level,value=info)
+/subsystem=keycloak-server/spi=eventsListener/provider=jboss-logging:write-attribute(name=properties.error-level,value=warn)

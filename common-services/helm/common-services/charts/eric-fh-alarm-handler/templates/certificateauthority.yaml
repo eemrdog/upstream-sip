@@ -1,0 +1,38 @@
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if $g.security.tls.enabled }}
+{{/* CA for the Alarm API clients */}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-ca
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.name" . }}-tls-client-ca-secret
+    certificateName: client-cacertbundle.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}-ICCA
+{{- if eq (include "eric-fh-alarm-handler.fiAPI.httpsEnabled" .) "true" }}
+{{/* CA for the FI API clients */}}
+---
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-client-ca
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.fiAPI.client.ca.secretname" . }}
+    certificateName: client-ca.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-client-ca
+{{- end }}
+{{- end }}

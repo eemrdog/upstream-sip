@@ -1,0 +1,40 @@
+{{- if .Values.brAgent.enabled }}
+{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ template "eric-data-document-database-pg.name" . }}-bragent-properties
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+data:
+  application.properties: | 
+    orchestrator.host={{ $globalValue.adpBR.broServiceName }}
+    orchestrator.port={{ $globalValue.adpBR.broGrpcServicePort }}
+    pgagent.id={{ .Values.brAgent.brLabelValue | default .Chart.Name }}
+    pgagent.apiVersion=3
+    pgagent.scope={{- range $i, $e := .Values.brAgent.backupTypeList -}}
+                    {{- if eq $i 0 -}}{{- printf " " -}}{{- else -}};{{- end -}}{{- . -}}
+                  {{- end }}
+    pgagent.softwareVersion.description={{ template "eric-data-document-database-pg.name" . }} Agent for backup and restore.
+    pgagent.softwareVersion.productionDate={{ .Values.brAgent.properties.production_date }}
+    pgagent.softwareVersion.productName=Document Database PG
+    pgagent.softwareVersion.productNumber=APR 201 34
+    pgagent.softwareVersion.type=Database
+    pgagent.softwareVersion.revision={{ .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+  {{ if .Values.brAgent.logicalDBBackupEnable }}
+    pgagent.fragment.backup.data.path=/var/data/backuprestore/pgdump.tar.gz
+    pgagent.fragment.custom.backup.data.path=/var/data/backuprestore/pgdump.tar.gz.md5
+  {{ else }}
+    pgagent.fragment.backup.data.path=/var/data/backuprestore/base.tar.gz
+    pgagent.fragment.custom.backup.data.path=/var/data/backuprestore/base.tar.gz.md5
+  {{ end }}
+    pgagent.download.location=/var/data/backuprestore/
+  {{- if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+    siptls.security.enabled=true
+    siptls.ca.common.name={{ $globalValue.adpBR.broServiceName }}
+    siptls.ca.path=/tmp/certificates/ca/cacertbundle.pem
+    siptls.clicert.path=/tmp/certificates/bra/bra-cert.pem
+    siptls.clikey.path=/tmp/certificates/bra/bra-privkey.pem
+  {{- end }}
+
+{{- end }}

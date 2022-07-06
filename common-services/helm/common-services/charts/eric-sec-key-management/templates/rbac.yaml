@@ -1,0 +1,86 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-conf-role
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ template "eric-sec-key-management.name" . }}-unseal-key"]
+    verbs: ["get", "update"]
+  {{- if .Values.shelter.enabled }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ template "eric-sec-key-management.name" . }}-shelter-key"]
+    verbs: ["get", "update"]
+  {{- end }}
+  {{- if and ( eq .Values.persistence.type "etcd" ) .Values.persistence.etcd.tls.enabled }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["eric-sec-sip-tls-bootstrap-ca-cert", "eric-sec-sip-tls-trusted-root-cert"]
+    verbs: ["get"]
+  {{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-conf-rolebinding
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+roleRef:
+  kind: Role
+  name: {{ template "eric-sec-key-management.name" . }}-conf-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "eric-sec-key-management.name" . }}-auth
+
+---
+
+{{- if .Values.deployClusterRoleBinding }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-rolebinding-%s" (include "eric-sec-key-management.name" .) ( .Release.Namespace | sha256sum | substr 0 5 | lower) }}
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "eric-sec-key-management.name" . }}-auth
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+
+---
+
+{{- if eq (include "eric-sec-key-management.securityPolicyRoleBinding" .) "true" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-sec-key-management.name" . }}-security-policy-rolebinding
+  labels:
+    {{- include "eric-sec-key-management.labels" . | nindent 4 }}
+  annotations:
+    {{- $securityPolicy := include "eric-sec-key-management.securityPolicy.annotations" . | fromYaml -}}
+    {{- $common := include "eric-sec-key-management.annotations" . | fromYaml -}}
+    {{- include "eric-sec-key-management.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicy $common)) | trim | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "eric-sec-key-management.securityPolicyReference" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "eric-sec-key-management.name" . }}-auth
+{{- end -}}

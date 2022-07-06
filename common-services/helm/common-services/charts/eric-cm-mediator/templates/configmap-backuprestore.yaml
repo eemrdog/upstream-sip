@@ -1,0 +1,21 @@
+{{- if and (not (.Values.exilis.cm.enabled)) .Values.dbbr.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}-br-agent
+  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+data:
+  brm_backup.yaml: |
+    backupRestoreMetadataConfig:
+      - backupType: {{ .Values.dbbr.backupType }}
+        database: {{ .Values.backend.dbname }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+        username: {{ required "backend.dbuser must be set if TLS is enabled." .Values.backend.dbuser }}
+{{- end }}
+        inOutTables: in
+        tablesList:
+          - schemas
+          - yangschemas
+          - configurations
+{{- end }}

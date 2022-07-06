@@ -1,0 +1,446 @@
+{{- if .Values.brAgent.enabled }}
+{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
+{{- $defaultLogshipperValue := fromJson (include "eric-data-document-database-pg.logshipper-default-value" .) -}}
+{{- $probesValue := fromJson (include "eric-data-document-database-pg.probes" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-bragent
+  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ template "eric-data-document-database-pg.name" . }}-bragent
+  template:
+    metadata:
+      labels:
+        {{- $podTempLabels := dict -}}
+        {{- $_ := set $podTempLabels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "bragent") -}}
+        {{- $adpBrLabelKey := fromYaml (include "eric-data-document-database-pg.br-labelkey" .) -}}
+        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
+        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $podTempLabels $adpBrLabelKey $commonLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "BRAgent" "containerList" (list "brm" "bra")) | indent 8 }}
+        {{- $podTempAnn := dict -}}
+        {{- if .Values.brAgent.backupTypeList -}}
+          {{- $_ := set $podTempAnn "backupType" (include "eric-data-document-database-pg.br-backuptypes" .) -}}
+        {{- end -}}
+        {{- if .Values.bandwidth.brAgent.maxEgressRate }}
+          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.brAgent.maxEgressRate | toString) -}}
+        {{- end }}
+        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
+        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+    spec:
+      serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-sa
+      {{- if include "eric-data-document-database-pg.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-data-document-database-pg.pullSecrets" . }}
+      {{- end }}
+      securityContext:
+{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
+      {{- if .Values.affinity.podAntiAffinity }}
+      affinity:
+{{ include "eric-data-document-database-pg.affinity" .| indent 8 }}
+      {{- end }}
+      {{- if or (not (empty .Values.nodeSelector.brAgent)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
+      nodeSelector:
+{{- include "eric-data-document-database-pg.nodeSelector.brAgent" . | nindent 8 }}
+      {{- end }}
+      tolerations:
+      {{- if .Values.tolerations }}
+{{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.brAgent" . | indent 8 }}
+      {{- end }}
+      {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName | quote }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.brAgent | int }}
+      {{- end }}
+      {{- if .Values.podPriority.brAgent.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.brAgent.priorityClassName | quote }}
+      {{- end }}
+      containers:
+      - name: {{ template "eric-data-document-database-pg.name" . }}-bra
+        image: {{ template "eric-data-document-database-pg.braImagePath" . }}
+        imagePullPolicy: {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
+        command: ["/bin/sh","-c"]
+        args:
+        - "
+          /usr/bin/catatonit -- 
+          {{ if has "stream" .Values.log.outputs -}}
+          {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
+          {{- end -}}
+           /usr/bin/java {{ template "eric-data-document-database-pg.JVMHeapSize" . }} -Dlog4j.configurationFile=/opt/log4j2/log4j2.xml -jar /opt/pgagent.jar /opt/application.properties"
+        env:
+          # For global
+          - name: POD_IP
+            valueFrom: { fieldRef: { fieldPath: status.podIP } }
+          - name: POD_NAME
+            valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          - name: KUBERNETES_NAMESPACE
+            valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          - name: PG_PORT
+            value: {{ .Values.service.port | quote }}
+          - name: TZ
+            value: {{ $globalValue.timezone | quote }}
+          - name: PG_SVC_NAME
+            value: {{ template "eric-data-document-database-pg.name" . }}
+          - name: PG_DATA_DIR
+            value: {{ template "eric-data-document-database-pg.mountPath" . }}/pgdata
+          - name: ENABLE_AGENT_TLS
+            value: {{ include "eric-data-document-database-pg.global-security-tls-enabled" . | quote }}
+          - name: LOG_LEVEL
+            value: {{ .Values.brAgent.logLevel | quote }}
+          {{- if has "stream" .Values.log.outputs }}
+          - name: CONTAINER_NAME
+            value: {{ template "eric-data-document-database-pg.name" . }}-bra
+          - name: LOG_REDIRECT
+            value: {{ template "eric-data-document-database-pg.logRedirect" . }}
+          - name: LOG_FORMAT
+            value: json
+          {{- end }}
+        resources:
+          requests:
+          {{- if .Values.resources.bra.requests.cpu }}
+            cpu: {{ .Values.resources.bra.requests.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.bra.requests.memory }}
+            memory: {{ .Values.resources.bra.requests.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.bra.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.bra.requests "ephemeral-storage" | quote }}
+          {{- end }}
+          limits:
+          {{- if .Values.resources.bra.limits.cpu }}
+            cpu: {{ .Values.resources.bra.limits.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.bra.limits.memory }}
+            memory: {{ .Values.resources.bra.limits.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.bra.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.bra.limits "ephemeral-storage" | quote }}
+          {{- end }}
+        readinessProbe:
+          exec:
+            command:
+            - "pgrep"
+            - "-fl"
+            - "java"
+          initialDelaySeconds: {{ $probesValue.bra.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ $probesValue.bra.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ $probesValue.bra.readinessProbe.periodSeconds }}
+          failureThreshold: {{ $probesValue.bra.readinessProbe.failureThreshold }}
+          successThreshold: {{ $probesValue.bra.readinessProbe.successThreshold }}
+        livenessProbe:
+          exec:
+            command:
+            - "pgrep"
+            - "-fl"
+            - "java"
+          initialDelaySeconds: {{ $probesValue.bra.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ $probesValue.bra.livenessProbe.timeoutSeconds }}
+          periodSeconds: {{ $probesValue.bra.livenessProbe.periodSeconds }}
+          failureThreshold: {{ $probesValue.bra.livenessProbe.failureThreshold }}
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+        {{- if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+          - name: trusted-ca
+            mountPath: /tmp/certificates/ca/
+          - name: bra-client-certificates
+            mountPath: /tmp/certificates/bra/
+        {{- end }}
+          - name: pg-backup
+            mountPath: "/var/data"
+          - name: bragent-properties
+            mountPath: /opt/application.properties
+            subPath: application.properties
+          - name: bragent-logging
+            mountPath: /opt/log4j2
+        {{- if has "stream" .Values.log.outputs}}
+        {{- include "eric-data-document-database-pg.logshipper-storage-path" . | indent 10 }}
+        {{- end }}
+        securityContext:
+          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "bra") | nindent 10 }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+      - name: {{ template "eric-data-document-database-pg.name" . }}-brm
+        image: {{ template "eric-data-document-database-pg.brm13ImagePath" . }}
+        imagePullPolicy: {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
+        command: 
+          - bash
+          - -c
+        {{- if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+        args: 
+        - "
+          /usr/bin/catatonit -- 
+          {{ if has "stream" .Values.log.outputs -}}
+          {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
+          {{- end -}}
+           backupRestoreManager server --log-level={{ .Values.brAgent.logLevel }} 
+            --enablessl=true
+            --verifyClientCert=required
+            --https-enable=true
+            --ssl-ca-cert=/tmp/certificates/ca/cacertbundle.pem
+            --ssl-https-server-cert=/tmp/certificates/brm/brm-cert.pem
+            --ssl-https-server-key=/tmp/certificates/brm/brm-privkey.pem
+            --ssl-https-ca=/tmp/certificates/ca/cacertbundle.pem
+            --ssl-monitor-path=/tmp/certificates/brm
+            --ssl-replicauser-cert=/tmp/certificates/client/replica/clicert.pem
+            --ssl-replicauser-key=/tmp/certificates/client/replica/cliprivkey.pem
+            --issuer={{ template "eric-data-document-database-pg.secretBaseName" . }}-client-ca
+            {{ if not (has "stream" .Values.log.outputs) -}}
+            --log-adp-json=true 
+            {{ end -}}  
+            "
+        {{- else }}
+        args: 
+        - "
+          /usr/bin/catatonit -- 
+          {{ if has "stream" .Values.log.outputs -}}
+          {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }} 
+          {{- end -}}
+           backupRestoreManager server --log-level={{ .Values.brAgent.logLevel }} 
+          {{ if not (has "stream" .Values.log.outputs) -}}
+            --log-adp-json=true 
+          {{ end -}}
+          "  
+        {{- end }}
+        env:
+          # For global
+          - name: POD_IP
+            valueFrom: { fieldRef: { fieldPath: status.podIP } }
+          - name: POD_NAME
+            valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          - name: KUBERNETES_NAMESPACE
+            valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          {{- if has "stream" .Values.log.outputs }}
+          - name: CONTAINER_NAME
+            value: {{ template "eric-data-document-database-pg.name" . }}-brm
+          - name: LOG_REDIRECT
+            value: {{ template "eric-data-document-database-pg.logRedirect" . }}
+          - name: LOG_FORMAT
+            value: json
+          {{- end }}
+          - name: TZ
+            value: {{ $globalValue.timezone | quote }}
+          - name: PG_PORT
+            value: {{ .Values.service.port | quote }}
+          - name: PG_SVC_NAME
+            value: {{ template "eric-data-document-database-pg.name" . }}
+          - name: PG_DATA_DIR
+            value: {{ template "eric-data-document-database-pg.mountPath" . }}/pgdata
+          - name: SUPER_USERNAME
+            value: postgres
+          {{- if  (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+           # mtls connection
+          - name: REPLICATION_USERNAME
+            value: {{ default "replica" .Values.replicausername }}
+            {{- if eq .Values.service.endpoints.postgres.tls.enforced "optional" }}
+          - name: CUSTOMER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForUserId | quote }}
+            {{- end }}
+          {{- else }}
+            # non ssl connection
+          - name: SUPER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForSuperPw | quote }}
+          - name: REPLICATION_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForReplicaId | quote }}
+          - name: REPLICATION_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForReplicaPw | quote }}
+          - name: CUSTOMER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForUserId | quote }}
+          - name: CUSTOMER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+                key: {{ .Values.credentials.keyForUserPw | quote }}
+          - name: PGPASSFILE
+            value: /nonroot/.pgpass
+          {{- end }}
+          # common environment variable
+          - name: CUSTOMER_DB
+            value: {{ default "" .Values.postgresDatabase | quote }}
+          - name: BACKUP_FILE_FORMAT
+            value: "custom"
+          - name: BACKUP_JOBS
+            value: "1"
+          - name: LOGICALDBBACKUPENABLE
+            value: {{ .Values.brAgent.logicalDBBackupEnable | quote }}
+          - name: BACKDATAMODELCONFIGNAME
+            value: {{ default "" .Values.brAgent.backupDataModelConfig | quote }}
+          - name: BRMBRCONFIGPATH
+            value: {{ template "eric-data-document-database-pg.br-configmap-path" . }}
+          - name: LOG_LEVEL
+            value: {{ .Values.brAgent.logLevel | quote }}
+          - name: BACKUP_TYPE
+            value: {{- range $i, $e := .Values.brAgent.backupTypeList -}}
+              {{- if eq $i 0 -}}{{- printf " " -}}{{- else -}};{{- end -}}{{- . -}}
+              {{- end }}
+        ports:
+          - name: http
+            containerPort: 8083
+            protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - http://localhost:8089/healthz
+            - --max-time
+            - "1"
+          initialDelaySeconds: {{ $probesValue.brm.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ $probesValue.brm.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ $probesValue.brm.readinessProbe.periodSeconds }}
+          failureThreshold: {{ $probesValue.brm.readinessProbe.failureThreshold }}
+          successThreshold: {{ $probesValue.brm.readinessProbe.successThreshold }}
+        livenessProbe:
+          exec:
+            command:
+            - "pgrep"
+            - "-fl"
+            - "backupRestoreManager"
+          initialDelaySeconds: {{ $probesValue.brm.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ $probesValue.brm.livenessProbe.timeoutSeconds }}
+          periodSeconds: {{ $probesValue.brm.livenessProbe.periodSeconds }}
+          failureThreshold: {{ $probesValue.brm.livenessProbe.failureThreshold }}
+        resources:
+          requests:
+          {{- if .Values.resources.brm.requests.cpu }}
+            cpu: {{ .Values.resources.brm.requests.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.brm.requests.memory }}
+            memory: {{ .Values.resources.brm.requests.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.brm.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.brm.requests "ephemeral-storage" | quote }}
+          {{- end }}
+          limits:
+          {{- if .Values.resources.brm.limits.cpu }}
+            cpu: {{ .Values.resources.brm.limits.cpu  | quote }}
+          {{- end }}
+          {{- if .Values.resources.brm.limits.memory }}
+            memory: {{ .Values.resources.brm.limits.memory  | quote }}
+          {{- end }}
+          {{- if index .Values.resources.brm.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.brm.limits "ephemeral-storage" | quote }}
+          {{- end }}
+        volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+          - name: cucert
+            mountPath: /tmp/certificates/CuCert
+          - name: nonroot
+            mountPath: /nonroot
+          - name: pg-backup
+            mountPath: "/var/data"
+          {{- if and .Values.brAgent.backupDataModelConfig .Values.brAgent.logicalDBBackupEnable }}
+          - name: brm-backup-config
+            mountPath: {{ template "eric-data-document-database-pg.br-configmap-path" . }}
+          {{- end }}
+          #for DR113.
+          {{- if  (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+          - name: brm-server-certificates
+            mountPath: /tmp/certificates/brm/
+          - name: trusted-ca
+            mountPath: /tmp/certificates/ca/
+          - name: replicauser-client-certificate
+            mountPath: /tmp/certificates/client/replica/
+          - name: postgres-client-certificates
+            mountPath: /tmp/certificates/client/postgres/
+          {{- end }}
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-document-database-pg.logshipper-storage-path" . | indent 10 }}
+{{- end }}
+        securityContext:
+          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "brm") | nindent 10 }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+{{- if has "stream" .Values.log.outputs}}
+{{- include "eric-data-document-database-pg.logshipper-container" . | indent 6 }}
+{{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cucert
+        emptyDir: {}
+      - name: nonroot
+        emptyDir: {}
+      - name: bragent-properties
+        configMap:
+          defaultMode: 0444
+          name: {{ template "eric-data-document-database-pg.name" . }}-bragent-properties
+      - name: bragent-logging
+        configMap:
+          defaultMode: 0444
+          name: {{ template "eric-data-document-database-pg.name" . }}-bragent-logging
+      - name: pg-backup
+        emptyDir: {}
+      #for DR113.
+      {{- if  (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+      - name: brm-server-certificates
+        secret:
+          secretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-brm-cert
+          defaultMode: 0640
+      - name: trusted-ca
+        secret:
+          secretName: eric-sec-sip-tls-trusted-root-cert
+          defaultMode: 0640
+      - name: replicauser-client-certificate
+        secret:
+          secretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-replica-cert
+          defaultMode: 0640
+      - name: bra-client-certificates
+        secret:
+          secretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-bra-cert
+          defaultMode: 0640
+      - name: postgres-client-certificates
+        secret:
+          secretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-postgres-cert
+          defaultMode: 0640
+      {{- if .Values.brAgent.logicalDBBackupEnable }}
+      - name: brm-backup-config
+        configMap:
+          defaultMode: 0444
+          name: {{ required "The brAgent.backupDataModelConfig is required!" .Values.brAgent.backupDataModelConfig | quote }}
+      {{- end }}
+      {{- else }}
+      {{- if and .Values.brAgent.logicalDBBackupEnable .Values.brAgent.backupDataModelConfig }}
+      - name: brm-backup-config
+        configMap:
+          defaultMode: 0444
+          name: {{ .Values.brAgent.backupDataModelConfig | quote }}
+      {{- end }}
+      {{- end }}
+{{- if has "stream" .Values.log.outputs}}
+{{- include "eric-data-document-database-pg.logshipper-volume" . | indent 6 }}
+{{- end }}
+{{- end }}

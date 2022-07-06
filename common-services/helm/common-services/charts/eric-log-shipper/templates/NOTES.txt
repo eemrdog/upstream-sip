@@ -1,0 +1,10 @@
+Welcome to eric-log-shipper on kubernetes
+
+{{- if ne (include "eric-log-shipper.deprecation-notices" .) "" }}
+
+DEPRECATION NOTICE: The following parameters have been specified but are deprecated.
+{{ include "eric-log-shipper.deprecation-notices" . }}
+
+See deployment guide for more information.
+
+{{- end }}

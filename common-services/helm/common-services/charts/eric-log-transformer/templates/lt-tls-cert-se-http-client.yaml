@@ -1,0 +1,52 @@
+{{- $g := fromJson (include "eric-log-transformer.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+{{- $ti := fromJson (include "eric-log-transformer.testInternal" .) -}}
+{{- if and (.Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate") (not $ti.oldTls) -}}
+
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . }}-se-http-client-cert
+  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ include "eric-log-transformer.fullname" . }}-se-http-client-cert
+    certificateName: "clicert.pem"
+    privateKeyName: "cliprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-log-transformer.fullname" . }}
+    subjectAlternativeName:
+      dns:
+        - "*.{{ include "eric-log-transformer.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    issuer:
+      reference: {{ .Values.searchengine.host }}-http-ca-cert
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- else -}}
+
+apiVersion: com.ericsson.sec.tls/v1alpha1
+kind: ClientCertificate
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . }}-se-http-client-cert
+  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+spec:
+  generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-se-http-client-cert
+  common-name: {{ include "eric-log-transformer.fullname" . }}
+  additional-sans:
+    - DNS:*.{{ include "eric-log-transformer.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+  issuer-ref: {{ .Values.searchengine.host }}-http-ca-cert
+  {{- if $ti.tlsTtl }}
+  override-ttl: {{ $ti.tlsTtl }}
+  {{- end }}
+
+{{- end -}}
+{{- end -}}

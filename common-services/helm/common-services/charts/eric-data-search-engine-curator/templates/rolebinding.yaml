@@ -1,0 +1,23 @@
+{{- $g := fromJson (include "eric-data-search-engine-curator.global" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "eric-data-search-engine-curator.fullname" . }}-rb
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+  annotations:
+    {{- $rolebindingDict := dict -}}
+    {{- $_ := set $rolebindingDict "ericsson.com/security-policy.capabilities" "" -}}
+    {{- $_ := set $rolebindingDict "ericsson.com/security-policy.type" "restricted/default" -}}
+
+    {{- $default := include "eric-data-search-engine-curator.annotations" . | fromYaml -}}
+    {{- include "eric-data-search-engine-curator.mergeAnnotations" (dict "location" .Template.Name "sources" (list $default $rolebindingDict)) | trim | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-data-search-engine-curator.fullname" . }}-sa
+{{- end -}}

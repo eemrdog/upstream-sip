@@ -1,0 +1,214 @@
+{{- $logRedirect := (include "eric-fh-snmp-alarm-provider.logRedirect" .) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+  labels:
+    {{- $static := dict -}}
+    {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
+    {{- $_ := set $static "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
+    {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
+    {{- $_ := set $static "release" (.Release.Name | toString) -}}
+    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
+    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 4 }}
+  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.service.replicas }}
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  selector:
+    matchLabels:
+      app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+      release: {{ .Release.Name | quote }}
+  template:
+    metadata:
+      labels:
+        {{- $static := dict -}}
+        {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
+        {{- $_ := set $static "release" (.Release.Name | toString) -}}
+        {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
+        {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- $service := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
+        {{- $snmpAppArmorAnn := include "eric-fh-snmp-alarm-provider.snmpAP.appArmorProfileAnnotations" . | fromYaml -}}
+        {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $snmpAppArmorAnn)) | indent 8 }}
+    spec:
+      serviceAccountName: {{ template "eric-fh-snmp-alarm-provider.name" . }}-service-account
+    {{- include "eric-fh-snmp-alarm-provider.podpriority" . }}
+      containers:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-fh-snmp-alarm-provider.logshipper-container" . | indent 6 }}
+{{- end }}
+      - name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+        env:
+        - name: LOG_LEVEL
+          value: {{ template "eric-fh-snmp-alarm-provider.loglevel" . }}
+        - name: TZ
+          value: {{ template "eric-fh-snmp-alarm-provider.timezone" . }}
+        - name: HTTP_PORT
+          value: {{ .Values.service.httpPort | quote }}
+        - name: SNMP_AGENT_PORT
+          value: {{ .Values.service.snmpAgentPort | quote }}
+        - name: VGW_PBR_VERBOSE_MODE
+          value: {{ .Values.vpnGw.verboseMode | quote }}
+        - name: VGW_PBR_VGW_ADDRESS
+          value: {{ .Values.vpnGw.vpnGwAddress | quote }}
+        - name: VGW_PBR_SRV_PORTS_UDP
+          value: {{ .Values.service.snmpAgentPort | quote }}
+        - name: VGW_PBR_SRV_VLAN_IDS_UDP
+          value: {{ .Values.vpnGw.vlanId | quote }}
+        - name: VGW_PBR_SEND_FROM
+          value: {{ .Values.vpnGw.sendFromAddress | quote }}
+        - name: VGW_PBR_SEND_TO
+          value: {{ .Values.vpnGw.sendToAddress | quote }}
+        - name: TLS_ENABLED
+          value: {{ include "eric-fh-snmp-alarm-provider.tls" . | quote }}
+        - name: SERVICE_HEAP_OPTS
+          value: {{ include "eric-fh-snmp-alarm-provider.memoryHeapOptions" . | quote }}
+        - name: SOURCE_IDENTIFIER_TYPE
+          value: {{ .Values.sourceIdentifierType | quote }}
+        - name: SOURCE_IDENTIFIER
+          value: {{ .Values.sourceIdentifier | quote }}
+{{- if .Values.messageBusRd.enabled }}
+        - name: RD_ENABLED
+          value: "true"
+        - name: MB_HOST
+          value: {{ .Values.messageBusRd.host  | quote }}
+        - name: MB_PORT_TLS
+          value: {{ .Values.messageBusRd.portTls  | quote }}
+        - name: MB_PORT
+          value: {{ .Values.messageBusRd.port  | quote }}
+{{- if .Values.messageBusRd.acl.enabled }}
+        - name: MB_ACL_ENABLED
+          value: "true"
+        - name: MB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "eric-fh-snmp-alarm-provider.messageBusRd.acl.secret" . | quote }}
+              key: {{ .Values.messageBusRd.acl.userKey | quote }}
+        - name: MB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "eric-fh-snmp-alarm-provider.messageBusRd.acl.secret" . | quote }}
+              key: {{ .Values.messageBusRd.acl.passKey | quote }}
+{{- else }}
+        - name: MB_ACL_ENABLED
+          value: "false"
+{{- end }}
+{{- else }}
+        - name: RD_ENABLED
+          value: "false"
+{{- end }}
+        - name: MB_MODE
+          value: {{ .Values.messageBusRd.mode  | quote }}
+        image: {{ template "eric-fh-snmp-alarm-provider.snmpAPPath" . }}
+        imagePullPolicy: {{ template "eric-fh-snmp-alarm-provider.imagePullPolicy" . }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+{{- include "eric-fh-snmp-alarm-provider.snmpAP.seccompProfile" . | indent 10 }}
+        command: [ "sh" ]
+        args: [ "-c", "/usr/bin/watcher.sh -r {{ $logRedirect }}" ]
+        volumeMounts:
+        - name: memory-storage
+          mountPath: "/app/tmp"
+          readOnly: false
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-fh-snmp-alarm-provider.logshipper-storage-path" . | indent 8 }}
+{{- end }}
+{{- if .Values.service.secretName }}
+        - name: secret-volume
+          mountPath: "/app/etc/eric-fh-snmp-alarm-provider/secret"
+          readOnly: true
+{{- end }}
+{{- if eq (include "eric-fh-snmp-alarm-provider.tls" .) "true" }}
+{{- if .Values.messageBusRd.enabled }}
+        - name: mb-certs-volume
+          mountPath: "/app/etc/security/mtls/mb/client"
+          readOnly: true
+{{- else }}
+        - name: kafka-certs-volume
+          mountPath: "/app/etc/security/mtls/kafka/client"
+          readOnly: true
+{{- end }}
+        - name: ah-certs-volume
+          mountPath: "/app/etc/security/mtls/ah/client"
+          readOnly: true
+        - name: serverca-volume
+          mountPath: "/app/etc/security/mtls/root"
+          readOnly: true
+{{- end }}
+        ports:
+        - containerPort: {{ .Values.service.httpPort }}
+          name: http-api
+        livenessProbe:
+          httpGet:
+            path: /snmpalarmprovider/v0/liveness
+            port: {{ .Values.service.httpPort }}
+            scheme: HTTP
+          initialDelaySeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-initialDelaySeconds" . }}
+          periodSeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-periodSeconds" . }}
+          timeoutSeconds: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-timeoutSeconds" . }}
+          successThreshold: 1
+          failureThreshold: {{ include "eric-fh-snmp-alarm-provider.livenessProbe-failureThreshold" . }}
+        readinessProbe:
+          httpGet:
+            path: /snmpalarmprovider/v0/readiness
+            port: {{ .Values.service.httpPort }}
+            scheme: HTTP
+          initialDelaySeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-initialDelaySeconds" . }}
+          periodSeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-periodSeconds" . }}
+          timeoutSeconds: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-timeoutSeconds" . }}
+          successThreshold: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-successThreshold" . }}
+          failureThreshold: {{ include "eric-fh-snmp-alarm-provider.readinessProbe-failureThreshold" . }}
+{{- if .Values.resources.alarmprovider }}
+        resources:
+{{ toYaml .Values.resources.alarmprovider | indent 10 }}
+{{- end }}
+{{- if include "eric-fh-snmp-alarm-provider.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-fh-snmp-alarm-provider.pullSecrets" . }}
+{{- end }}
+{{- if include "eric-fh-snmp-alarm-provider.nodeSelector" . }}
+      nodeSelector: {{- include "eric-fh-snmp-alarm-provider.nodeSelector" . | nindent 8 }}
+{{- end }}
+      volumes:
+      - name: memory-storage
+        emptyDir:
+          medium: Memory
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-fh-snmp-alarm-provider.logshipper-volume" . | indent 6 }}
+{{- end }}
+{{- if .Values.service.secretName }}
+      - name: secret-volume
+        secret:
+          secretName: {{ .Values.service.secretName | quote }}
+{{- end }}
+{{- if eq (include "eric-fh-snmp-alarm-provider.tls" .) "true" }}
+{{- if .Values.messageBusRd.enabled }}
+      - name: mb-certs-volume
+        secret:
+          secretName: {{ .Values.messageBusRd.clientCertSecret }}
+{{- else }}
+      - name: kafka-certs-volume
+        secret:
+          secretName: {{ .Values.messageBusKF.clientCertSecret }}
+{{- end }}
+      - name: ah-certs-volume
+        secret:
+          secretName: {{ .Values.ah.clientCertSecret }}
+      - name: serverca-volume
+        secret:
+          secretName: eric-sec-sip-tls-trusted-root-cert
+{{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+{{- if .Values.tolerations.snmpAP }}
+      tolerations:
+{{ toYaml .Values.tolerations.snmpAP | indent 8 }}
+{{- end }}

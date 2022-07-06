@@ -1,0 +1,27 @@
+{{/*
+Client CA Certificate provided by BRO for mTLS communication between DCZK BrAgent and BRO
+*/}}
+{{- if and ( eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.brAgent.enabled true ) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-data-coordinator-zk.agentName" . }}-bro-client-cert
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-data-coordinator-zk.agentName" . }}-bro-client-cert
+    certificateName: clientcert.pem
+    privateKeyName: clientprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-data-coordinator-zk.agentName" . }}-bro-client-cert
+    issuer:
+      reference: {{ template "eric-data-coordinator-zk.broServiceName" . }}-ca
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+    validity:
+      overrideTtl: {{ .Values.broBragentCertValidity.overrideTtl }}
+      overrideLeadTime: {{ .Values.broBragentCertValidity.overrideLeadTime }}
+{{- end -}}

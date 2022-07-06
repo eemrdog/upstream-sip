@@ -1,0 +1,367 @@
+{{- $globals := fromJson (include "eric-sec-sip-tls.global" .) -}}
+{{- $logdefault := fromJson (include "eric-sec-sip-tls.logshipper-default-value" .) -}}
+{{- $logStdout := has "stdout" .Values.log.outputs -}}
+{{- $logStream := has "stream" .Values.log.outputs -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ template "eric-sec-sip-tls.name" . }}-main"
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: "{{ template "eric-sec-sip-tls.name" . }}"
+  strategy:
+    type: {{ .Values.updateStrategy.type | quote }}
+    {{- if and (eq .Values.updateStrategy.type "RollingUpdate") .Values.updateStrategy.rollingUpdate }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.updateStrategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.updateStrategy.rollingUpdate.maxSurge }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "eric-sec-sip-tls.labels" . | nindent 8 }}
+      annotations:
+        {{- $commonAnn := include "eric-sec-sip-tls.annotations" . | fromYaml -}}
+        {{- $appArmorMain :=  include "eric-sec-sip-tls.appArmorAnnotation.sip-tls" . | fromYaml -}}
+        {{- $appArmorInit := include "eric-sec-sip-tls.appArmorAnnotation.sip-tls-init" . | fromYaml -}}
+        {{- $appArmorSupervisor := include "eric-sec-sip-tls.appArmorAnnotation.sip-tls-supervisor" . | fromYaml -}}
+
+        {{- $checkSumAnn := dict }}
+        {{- $_ := set $checkSumAnn "checksum/config" (include (print $.Template.BasePath "/config-map.yaml") . | sha256sum) }}
+
+        {{- $metricsAnn := dict }}
+        {{- $egressAnn := dict }}
+        {{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
+          {{- $_ := set $metricsAnn "prometheus.io/scrape" (.Values.metrics.enabled | toString) }}
+          {{- $_ := set $metricsAnn "prometheus.io/port" (include "eric-sec-sip-tls.metrics.server.port" . | toString) }}
+          {{- $_ := set $metricsAnn "prometheus.io/path" "/metrics" }}
+
+          {{- if eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true" }}
+            {{- $_ := set $metricsAnn "prometheus.io/scheme" "https" }}
+          {{- else }}
+            {{- $_ := set $metricsAnn "prometheus.io/scheme" "http" }}
+          {{- end }}
+
+          {{- if .Values.bandwidth }}
+            {{- $_ := set $egressAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) }}
+          {{- end }}
+        {{- end }}
+
+        {{- if $logStream }}
+          {{- $appArmorLS :=  include "eric-sec-sip-tls.appArmorAnnotation.logshipper" . | fromYaml -}}
+          {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checkSumAnn $metricsAnn $egressAnn $appArmorMain $appArmorInit $appArmorSupervisor $appArmorLS $commonAnn)) | trim | nindent 8 }}
+        {{- else -}}
+          {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checkSumAnn $metricsAnn $egressAnn $appArmorMain $appArmorInit $appArmorSupervisor $commonAnn)) | trim | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.persistence }}
+        {{- if .Values.persistence.type }}
+          {{- if eq .Values.persistence.type "pvc" }}
+      securityContext:
+        fsGroup: {{ include "eric-sec-sip-tls.fsGroup.coordinated" . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.podPriority.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.priorityClassName | quote }}
+      {{- end }}
+      initContainers:
+        - name: "sip-tls-init"
+          image: {{ template "eric-sec-sip-tls.initPath" . }}
+          imagePullPolicy: {{ template "eric-sec-sip-tls.init.imagePullPolicy" . }}
+          command: ["/sip-tls/start_redirected.sh"]
+          {{- if $logStream }}
+          {{- if $logStdout }}
+          args: ["--app", "/sip-tls/init_kms.py", "--app-args", "", "--logger", "/sip-tls/stdout-redirect",
+                 "--logger-args", "-redirect all -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls-init.log"]
+          {{- else }}
+          {{/*Note: disregard the log settings in init container, k8s logs are always used (-redirect all) */}}
+          args: ["--app", "/sip-tls/init_kms.py", "--app-args", "", "--logger", "/sip-tls/stdout-redirect",
+                 "--logger-args", "-redirect all -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls-init.log"]
+          {{- end }}
+          {{- else }}
+          args: ["--app", "/sip-tls/init_kms.py", "--app-args", ""]
+          {{- end }}
+          {{- include "eric-sec-sip-tls.sip-tls-init.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.sip-tls-init.resources" . | nindent 10 }}
+          env:
+            - name: SERVICE_ACCOUNT_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONTAINER_NAME
+              value: "sip-tls-init"
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: SERVICE_NAME
+              value: {{ template "eric-sec-sip-tls.name" . }}
+            - name: TZ
+              value: {{ template "eric-sec-sip-tls.timezone" . }}
+          volumeMounts:
+            - name: sip-tls-init-tmp
+              mountPath: /tmp
+            - name: sip-tls-config
+              mountPath: /sip-tls/config
+              readOnly: true
+            {{- if $logStream }}
+            {{- include "eric-sec-sip-tls.logshipper-storage-path" . | indent 12 }}
+            {{- end }}
+      containers:
+        - name: "sip-tls"
+          image: {{ template "eric-sec-sip-tls.sipPath" . }}
+          imagePullPolicy: {{ template "eric-sec-sip-tls.sip.imagePullPolicy" . }}
+          command: ["/sip-tls/start_redirected.sh"]
+          {{- if $logStream }}
+          {{- if $logStdout }}
+          args: ["--app", "/sip-tls/sip_tls.py", "--app-args", "", "--logger", "/sip-tls/stdout-redirect",
+                 "--logger-args", "-redirect all -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls.log"]
+          {{- else }}
+          args: ["--app", "/sip-tls/sip_tls.py", "--app-args", "", "--logger", "/sip-tls/stdout-redirect",
+                 "--logger-args", "-redirect file -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls.log"]
+          {{- end }}
+          {{- else }}
+          args: [ "--app", "/sip-tls/sip_tls.py", "--app-args", "" ]
+          {{- end }}
+          {{- include "eric-sec-sip-tls.sip-tls.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.sip-tls.resources" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.sip-tls.probes" . | indent 10 }}
+          {{- if eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true" }}
+          ports:
+            - containerPort: {{ template "eric-sec-sip-tls.metrics.server.port" . }}
+              name: {{ template "eric-sec-sip-tls.metrics.server.name" . }}
+          {{- end }}
+          env:
+            - name: SERVICE_ACCOUNT_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONTAINER_NAME
+              value: "sip-tls"
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: SERVICE_NAME
+              value: {{ template "eric-sec-sip-tls.name" . }}
+            - name: TZ
+              value: {{ template "eric-sec-sip-tls.timezone" . }}
+          volumeMounts:
+            - name: sip-tls-tmp
+              mountPath: /tmp
+            - name: sip-tls-config
+              mountPath: /sip-tls/config
+              readOnly: true
+            - name: log-control-config
+              mountPath: /logcontrol
+            {{- if and (eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true") (eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true") }}
+            - name: "metrics-server-cert"
+              readOnly: true
+              mountPath: {{ template "eric-sec-sip-tls.metrics.server.cert.mountFolder" . }}
+            - name: "metrics-client-cacert"
+              readOnly: true
+              mountPath: {{ template "eric-sec-sip-tls.metrics.client.cacert.mountFolder" . }}
+            {{- end }}
+            {{- if $logStream }}
+            {{- include "eric-sec-sip-tls.logshipper-storage-path" . | indent 12 }}
+            {{- end }}
+        - name: "sip-tls-supervisor"
+          image: {{ template "eric-sec-sip-tls.supervisorPath" . }}
+          imagePullPolicy: {{ template "eric-sec-sip-tls.supervisor.imagePullPolicy" . }}
+          command: [ "/sip-tls-supervisor/start_redirected.sh" ]
+          {{- if $logStream }}
+          {{- if $logStdout }}
+          args: ["--app", "/sip-tls-supervisor/sip_tls_supervisor.py", "--app-args", "", "--logger", "/sip-tls-supervisor/stdout-redirect",
+                 "--logger-args", "-redirect all -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls-supervisor.log"]
+          {{- else }}
+          args: ["--app", "/sip-tls-supervisor/sip_tls_supervisor.py", "--app-args", "", "--logger", "/sip-tls-supervisor/stdout-redirect",
+                 "--logger-args", "-redirect file -logfile {{ $logdefault.logshipper.storagePath }}/sip-tls-supervisor.log"]
+          {{- end }}
+          {{- else }}
+          args: [ "--app", "/sip-tls-supervisor/sip_tls_supervisor.py", "--app-args", "" ]
+          {{- end }}
+          {{- include "eric-sec-sip-tls.sip-tls-supervisor.securityContext" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.sip-tls-supervisor.resources" . | nindent 10 }}
+          {{- include "eric-sec-sip-tls.sip-tls-supervisor.probes" . | indent 10 }}
+          env:
+            - name: SERVICE_ACCOUNT_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONTAINER_NAME
+              value: "sip-tls-supervisor"
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: SERVICE_NAME
+              value: {{ template "eric-sec-sip-tls.name" . }}
+            - name: KMS_HOSTNAME
+              value: {{ .Values.keyManagement.hostname | quote }}
+            - name: KMS_PORT
+              value: {{ .Values.keyManagement.port | quote }}
+            - name: AH_FI_TOPIC
+              value: "AdpFaultIndication"
+            - name: KAFKA_HOSTNAME
+              value: {{ .Values.kafka.hostname | quote }}
+            - name: KAFKA_PORT
+              value: {{ .Values.kafka.port | quote }}
+            - name: KAFKA_TLS
+              {{- if .Values.kafka.tls.enabled }}
+              value: "true"
+              {{- else }}
+              value: "false"
+              {{- end }}
+            - name: KAFKA_VERIFY_HOSTNAME
+              {{ if .Values.kafka.tls.verifyHostname }}
+              value: "true"
+              {{- else }}
+              value: "false"
+              {{- end }}
+            - name: RECOVERY_THRESHOLD
+              value: "{{ template "eric-sec-sip-tls.supervisor.recoveryThreshold" . }}"
+            - name: TZ
+              value: {{ template "eric-sec-sip-tls.timezone" . }}
+          volumeMounts:
+            - name: sip-tls-config
+              mountPath: /sip-tls-supervisor/config
+              readOnly: true
+            - name: sip-tls-supervisor-tmp
+              mountPath: /tmp
+            - name: sip-tls-supervisor-wdc-mount
+              mountPath: /sip-tls-supervisor/wdc
+            - name: log-control-config
+              mountPath: /logcontrol
+            {{- if .Values.kafka.tls.enabled }}
+            - name: kafka-client-cert
+              mountPath: /run/secrets/kafka-client-cert
+            {{- end }}
+            {{- if eq (include "eric-sec-sip-tls.alarmHandler.tls.enabled" .) "true" }}
+            - name: alarm-handler-client-cert
+              mountPath: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.mountFolder" . }}
+            {{- end }}
+            - name: trusted-root-cert
+              mountPath: /run/secrets/trusted-root-cert
+              {{- if $logStream }}
+              {{- include "eric-sec-sip-tls.logshipper-storage-path" . | indent 12 }}
+              {{- end }}
+        {{/* include logshipper sidecar container (from _logshipper-helpers.tpl) */}}
+        {{- if $logStream }}
+        {{- include "eric-sec-sip-tls.logshipper-container" . | indent 8 }}
+        {{- end }}
+      {{- if include "eric-sec-sip-tls.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-sec-sip-tls.pullSecrets" . }}
+      {{- end }}
+      volumes:
+      - name: sip-tls-init-tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
+      - name: sip-tls-tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
+      - name: sip-tls-supervisor-tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
+      - name: sip-tls-config
+        configMap:
+          name: "{{ template "eric-sec-sip-tls.name" . }}-config"
+      - name: log-control-config
+        configMap:
+          name: "{{ template "eric-sec-sip-tls.name" . }}-log-control-config"
+      - name: sip-tls-supervisor-wdc-mount
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.name" . }}-wdc-certs
+      {{- if and (eq (include "eric-sec-sip-tls.metrics.server.enabled" .) "true") (eq (include "eric-sec-sip-tls.metrics.server.tls.enabled" .) "true") }}
+      - name: "metrics-server-cert"
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.metrics.server.certSecret" . }}
+      - name: "metrics-client-cacert"
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.metrics.caRootCertSecret" . }}
+      {{- end }}
+      {{- if .Values.kafka.tls.enabled }}
+      - name: kafka-client-cert
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.name" . }}-kafka-client-cert
+      {{- end }}
+      {{- if eq (include "eric-sec-sip-tls.alarmHandler.tls.enabled" .) "true" }}
+      - name: alarm-handler-client-cert
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.alarmHandler.client.cert.secret" . }}
+      {{- end }}
+      - name: trusted-root-cert
+        secret:
+          optional: true
+          secretName: {{ template "eric-sec-sip-tls.name" . }}-trusted-root-cert
+      {{- if $logStream }}
+      {{- include "eric-sec-sip-tls.logshipper-volume" . | indent 6 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- if (or .Values.nodeSelector $globals.nodeSelector) }}
+      nodeSelector: {{- include "eric-sec-sip-tls.nodeSelector" . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: "{{ template "eric-sec-sip-tls.name" . }}-service-account"
+      {{- include "eric-sec-sip-tls.affinity" . | nindent 6 }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraints := .Values.topologySpreadConstraints }}
+        - maxSkew: {{ $constraints.maxSkew }}
+          topologyKey: {{ $constraints.topologyKey }}
+          whenUnsatisfiable: {{ $constraints.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ template "eric-sec-sip-tls.name" $ }}
+              app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+        {{- end }}
+      {{- end }}

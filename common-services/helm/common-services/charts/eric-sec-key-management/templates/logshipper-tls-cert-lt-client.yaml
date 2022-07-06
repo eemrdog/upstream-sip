@@ -1,0 +1,3 @@
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-sec-key-management.logshipper-tls-cert-lt-client" . }}
+{{- end }}

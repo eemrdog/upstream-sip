@@ -1,0 +1,30 @@
+{{- if (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+ name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-postgres-cert
+ annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+ labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+spec:
+ kubernetes:
+  generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-postgres-cert
+  certificateName: clicert.pem
+  privateKeyName: cliprivkey.pem
+ certificate:
+  subject:
+   cn: postgres
+  issuer:
+   reference: {{ template "eric-data-document-database-pg.secretBaseName" . }}-client-ca
+  subjectAlternativeName:
+   dns:
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}.svc
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}.svc.{{.Values.k8sClusterInfo.clusterDomain}}
+      - {{ template "eric-data-document-database-pg.name" . }}-replica
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}.svc
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}.svc.{{.Values.k8sClusterInfo.clusterDomain}}
+  extendedKeyUsage:
+   tlsClientAuth: true
+   tlsServerAuth: false
+{{- end }}

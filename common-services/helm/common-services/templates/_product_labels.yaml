@@ -1,0 +1,9 @@
+{{- define "eric-bss-ecmeoc-common.labels" }}
+app.kubernetes.io/name: {{ template "eric-bss-ecmeoc-common.name" . }}
+app.kubernetes.io/version: {{ template "eric-bss-ecmeoc-common.version" . }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
+app: {{ template "eric-bss-ecmeoc-common.name" . }}
+chart: {{ template "eric-bss-ecmeoc-common.chart" . }}
+release: {{ .Release.Name | quote }}
+heritage: {{ .Release.Service | quote }}
+{{- end}}

@@ -1,0 +1,23 @@
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}-client-certificate
+  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-cm-mediator.name" . }}-tls-client-secret
+    certificateName: clicert.pem
+    privateKeyName: cliprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-cm-mediator.name" . }}
+    issuer:
+      reference: {{ template "eric-cm-mediator.name" . }}-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end }}

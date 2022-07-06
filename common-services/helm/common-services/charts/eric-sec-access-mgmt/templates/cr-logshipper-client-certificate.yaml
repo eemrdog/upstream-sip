@@ -1,0 +1,6 @@
+{{- if .Values.logshipper.enabled -}}
+{{/*
+ClientCertificate Resource declaration file for TLS between logshipper and logtransformer
+*/}}
+ {{- include "eric-sec-access-mgmt.logshipper-tls-cert-lt-client" . }}
+{{- end -}}

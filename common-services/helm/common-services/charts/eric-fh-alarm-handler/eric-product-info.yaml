@@ -1,0 +1,38 @@
+productName: "Alarm Handler HELM"
+productNumber: "CXD 101 0365"
+images:
+  alarmhandler:
+    productName: "Alarm Handler Image"
+    productNumber: "CXU 101 0364"
+    registry: "selndocker.mo.sw.ericsson.se"
+    repoPath: proj-pc-gs-released
+    name: "eric-fh-alarm-handler"
+    tag: 8.3.0-63
+  topiccreator:
+    productName: "Alarm Handler Init Image"
+    productNumber: "CXU 101 0087"
+    registry: "selndocker.mo.sw.ericsson.se"
+    repoPath: proj-pc-gs-released
+    name: "eric-fh-alarm-handler-init"
+    tag: 8.3.0-63
+  logshipper:
+    productName: "Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.2.0-13"
+  ericsecoauthsap:
+    productName: "Authorization Proxy OAuth2 Init Image"
+    productNumber: "CXU 101 0039"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-common-assets-cd/security"
+    name: "eric-sec-authorization-proxy-oauth2-sap"
+    tag: "1.15.0-11"
+  ericsecoauthproxy:
+    productName: "Authorization Proxy OAuth2 Image"
+    productNumber: "CXU 101 0038"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-common-assets-cd/security"
+    name: "eric-sec-authorization-proxy-oauth2"
+    tag: "1.15.0-11"

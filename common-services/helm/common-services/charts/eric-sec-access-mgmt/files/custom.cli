@@ -1,0 +1,12 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+# Use this config for custom configuration
+{{- if or (not $global.security.tls.enabled) (eq .Values.service.endpoints.iam.tls.enforced "optional") }}
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=no-request-timeout, value={{ .Values.http.server.noRequestTimeout | quote}})
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-connections, value={{ .Values.http.server.maxConnections | quote}})
+{{- end }}
+
+{{- if $global.security.tls.enabled }}
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=no-request-timeout, value={{ .Values.http.server.noRequestTimeout | quote}})
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=max-connections, value={{ .Values.http.server.maxConnections | quote}})
+{{- end }}
+

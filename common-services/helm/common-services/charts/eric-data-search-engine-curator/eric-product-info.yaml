@@ -1,0 +1,17 @@
+productName: "ADP Search Engine Curator"
+productNumber: "CXC 201 2066"
+images:
+  curator:
+    productName: "ADP Search Engine Curator Image"
+    productNumber: "CXU 101 0647"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-data-search-engine-curator"
+    tag: "2.9.0-22"
+  logshipper:
+    productName: "ADP Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.1.0-33"

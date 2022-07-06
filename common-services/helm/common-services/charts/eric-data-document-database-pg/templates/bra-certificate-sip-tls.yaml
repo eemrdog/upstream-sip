@@ -1,0 +1,31 @@
+{{- if and .Values.brAgent.enabled (not (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false")) }}
+{{- $globalValue := fromJson (include "eric-data-document-database-pg.global" .) -}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+ name: {{ template "eric-data-document-database-pg.secretBaseName" . }}-bra-cert
+ annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+ labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+spec:
+ kubernetes:
+  generatedSecretName: {{ template "eric-data-document-database-pg.secretBaseName" . }}-bra-cert
+  certificateName: bra-cert.pem
+  privateKeyName: bra-privkey.pem
+ certificate:
+  subject:
+   cn: {{ $globalValue.adpBR.broServiceName }}
+  issuer:
+   reference: eric-ctrl-bro-ca
+  subjectAlternativeName:
+   dns:
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}.svc
+      - {{ template "eric-data-document-database-pg.name" . }}.{{.Release.Namespace}}.svc.{{.Values.k8sClusterInfo.clusterDomain}}
+      - {{ template "eric-data-document-database-pg.name" . }}-replica
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}.svc
+      - {{ template "eric-data-document-database-pg.name" . }}-replica.{{.Release.Namespace}}.svc.{{.Values.k8sClusterInfo.clusterDomain}}
+  extendedKeyUsage:
+   tlsClientAuth: true
+   tlsServerAuth: false
+{{- end }}

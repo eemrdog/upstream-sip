@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eric-data-document-database-pg-manual-restore-pgdata
+spec:
+  containers:
+    - name: manual-restore-pgdata
+      # change here to appropriate value
+      # change the label at the end to the corresponding document-database-pg release version
+      image: armdocker.rnd.ericsson.se/proj-document-database-pg-dev/data/eric-data-document-database-kube-client:6.2.0-40
+      # change here to appropriate value
+      imagePullPolicy: # {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
+      env:
+      - name: KUBERNETES_NAMESPACE
+        valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+      - name: BR_LOG_LEVEL
+        value: "info"
+      # IF tls is enabled this part should be kept
+      - name: ENABLE_SIPTLS
+        value: "true"
+      - name: PGPASSWORD
+        value: "fakepgpass"      
+      # otherwise this part should be kept
+      - name: ENABLE_SIPTLS
+        value: "false"
+      - name: PGPASSWORD
+        valueFrom:
+          secretKeyRef:
+            # change here to appropriate value
+            name: {{ required "Require .Values.credentials.kubernetesSecretName " .Values.credentials.kubernetesSecretName | quote }}
+            key: {{ .Values.credentials.keyForSuperPw | quote }}
+      # END IF
+      command:
+        - /bin/bash
+        - -c
+      args:
+        - "while true; do sleep 300; done"
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - all
+      volumeMounts:
+        - name: pgdata-volume
+          mountPath: "/var/pgdata"
+        - name: tmp
+          mountPath: /tmp
+        # IF tls is enbaled this part should be kept 
+        - name: postgres-client-certificates
+          mountPath: /tmp/certificates/client/postgres/
+        # END IF
+  volumes:
+  - name: pgdata-volume
+    persistentVolumeClaim:
+      # change here to appropriate value
+      claimName: # {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
+  # IF tls is enbaled this part should be kept
+  - name: postgres-client-certificates
+    secret:
+      # change here to appropriate value
+      secretName: # {{ template "eric-data-document-database-pg.secretBaseName" . }}-postgres-cert
+      defaultMode: 0640
+      optional: true
+  # END IF
+  - name: tmp
+    emptyDir: {}
+
+
+

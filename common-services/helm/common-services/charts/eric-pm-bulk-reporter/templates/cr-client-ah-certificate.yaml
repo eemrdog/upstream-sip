@@ -1,0 +1,61 @@
+{{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
+{{- if and .Values.thresholdReporter.enabled .Values.thresholdReporter.restAPI }}
+{{- if and .Values.security.tls.alarmHandler.enabled $g.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-pm-bulk-reporter.name" . }}-ah-client-certificate
+  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    ## Mandatory; string
+    ## The secret where the client certificate and key are stored.
+    generatedSecretName: {{ template "eric-pm-bulk-reporter.name" . }}-ah-client-cert
+
+    ## Optional; string.
+    ## The key name of the certificate in the secret.
+    ## If not given, 'cert.pem' is used.
+    certificateName: clicert.pem
+
+    ## Optional; string.
+    ## The key name of the private key in the secret.
+    ## If not given, 'key.pem' is used.
+    privateKeyName: cliprivkey.pem
+
+  certificate:
+    subject:
+      ## Mandatory; string
+      ## The Subject Common Name (CN) of the certificate.
+      ## This typically corresponds to the domain name of the service or a client identifier.
+      cn: {{ template "eric-pm-bulk-reporter.name" . }}
+
+    issuer:
+      ## Optional; string.
+      ## The identifier for the Issuer CA. Decides from which CA to request the certificate.
+      ## It must be the same as the InternalUserCA custom resource metadata.name field.
+      ## If left empty, the certificate is issued by SIP-TLS intermediate CA which is part of
+      ## the SIP-TLS trusted root CA chain.
+      reference: {{ .Values.thresholdReporter.alarmHandlerHostname }}-fi-server-client-ca
+
+    subjectAlternativeName:
+      ## Optional; boolean, default true.
+      ## Whether to populate the Subject Alt Name with fully qualified DNS names of the cluster.
+      ## If true, the following DNS are populated:
+      ## <common-name>.<namespace>
+      ## <common-name>.<namespace>.svc
+      ## <common-name>.<namespace>.svc.<cluster-domain>
+      ##
+      ## The common name from 'spec.certificate.subject.cn' is always automatically populated, no matter what.
+      populateKubernetesDns: false
+
+    extendedKeyUsage:
+      ## Mandatory; boolean
+      ## Whether 'TLS Web Client Authentication' is set.
+      tlsClientAuth: true
+      ## Mandatory; boolean
+      ## Whether 'TLS Web Server Authentication' is set.
+      tlsServerAuth: false
+
+{{- end }}
+{{- end }}

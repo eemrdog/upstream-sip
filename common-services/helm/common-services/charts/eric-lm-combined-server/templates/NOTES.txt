@@ -1,0 +1,12 @@
+Chart: {{ include "eric-lm-combined-server.chart" . }}
+Release: {{ .Release.Name }}
+
+{{- if or (eq (include "eric-lm-combined-server.tls.enabled" .) "false") (eq .Values.licenseConsumerHandler.service.endpoints.externalHttps.tls.enforced "optional") }}
+REST API (Http) available at {{ include "eric-lm-combined-server.name" . }}:{{ include "eric-lm-combined-server.lch-insecureExternalAPIPort" . }}
+{{- end }}
+{{- if eq (include "eric-lm-combined-server.tls.enabled" .) "true" }}
+REST API (Https) available at {{ include "eric-lm-combined-server.name" . }}:{{ .Values.tls.lch.externalAPIPort }}
+{{- end }}
+
+To check the configuration:
+  $ helm get {{ .Release.Name }}

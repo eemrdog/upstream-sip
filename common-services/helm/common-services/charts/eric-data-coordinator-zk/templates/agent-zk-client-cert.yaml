@@ -1,0 +1,24 @@
+{{- if and (eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.brAgent.enabled true ) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-data-coordinator-zk.agentName" . }}-zk-client-cert
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-data-coordinator-zk.agentName" . }}-zk-client-cert
+    certificateName: clientcert.pem
+    privateKeyName: clientprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-data-coordinator-zk.agentName" . }}
+    issuer:
+      reference: {{ template "eric-data-coordinator-zk.fullname" . }}-client-ca
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+    validity:
+      overrideTtl: {{ .Values.dzckBragentCertValidity.overrideTtl }}
+      overrideLeadTime: {{ .Values.dzckBragentCertValidity.overrideLeadTime }}
+{{- end -}}

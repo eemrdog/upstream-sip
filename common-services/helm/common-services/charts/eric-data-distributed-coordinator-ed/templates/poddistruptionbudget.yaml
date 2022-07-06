@@ -1,0 +1,21 @@
+{{- $rc := (int .Values.pods.dced.replicas) }}
+{{- if gt $rc 1 }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "eric-data-distributed-coordinator-ed.name" . }}
+  annotations:
+{{- include "eric-data-distributed-coordinator-ed.productinfo" . | indent 4 }}
+{{- include "eric-data-distributed-coordinator-ed.config-annotations" . | indent 4 }}
+  labels:
+{{- include "eric-data-distributed-coordinator-ed.labels" . | indent 2 }}
+spec:
+  {{- if .Values.podDisruptionBudget }}
+  {{ toYaml .Values.podDisruptionBudget }}
+  {{- else }}
+  minAvailable: "51%"
+  {{- end }}
+  selector:
+    matchLabels:
+{{- include "eric-data-distributed-coordinator-ed.selectorLabels" . | indent 4 }}
+ {{- end }}

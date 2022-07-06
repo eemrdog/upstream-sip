@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-data-message-bus-kf.fullname" . }}-client
+  labels:
+    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+spec:
+  # ipFamilies was introduced in K8s v1.20
+  {{- if (include "eric-data-message-bus-kf.internalIPFamily.global" .) }}
+  ipFamilies: [{{- include "eric-data-message-bus-kf.internalIPFamily.global" . | quote }}]
+  {{- end }}
+  type: ClusterIP
+  ports:
+{{- if include "eric-data-message-bus-kf.plaintext.enabled" . }}
+  - port: {{ template "eric-data-message-bus-kf.plaintextPort" . }}
+    name: tcp-binary-p
+    protocol: TCP
+{{- end }}
+{{- if eq (include "eric-data-message-bus-kf.sasl" . ) "true" }}
+  - port: {{ template "eric-data-message-bus-kf.saslPlaintextPort" . }}
+    name: tcp-binary-sp
+    protocol: TCP
+{{- end }}
+{{- if eq (include "eric-data-message-bus-kf.tls" .) "true" }}
+  - port: {{ .Values.security.tls.messagebuskf.port }}
+    name: tls-binary
+    protocol: TCP
+{{- end }}
+  selector:
+    {{- include "eric-data-message-bus-kf.selector-labels-k8s" . | trim | nindent 4 }}

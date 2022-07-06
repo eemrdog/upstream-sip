@@ -1,0 +1,391 @@
+# Default values for eric-data-search-engine.
+# This is a YAML-formatted file.
+
+#global:
+#  registry:
+#    imagePullPolicy: "IfNotPresent"
+#    url: "IMAGE_URL" # overrides registry url from eric-product-info.yaml
+#  timezone: "UTC"
+#  security:
+#    policyBinding:
+#      create: false
+#    policyReferenceMap:
+#      default-restricted-security-policy: "default-restricted-security-policy"
+#      plc-9c20871f9bf62c7b09fd0c684ac651: "plc-9c20871f9bf62c7b09fd0c684ac651"
+#    tls:
+#      enabled: true
+#  nodeSelector: {}
+#  pullSecret:
+#  internalIPFamily:
+
+affinity:
+  podAntiAffinity: "soft"
+
+labels: {}
+
+annotations: {}
+
+autoSetRequiredWorkerNodeSysctl: false
+
+# Default is 3m even if it is not specified here
+unassignedNode_leftDelayed_timeout: 3m
+
+# Add {} as value or comment repoPath & registry.url if not used.
+# mergeOverwrite helm function is used which may pick nil value if not used.
+imageCredentials:
+  repoPath: {} # overrides repoPath from global & eric-product-info.yaml
+  registry:
+    imagePullPolicy: # overrides global image pull policy
+    url: {} # overrides registry url from global & eric-product-info.yaml
+  pullSecret: # overrides global pull secret
+  logshipper:
+    registry:
+      url: {} # overrides registry url from global, imageCredentials.registry.url & eric-product-info.yaml
+      imagePullPolicy:
+    repoPath: {} # overrides repoPath from global, imageCredentials.repoPath & eric-product-info.yaml
+
+service:
+  name: "eric-data-search-engine"
+  network:
+    protocol:
+      IPv6: false
+  endpoints:
+    internode:
+      tls:
+        verifyClientHostname: false
+    rest:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+        verifyClientHostname: false
+
+terminationGracePeriodSeconds:
+  bragent: 30
+  data: 30
+  ingest: 30
+  master: 30
+
+tolerations:
+  bragent:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+  data: []
+  ingest: []
+  master: []
+  preupgradehook: []
+
+logLevel: "info"
+
+topologySpreadConstraints:
+  master: []
+  ingest: []
+  data: []
+
+bandwidth:
+  data:
+    maxEgressRate: ""
+  ingest:
+    maxEgressRate: ""
+  master:
+    maxEgressRate: ""
+  bragent:
+    maxEgressRate: ""
+
+updateStrategy:
+  ingest:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 2
+  master:
+    type: "RollingUpdate"
+    rollingUpdate:
+      partition: 0
+  data:
+    type: "RollingUpdate"
+    rollingUpdate:
+      partition: 0
+  bragent:
+    type: "RollingUpdate"
+
+replicaCount:
+  ingest: 1
+  master: 3
+  data: 2
+
+nodeSelector:
+  ingest: {}
+  master: {}
+  data: {}
+  bragent: {}
+
+podPriority:
+  data:
+    priorityClassName: "" # No priority set
+  ingest:
+    priorityClassName: "" # No priority set
+  master:
+    priorityClassName: "" # No priority set
+  bragent:
+    priorityClassName: "" # No priority set
+  preupgradehook:
+    priorityClassName: "" # No priority set
+
+probes:
+  ingest:
+    livenessProbe:
+      initialDelaySeconds: 600
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+  master:
+    livenessProbe:
+      initialDelaySeconds: 600
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+  data:
+    livenessProbe:
+      initialDelaySeconds: 600
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    readinessProbe:
+      initialDelaySeconds: 1
+      periodSeconds: 30
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    startupProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3000
+  bragent:
+    livenessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+    readinessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+  metrics:
+    livenessProbe:
+      initialDelaySeconds: 5
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 15
+      timeoutSeconds: 5
+  tlsproxy:
+    livenessProbe:
+      initialDelaySeconds: 5
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 5
+      timeoutSeconds: 15
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      timeoutSeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+
+jvmHeap:
+  ingest: "512m"
+  master: "512m"
+  data: "1024m"
+
+resources:
+  ingest:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  master:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  data:
+    limits:
+      cpu: "500m"
+      memory: "2Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  bragent:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  metrics:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  tlsproxy:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  logshipper:
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  sysctl:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  preupgradehook:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    requests:
+      cpu: "25m"
+      memory: "64Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+
+persistence:
+  data:
+    persistentVolumeClaim:
+      size: "1Gi"
+      storageClassName:
+  backup:
+    persistentVolumeClaim:
+      size: "1Gi"
+      storageClassName:
+  master:
+    persistentVolumeClaim:
+      size: "64Mi"
+      storageClassName:
+
+podDisruptionBudget:
+  data:
+    maxUnavailable: 1
+  ingest:
+    maxUnavailable: 1
+  master:
+    maxUnavailable: 1
+
+brAgent:
+  enabled: false
+  backupTypeList:
+  backupDataModelConfigMap:
+  orchestrator:
+    host: eric-ctrl-bro
+    grpcPort: 3000
+
+  cleanRestore: false
+
+  backupRepository:
+    type: "fs"
+    s3:
+      secretName:
+      userKey:
+      passKey:
+      endPoint:
+      bucketName:
+
+fastButUnsafeUpgrade:
+  enabled: false
+
+metrics:
+  enabled: true
+  pmServer: "eric-pm-server"
+
+clusterDomain: "cluster.local"
+
+log:
+  # Supported values ["stdout", "stream"]
+  outputs:
+    - "stdout"
+  logshipper:
+    level: "info"
+
+logshipper:
+  storagePath: "/logs/"
+  storageAllocation: "190Mi"
+  logplane: "adp-app-logs"
+  harvester:
+    closeTimeout: "5m"
+    logData:
+      - subPaths:
+        - "sysctl.log*"
+        logplane:
+      - subPaths:
+        - "searchengine.log*"
+        logplane:
+        multiline:
+          pattern: '^(\\[[0-9]{4}-[0-9]{2}-[0-9]{2})|(\\{\"version)|[[:space:]]+(at|\.{3})[[:space:]]+\b|^Caused by:'
+          negate: false
+          match: after
+      - subPaths:
+        - "bragent.log*"
+        logplane:
+        multiline:
+          pattern: '^{'
+          negate: true
+          match: after
+      - subPaths:
+        - "metrics.log*"
+        logplane:
+      - subPaths:
+        - "tlsproxy.log*"
+        logplane:
+  logtransformer:
+    host: eric-log-transformer
