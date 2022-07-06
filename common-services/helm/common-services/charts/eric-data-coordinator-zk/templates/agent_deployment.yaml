@@ -4,10 +4,15 @@ kind: Deployment
 metadata:
   name: {{ template "eric-data-coordinator-zk.agentName" . }}
   annotations:
-    {{- $backupType := include "eric-data-coordinator-zk.agent_deployment.annotations.backupType" . | fromYaml -}}
-    {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
-    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $backupType $default)) | trim | nindent 4 }}
-  labels: {{- include "eric-data-coordinator-zk.agent.labels" . | nindent 4 }}
+    {{- if .Values.brAgent.backupTypeList }}
+    {{- if (index .Values.brAgent.backupTypeList 0) }}
+    backupType: {{- template "eric-data-coordinator-zk.agent.backupTypes" . }}
+    {{- end }}
+    {{- end }}
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 4 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 4 }}
+  labels:
+{{- include "eric-data-coordinator-zk.agent.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -15,39 +20,23 @@ spec:
   replicas: {{ template "eric-data-coordinator-zk.brAgent.replicas" . }}
   template:
     metadata:
-      labels: {{- include "eric-data-coordinator-zk.agent.labels" . | nindent 8 }}
+      labels:
+{{- include "eric-data-coordinator-zk.agent.labels" . | indent 8 }}
       annotations:
-       {{- $checksum := dict "checksum/config" (print $.Template.BasePath "/agentproperties-configmap.yaml" . | sha256sum) -}}
-       {{- $bandwidthAnn := include "eric-data-coordinator-zk.bandwidth-annotations" . | fromYaml }}
-       {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
-       {{- $brAgentAppArmorAnn := include "eric-data-coordinator-zk.brAgent.appArmorAnnotations" . | fromYaml -}}
-       {{- $logShipperAppArmorAnn := include "eric-data-coordinator-zk.logshipper.appArmorAnnotations" . | fromYaml -}}
-       {{- $apparmorAnn := dict -}}
-       {{- $apparmorAnn = merge $apparmorAnn $brAgentAppArmorAnn }}
-       {{- if has "stream" .Values.log.outputs }}
-       {{- $apparmorAnn = merge $apparmorAnn $logShipperAppArmorAnn }}
-       {{- end }}
-       {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $checksum $bandwidthAnn $default $apparmorAnn)) | trim | nindent 8 }}
+        checksum/config: {{ include (print $.Template.BasePath "/agentproperties-configmap.yaml") . | sha256sum }}
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 8 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 8 }}
     spec:
-      {{- include "eric-data-coordinator-zk-agent.podPriority" . }}
       serviceAccountName: {{ template "eric-data-coordinator-zk.fullname" . }}-sa
       {{ template "eric-data-coordinator-zk.serviceAccount" . }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.brAgent }}
       securityContext:
         fsGroup: {{ include "eric-data-coordinator-zk.fsGroup.coordinated" . }}
-{{- if .Values.seccompProfile }}
-{{- if .Values.seccompProfile.type }}
-{{- $profiledefault := .Values.seccompProfile }}
-{{- include "eric-data-coordinator-zk.getSeccompSecurityContext" (dict "profile" $profiledefault) | indent 8 }}
-{{- end }}
-{{- end }}
       {{- if include "eric-data-coordinator-zk.pullSecret" . }}
       imagePullSecrets:
         - name: {{ template "eric-data-coordinator-zk.pullSecret" . }}
       {{- end }}
-      {{- if or (.Values.nodeSelector.brAgent) ((.Values.global).nodeSelector) }}
-      nodeSelector: {{- include "eric-data-coordinator-zk.brAgentNodeSelector" . | nindent 8 -}}
-      {{- end }}
+{{- include "eric-data-coordinator-zk.brAgentNodeSelector" . | nindent 6 }}
       containers:
 {{- if has "stream" .Values.log.outputs }}
 {{- include "eric-data-coordinator-zk.logshipper-container" . | indent 6 }}
@@ -73,11 +62,6 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-{{- if .Values.seccompProfile }}
-{{- if .Values.seccompProfile.brAgent }}
-{{- include "eric-data-coordinator-zk.brAgent.seccompProfile" . | indent 10 }}
-{{- end }}
-{{- end }}
           capabilities:
             drop:
               - all

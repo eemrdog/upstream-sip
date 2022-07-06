@@ -68,11 +68,6 @@ log:
   logshipper:
     level: "info"
 
-terminationGracePeriodSeconds: 30
-
-podPriority:
-  priorityClassName: "" # No priority set
-
 livenessProbe:
   logshipper:
     initialDelaySeconds: 1
@@ -116,5 +111,3 @@ labels: {}
 annotations: {}
 
 clusterDomain: "cluster.local"
-
-tolerations: []

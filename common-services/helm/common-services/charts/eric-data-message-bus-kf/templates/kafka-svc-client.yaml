@@ -3,9 +3,10 @@ kind: Service
 metadata:
   name: {{ template "eric-data-message-bus-kf.fullname" . }}-client
   labels:
-    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.labels" . | indent 4}}
   annotations:
-    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.productinfo" . | indent 4 }}
+{{- include "eric-data-message-bus-kf.config-annotations" . | indent 4}}
 spec:
   # ipFamilies was introduced in K8s v1.20
   {{- if (include "eric-data-message-bus-kf.internalIPFamily.global" .) }}
@@ -29,4 +30,4 @@ spec:
     protocol: TCP
 {{- end }}
   selector:
-    {{- include "eric-data-message-bus-kf.selector-labels-k8s" . | trim | nindent 4 }}
+{{- include "eric-data-message-bus-kf.selectorLabels" . | indent 4}}

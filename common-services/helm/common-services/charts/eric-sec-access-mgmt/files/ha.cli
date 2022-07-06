@@ -2,7 +2,7 @@
 # IF High Availability is enabled then the following should be used to start KC in clustered standalone mode
 
 #configure keystore to store HA certificates
-/subsystem=elytron/key-store=hatlsKS:add(path=${env.RUNDIR_SAFE_PATH}/ha.keystore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+/subsystem=elytron/key-store=hatlsKS:add(path=ha.keystore, relative-to=jboss.server.config.dir,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
 
 # cache configuration.
 /subsystem=infinispan/cache-container=keycloak/distributed-cache=sessions:write-attribute(name=owners, value=${env.CACHE_OWNERS:2})

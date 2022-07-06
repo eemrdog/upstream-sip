@@ -19,17 +19,14 @@ updateStrategy:
   # Update Strategy
   type: "RollingUpdate"
 
-#global:
-#   # Global configuration parameter to enable/disable Network Policy
-#   networkPolicy:
-#     enabled: false
+# global:
 #   Possible values are: IPv4, IPv6
 #   internalIPFamily:
 #   # The Secret resource name to use for authenticating towards docker registry when pulling the image
 #   pullSecret: armdocker_secret_name
 #   registry:
 #      # Global image registry
-#      url: armdocker.rnd.ericsson.se
+#      url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
 #   # timezone setting.
 #   timezone: UTC
 #   security:
@@ -49,7 +46,7 @@ productInfo:
   # R-State of the product. R State should match helm chart version (3.1.0 -> R2A)
   # To automate it when packaging the helm chart rstate can be generated
   # and below value replaced with correct R-State
-  rstate: "R28A"
+  rstate: "R24A"
 
 # A list of key/values to be appended to the list of user defined annotations
 annotations: {}
@@ -90,7 +87,7 @@ imageCredentials:
 #     # Docker image name of the Message Bus KF image
 #     name: eric-data-message-bus-kf
 #     # Docker image tag
-#     tag: "1.27.0-21"
+#     tag: "1.23.0-17"
 #   jmxexporter:
 #     # Docker image name of the JMX exporter image
 #     name: eric-data-message-bus-kf-jmx-exporter
@@ -155,7 +152,7 @@ probes:
       successThreshold: 1
       timeoutSeconds: 15
 
-# MBKF uses Logshipper 9.1.0 which is aligned with DR-1120-012AD, DR-1120-014AD - Readiness probe is no longer supported in LS side car since 5.5.0
+# MBKF uses Logshipper 7.3.0 which is aligned with DR-1120-012AD, DR-1120-014AD - Readiness probe is no longer supported in LS side car since 5.5.0
 # livenessProbe:
 #   logshipper:
 #     initialDelaySeconds: 300
@@ -261,24 +258,6 @@ logshipper:
       logplane: "adp-app-logs"
       additionalFields:
         project : "eric-data-message-bus-kf-log"
-    - subPaths:
-      - "/metricsexporter.log"
-      logplane: "adp-app-logs"
-      additionalFields:
-        project : "metricsexporter"
-      multiline:
-        pattern: '^[[:space:]]'
-        negate: false
-        match: after
-    - subPaths:
-      - "/jmxexporter.log"
-      logplane: "adp-app-logs"
-      additionalFields:
-        project : "jmxexporter"
-      multiline:
-        pattern: '^[[:space:]]'
-        negate: false
-        match: after
   logtransformer:
     host: eric-log-transformer
   shutdownDelay: 5
@@ -314,10 +293,6 @@ nodeSelector: {}
 # sets inter-pod anti-affinity , values supported 'Soft/Hard'.
 affinity:
   podAntiAffinity: "soft"
-
-# Service level parameter to enable/disable Network Policy.
-networkPolicy:
-  enabled: true
 
 dataCoordinator:
    # The name of the Data Coordinator ZK service
@@ -382,13 +357,13 @@ service:
         tls:
            enforced: "required"
            verifyClientCertificate: "required"
-           servcertTimeToLive: 604800
-           servcertRenewalLeadTime: 4800
+           servcertTimeToLive: 3600
+           servcertRenewalLeadTime: 3000
      dataCoordinator:
         tls:
            enforced: "required"
-           clientTimeToLive: 604800
-           clientRenewalLeadTime: 4800
+           clientTimeToLive: 3600
+           clientRenewalLeadTime: 3000
 
 # Configuration Overrides. Specify any Kafka settings you would like set on the StatefulSet
 # here in map format, as defined in the official Apache Kafka docs.
@@ -483,44 +458,8 @@ log:
     level: info
 
 topologySpreadConstraints: []
-
+ # This parameter is a temporary fix fo handle issues with certificate renewal mechanism & kafka startup process. TODO: add bug TR for tracking
+sleepTimer: 20s
 
 pmServer:
   pmServiceName: eric-pm-server
-
-bandwidth:
-  maxEgressRate: # maximum outgoing traffic rate from MBKF
-# Pod priority configuration for deployments DR-1126-030
-podPriority:
-  eric-data-message-bus-kf:
-    priorityClassName: "" # No priority set to eric-data-message-bus-kf
-
-# Configuration of seccomp profile types, it would be Unconfined, RuntimeDefault, Localhost or ""
-# seccomp is not set by default
-seccompProfile:
-  type:
-  checkzkready:
-  messagebuskf:
-  jmxexporter:
-  metricsexporter:
-
-# Configuration of appArmor profile types, it would be unconfined, runtime/default, localhost or ""
-# appArmor is not set by default
-appArmorProfile:
-  type:
-  localhostProfile:
-  jmxexporter:
-    type:
-    localhostProfile:
-  messagebuskf:
-    type:
-    localhostProfile:
-  logshipper:
-    type:
-    localhostProfile:
-  checkzkready:
-    type:
-    localhostProfile:
-  metricsexporter:
-    type:
-    localhostProfile:

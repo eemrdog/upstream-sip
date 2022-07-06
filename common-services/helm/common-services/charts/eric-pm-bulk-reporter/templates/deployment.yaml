@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: {{ template "eric-pm-bulk-reporter.name" . }}
   labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
 spec:
   replicas: 1
   strategy:
@@ -20,26 +20,18 @@ spec:
       release: {{ .Release.Name }}
   template:
     metadata:
-      labels:
-        {{- $peerLabels := include "eric-pm-bulk-reporter.peer.labels" . | fromYaml -}}
-        {{- $defaultLabels := include "eric-pm-bulk-reporter.meta-labels" . | fromYaml -}}
-        {{- include "eric-pm-bulk-reporter.mergeLabels" (dict "location" (.Template.Name) "sources" (list $peerLabels $defaultLabels)) | trim | nindent 8 }}
-      annotations:
-        {{- $appArmorAnn := include "eric-pm-bulk-reporter.appArmorProfileAnnotation" . | fromYaml -}}
-        {{- $metricsAnn := dict -}}
-        {{- $_ := set $metricsAnn "prometheus.io/scrape" "true" -}}
-        {{- $_ := set $metricsAnn "prometheus.io/port" (include "eric-pm-bulk-reporter.metrics-port" . ) -}}
-        {{- $_ := set $metricsAnn "prometheus.io/scheme" (include "eric-pm-bulk-reporter.protmetheus-io-scheme" . ) -}}
-        {{- $egressAnn := dict -}}
-        {{- if .Values.bandwidth.maxEgressRate }}
-          {{- $_ := set $egressAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
+      labels: {{- include "eric-pm-bulk-reporter.meta-labels" . | nindent 8 }}
+      annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 6 }}
+        prometheus.io/scrape: "true"
+        {{- if not $g.security.tls.enabled }}
+        prometheus.io/port: "9090"
+        {{- else }}
+        prometheus.io/port: "9089"
+        prometheus.io/scheme: "https"
         {{- end }}
-        {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-        {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $appArmorAnn $metricsAnn $egressAnn $defaultAnn)) | trim | nindent 8 }}
     spec:
       securityContext:
         fsGroup: {{ template "eric-pm-bulk-reporter.fsGroup.coordinated" . }}
-        {{- include "eric-pm-bulk-reporter.podSeccompProfile" . | indent 8 }}
 {{- if not .Values.objectStorage.enabled }}
       initContainers:
         - name: eric-pm-br-initcontainer
@@ -55,13 +47,7 @@ spec:
                 - all
               add:
                 - CHOWN
-            {{- with (index .Values "seccompProfile" "eric-pm-br-initcontainer") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
@@ -94,11 +80,11 @@ spec:
           ports:
           {{- if not $g.security.tls.enabled }}
             - name: http-pm-br
-              containerPort: {{ template "eric-pm-bulk-reporter.metrics-port" . }}
+              containerPort: 9090
               protocol: TCP
           {{- else }}
             - name: https-pm-br-tls
-              containerPort: {{ template "eric-pm-bulk-reporter.metrics-port" . }}
+              containerPort: 9089
               protocol: TCP
           {{- end }}
           image: {{ template "eric-pm-bulk-reporter.imagePath" (merge (dict "imageName" "eric-pm-bulk-reporter") .) }}
@@ -111,13 +97,7 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-bulk-reporter") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
@@ -347,13 +327,7 @@ spec:
                 - SETGID
                 - SETUID
                 - SYS_CHROOT
-            {{- with (index .Values "seccompProfile" "eric-pm-sftp") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
@@ -372,19 +346,20 @@ spec:
               value: {{ $g.timezone | default "UTC" | quote }}
           {{- end }}
           {{- if .Values.userConfig.ldap.enabled }}
-            - name: AA_CLIENT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: eric-sec-ldap-server-aa-client
-                  key: passwd
             - name: LDAP_URI
               value: {{ .Values.userConfig.ldap.uri | quote }}
+            - name: LDAP_SSLURI
+              value: {{ .Values.userConfig.ldap.ssluri | quote }}
             - name: LDAP_SEARCH_BASE
               value: {{ .Values.userConfig.ldap.searchBase | quote }}
             - name: READ_ONLY_ROLES
               value: {{ .Values.userConfig.ldap.rolesConfig.readOnlyGroup | quote }}
             - name: READ_WRITE_ROLES
               value: {{ .Values.userConfig.ldap.rolesConfig.readWriteGroup | quote }}
+          {{- if .Values.userConfig.ldap.useIPv6DNSFirst }}
+            - name: SSSD_IPV6_DNS_FIRST
+              value: {{ .Values.userConfig.ldap.useIPv6DNSFirst | quote }}
+          {{- end }}
           {{- end }}
           {{- if and .Values.userConfig.secretName ( .Values.userConfig.secretKey ) }}
             - name: USERFILE
@@ -442,35 +417,26 @@ spec:
       {{- if .Values.persistentVolumeClaim.enabled }}
             subPath: {{ .Values.persistentVolumeClaim.subPath | quote }}
       {{- end }}
-          - name: sftp-config
-            mountPath: /opt/sftp-k8s
       {{- if .Values.userConfig.ldap.enabled }}
-          - name: ldap-config
-            mountPath: /opt/ldap-k8s
-      {{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
           - name: ldap-client-certificate
             mountPath: /run/secrets/ldap-client-cert
-      {{- else }}
-          - name: ldap-client-password
-            mountPath: /run/secrets/ldap-client-password
-      {{- end }}
       {{- end }}
       {{- if and .Values.userConfig.secretName ( .Values.userConfig.secretKey ) }}
           - name: user-config-volume
             mountPath: /etc/opt/
             readOnly: true
       {{- end }}
-      {{- if and $g.security.tls.enabled (or .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled) }}
+      {{- if or .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled }}
           - name: cacert
             mountPath: "/run/secrets/cacert"
       {{- end }}
-      {{- if and $g.security.tls.enabled .Values.security.keyManagement.enabled }}
+      {{- if .Values.security.keyManagement.enabled }}
           - name: kms-client-certificate
             mountPath: "/run/secrets/kms"
       {{- end }}
       {{- if .Values.aumSupport.enabled }}
           - name: legal-notice
-            mountPath: "/var/mount/aum/banner"
+            mountPath: "/var/mount/aum/banner/banner.file"
       {{- end }}
       {{- end }}
       {{- if .Values.thresholdReporter.enabled }}
@@ -485,13 +451,7 @@ spec:
             capabilities:
               drop:
                 - all
-            {{- with (index .Values "seccompProfile" "eric-pm-alarm-reporter") }}
-            seccompProfile:
-            {{- toYaml . | nindent 14 }}
-            {{- end }}
           args:
-            - /bin/bash
-            - -c
           {{- if has "stream" .Values.log.outputs }}
             - /stdout-redirect
               -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
@@ -576,7 +536,6 @@ spec:
       {{- if has "stream" .Values.log.outputs }}
       {{- include "eric-pm-bulk-reporter.logshipper-container" . | indent 8 }}
       {{- end }}
-      {{- include "eric-pm-bulk-reporter.podpriority" . }}
       volumes:
       - name: tmp-volume
         emptyDir:
@@ -600,7 +559,7 @@ spec:
         secret:
           secretName: {{ template "eric-pm-bulk-reporter.name" . }}-pms-client-cert
       {{- end }}
-      {{- if and $g.security.tls.enabled .Values.security.keyManagement.enabled }}
+      {{- if .Values.security.keyManagement.enabled }}
       - name: kms-client-certificate
         secret:
           secretName: {{ template "eric-pm-bulk-reporter.name" . }}-kms-client-cert
@@ -610,24 +569,10 @@ spec:
         secret:
           secretName: {{ template "eric-pm-bulk-reporter.name" . }}-ah-client-cert
       {{- end }}
-      - name: sftp-config
-        configMap:
-          name: {{ template "eric-pm-bulk-reporter.name" . }}-sftp-config
-          defaultMode: 0640
       {{- if .Values.userConfig.ldap.enabled }}
-      - name: ldap-config
-        configMap:
-          name: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-config
-          defaultMode: 0640
-      {{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
       - name: ldap-client-certificate
         secret:
           secretName: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-client-cert
-      {{- else }}
-      - name: ldap-client-password
-        secret:
-          secretName: eric-sec-ldap-server-aa-client
-      {{- end }}
       {{- end }}
       {{- if and .Values.security.tls.messageBusKF.enabled $g.security.tls.enabled }}
       - name: message-bus-client-certificate
@@ -647,7 +592,7 @@ spec:
           - key: {{ .Values.userConfig.secretKey | quote }}
             path: pm_sftp_users.yaml
       {{- end }}
-      {{- if and ($g.security.tls.enabled) (or .Values.security.tls.cmMediator.enabled .Values.security.tls.pmServer.enabled .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled) }}
+      {{- if or (and $g.security.tls.enabled (or .Values.security.tls.cmMediator.enabled .Values.security.tls.pmServer.enabled)) .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled }}
       - name: cacert
         secret:
           secretName: eric-sec-sip-tls-trusted-root-cert
@@ -669,9 +614,6 @@ spec:
       - name: legal-notice
         configMap:
           name: eric-sec-admin-user-management-legal-notices
-          items:
-            - key: legal-privacy
-              path: banner.file
     {{- end }}
     {{- if include "eric-pm-bulk-reporter.pullSecrets" . }}
       imagePullSecrets:

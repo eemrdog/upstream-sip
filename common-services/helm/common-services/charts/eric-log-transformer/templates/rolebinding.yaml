@@ -5,13 +5,10 @@ kind: RoleBinding
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-rb
   annotations:
-    {{- $securityPolicy := dict -}}
-    {{- $_ := set $securityPolicy "ericsson.com/security-policy.capabilities" "" -}}
-    {{- $_ := set $securityPolicy "ericsson.com/security-policy.type" "restricted/default" -}}
-    {{- $defaultAnn := fromYaml (include "eric-log-transformer.annotations" .) -}}
-    {{- include "eric-log-transformer.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicy $defaultAnn)) | trim | nindent 4 }}
-  labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+    ericsson.com/security-policy.type: "restricted/default"
+  labels: {{ include "eric-log-transformer.labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

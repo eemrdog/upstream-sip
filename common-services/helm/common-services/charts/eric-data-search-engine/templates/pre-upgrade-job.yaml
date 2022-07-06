@@ -1,28 +1,21 @@
 {{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
 {{- $name := print (include "eric-data-search-engine.fullname.host" .) -}}
 {{- $service := (lookup "v1" "Service" .Release.Namespace $name) -}}
-{{- if $service }}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "eric-data-search-engine.fullname" . }}-preupgrade-rollback-hook
-  labels: {{- include "eric-data-search-engine.labels" . | nindent 4 }}
   annotations:
-    {{- $hookAnn := dict -}}
-    {{- $_ := set $hookAnn "helm.sh/hook" "pre-upgrade,pre-rollback" -}}
-    {{- $_ := set $hookAnn "helm.sh/hook-delete-policy" "hook-succeeded" -}}
-    {{- $commonAnn := include "eric-data-search-engine.annotations" . | fromYaml }}
-    {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $hookAnn)) | trim | nindent 4 }}
+    "helm.sh/hook": "pre-upgrade,pre-rollback"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  {{- include "eric-data-search-engine.annotations" . | indent 4 }}
 spec:
   template:
     metadata:
-      annotations: {{- include "eric-data-search-engine.annotations" . | nindent 8 }}
       labels:
-        {{- $jobLabels := dict -}}
-        {{- $_ := set $jobLabels "app" (include "eric-data-search-engine.fullname" . | toString) -}}
-        {{- $_ := set $jobLabels "component" "eric-data-search-engine" -}}
-        {{- $commonLabels := include "eric-data-search-engine.labels" . | fromYaml }}
-        {{- include "eric-data-search-engine.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $jobLabels)) | trim | nindent 8 }}
+        {{- include "eric-data-search-engine.labels" . | indent 8 }}
+        app: {{ include "eric-data-search-engine.fullname" . | quote }}
+        component: eric-data-search-engine
     spec:
     {{- if .Capabilities.APIVersions.Has "v1/ServiceAccount" }}
       serviceAccount: ""
@@ -33,9 +26,6 @@ spec:
     {{- end }}
       restartPolicy: OnFailure
       {{- include "eric-data-search-engine.pullSecrets" . | indent 6 }}
-      {{- if .Values.podPriority.preupgradehook.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.preupgradehook.priorityClassName | quote }}
-      {{- end }}
       containers:
         - name: pre-upgrade-rollback-container
           image: {{ include "eric-data-search-engine.image-registry-url" . | quote }}
@@ -43,16 +33,20 @@ spec:
           env:
           - name: TZ
             value: {{ $g.timezone | quote }}
-          - name: "OPENSEARCH_REST_TLS"
+          - name: "ES_REST_TLS"
           {{- if and $g.security.tls.enabled }}
             value: "true"
           {{- else }}
             value: "false"
           {{- end }}
-          - name: OPENSEARCH_HOST
-            value: {{ include "eric-data-search-engine.fullname.host" . | quote }}
-          - name: OPENSEARCH_PORT
-            value: "9200"
+          - name: ELASTICSEARCH_HOST
+            value: {{ include "eric-data-search-engine-elasticsearch-host" . | quote }}
+          - name: SERVICE_AVAILABILITY
+          {{- if $service }}
+            value: "YES"
+          {{- else }}
+            value: "NO"
+          {{- end }}
           - name: DELAYED_TIMEOUT
             value: {{ .Values.unassignedNode_leftDelayed_timeout | default "3m" | quote }}
           args:
@@ -74,4 +68,3 @@ spec:
       {{- if and ($service) ($g.security.tls.enabled)}}
         {{- include "eric-data-search-engine.security-tls-secret-volumes-http-client" . | indent 8 }}
       {{- end }}
-{{- end }}

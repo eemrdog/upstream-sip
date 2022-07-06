@@ -1,41 +1,34 @@
 productName:       "Identity and Access Management"
-productNumber:     "CXD 101 189"
+productNumber:     "CXC 174 2905"
 images:
   iam:
     productName:   "Identity and Access Management Image"
-    productNumber: "CXU 101 1145"
-    registry:      "armdocker.rnd.ericsson.se"
+    productNumber: "CXC 174 2903"
+    registry:      "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath:      "proj-common-assets-cd/security"
     name:          "eric-sec-access-mgmt-image"
-    tag:           "12.0.0-39"
+    tag:           "9.1.0-36"
   iaminit:
     productName:   "Identity and Access Management Initcontainer"
-    productNumber: "CXU 101 1146"
-    registry:      "armdocker.rnd.ericsson.se"
+    productNumber: "CXC 174 2907"
+    registry:      "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath:      "proj-common-assets-cd/security"
     name:          "eric-sec-access-mgmt-initcontainer"
-    tag:           "12.0.0-39"
+    tag:           "9.1.0-36"
   authenticationproxy:
     productName:   "Authentication Proxy"
     productNumber: "CXC 174 3251"
-    registry:      "armdocker.rnd.ericsson.se"
+    registry:      "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath:      "proj-common-assets-cd/security"
     name:          "eric-sec-access-mgmt-authnproxy"
-    tag:           "12.0.0-39"
+    tag:           "9.1.0-36"
   logshipper:
     productName:   "ADP Log Shipper"
-    productNumber: "CXU 101 0642/9"
-    registry:      "armdocker.rnd.ericsson.se"
+    productNumber: "CXU 101 0642/7"
+    registry:      "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath:      "proj-adp-log-released"
     name:          "eric-log-shipper"
-    tag:           "9.1.0-33"
-  sipoauth2:
-    productName:   "Service Identity Provider Oauth2"
-    productNumber: "CXC 174 4152"
-    registry:      "armdocker.rnd.ericsson.se"
-    repoPath:      "proj-common-assets-cd/security"
-    name:          "eric-sec-access-mgmt-sip-oauth2"
-    tag:           "12.0.0-39"
+    tag:           "7.2.0-20"
 
 # Dev note:
 # 1. The values in the file come from common-properties.yaml

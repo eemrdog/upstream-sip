@@ -4,42 +4,56 @@ images:
   logshipper:
     productName: "Log Shipper Image"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: "9.2.0-13"
+    tag: "7.3.0-23"
+  postgres:
+    productName: "Document Database PG Image"
+    productNumber: "CXC 201 1395"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
+    repoPath: "proj-document-database-pg-release/data"
+    name: "eric-data-document-database-pg"
+    tag: 6.4.0-9
   metrics:
     productName: "Document Database Metrics Image"
     productNumber: "CXC 201 2011"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-document-database-pg-release/data"
     name: "eric-data-document-database-metrics"
-    tag: 7.4.0-44
+    tag: 6.4.0-9
   kubeclient:
     productName: "Document Database Kube-Client Image"
     productNumber: "CXC 201 1992"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-document-database-pg-release/data"
     name: "eric-data-document-database-kube-client"
-    tag: 7.4.0-44
+    tag: 6.4.0-9
   bra:
     productName: "Document Database BRA Image"
     productNumber: "CXC 201 2498"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-document-database-pg-release/data"
     name: "eric-data-document-database-bra"
-    tag: 7.4.0-44
+    tag: 6.4.0-9
+  brm:
+    productName: "Document Database BRM Image"
+    productNumber: "CXC 201 2499"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
+    repoPath: "proj-document-database-pg-release/data"
+    name: "eric-data-document-database-brm"
+    tag: 6.4.0-9
   pg13:
     productName: "Document Database PG13 Image"
     productNumber: "CXC 201 3710"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-document-database-pg-release/data"
     name: "eric-data-document-database-pg13"
-    tag: 7.4.0-44
+    tag: 6.4.0-9
   brm13:
     productName: "Document Database BRM PG13 Image"
     productNumber: "CXC 201 3711"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-document-database-pg-release/data"
     name: "eric-data-document-database-brm13"
-    tag: 7.4.0-44
+    tag: 6.4.0-9

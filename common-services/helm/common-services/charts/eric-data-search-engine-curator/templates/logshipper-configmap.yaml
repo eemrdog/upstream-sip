@@ -3,7 +3,6 @@ Filebeat ConfigMap configuration
 */}}
 {{- $default := fromJson (include "eric-data-search-engine-curator.logshipper-default-value" .) -}}
 {{- $g := fromJson (include "eric-data-search-engine-curator.logshipper-global" .) -}}
-{{- $i := fromJson (include "eric-data-search-engine-curator.logshipper-internal" .) -}}
 apiVersion: "v1"
 kind: "ConfigMap"
 metadata:
@@ -20,67 +19,11 @@ data:
     filebeat.inputs:
     - type: log
       paths:
-        - {{ $storagePath }}/filebeat.log
-      fields:
-        logplane: {{ $default.logshipper.logplane }}
-        kubernetes:
-          pod:
-            uid: ${POD_UID}
-            name: ${POD_NAME}
-          node:
-            name: ${NODE_NAME}
-          namespace: ${NAMESPACE}
-          labels:
-            app:
-              kubernetes:
-                io/name: {{ $serviceId }}
-      close_timeout: {{ $closeTimeout }}
-      fields_under_root: true
-      processors:
-      - decode_json_fields:
-          fields:
-            - "message"
-          target: "json"
-          overwrite_keys: true
-      - add_fields:
-          target: ""
-          fields:
-            json.service_id: {{ $serviceId }}
-            json.version: "1.0.0"
-            json.metadata.container_name: "logshipper"
-      - rename:
-          fields:
-            - from: "json.level"
-              to: "json.severity"
-            - from: "json.logger"
-              to: "json.extra_data.filebeat.logger"
-            - from: "json.caller"
-              to: "json.extra_data.filebeat.caller"
-          ignore_missing: true
-      - add_fields:
-          when:
-             equals:
-               json.severity: "warn"
-          target: ""
-          fields:
-            json.severity: "warning"
-      - drop_fields:
-          fields:
-            - "json.system_info"
-      {{- if $default.logshipper.includeLines }}
-      include_lines:
-        {{- toYaml $default.logshipper.includeLines | nindent 8 }}
-      {{- end }}
-      {{- if $default.logshipper.excludeLines }}
-      exclude_lines:
-        {{- toYaml $default.logshipper.excludeLines | nindent 8 }}
-      {{- end }}
-    - type: log
-      paths:
         {{- if eq (len $default.logshipper.harvester.logData) 0 }}
         - {{ $storagePath }}/**/*
         {{- else }}
-        - {{ $storagePath }}/init.log
+        - {{ $storagePath }}/init.log*
+        - {{ $storagePath }}/filebeat.log*
         {{- end }}
       fields:
         logplane: {{ $default.logshipper.logplane }}
@@ -100,25 +43,10 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
-        {{- if $default.logshipper.excludeFiles }}
-          {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
-        {{- end }}
-     {{- if $default.logshipper.includeLines }}
-      include_lines:
-        {{- toYaml $default.logshipper.includeLines | nindent 8 }}
-     {{- end }}
-     {{- if $default.logshipper.excludeLines }}
-      exclude_lines:
-        {{- toYaml $default.logshipper.excludeLines | nindent 8 }}
-     {{- end }}
-      processors:
-      - decode_json_fields:
-          fields:
-            - "message"
-          target: "json"
-          overwrite_keys: true
+      multiline:
+        pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+        negate: true
+        match: after
     {{- range $key, $value := $default.logshipper.harvester.logData }}
     - type: log
       paths:
@@ -149,79 +77,23 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
-        {{- if $value.excludeFiles }}
-          {{- toYaml $value.excludeFiles | nindent 8 }}
-        {{- end }}
-     {{- if $value.includeLines }}
-      include_lines:
-        {{- toYaml $value.includeLines | nindent 8 }}
-     {{- end }}
-     {{- if $value.excludeLines }}
-      exclude_lines:
-        {{- toYaml $value.excludeLines | nindent 8 }}
-     {{- end }}
       {{- if $value.multiline }}
       multiline:
         pattern: {{ $value.multiline.pattern | quote }}
         negate: {{ $value.multiline.negate }}
         match: {{ $value.multiline.match }}
       {{- end }}
-      processors:
-        - decode_json_fields:
-            fields:
-              - "message"
-            target: "json"
-            overwrite_keys: true
-    {{- if has "/curator.log*" $value.subPaths }}
-        # CU conf starts.
-        - rename:
-            fields:
-              - from: "json.loglevel"
-                to: "json.severity"
-              - from: "json.@timestamp"
-                to: "json.timestamp"
-              - from: "json.function"
-                to: "json.extra_data.curator.function"
-              - from: "json.linenum"
-                to: "json.extra_data.curator.linenum"
-              - from: "json.name"
-                to: "json.extra_data.curator.name"
-            ignore_missing: true
-        - add_fields:
-            target: ""
-            fields:
-              json.service_id: {{ $serviceId }}
-              json.version: "1.1.0"
-              json.metadata.container_name: "curator"
-              json.extra_data.filename: {{ $storagePath }}/curator.log
-        - script:
-            lang: javascript
-            id: lowercase
-            source: >
-              function process(event) {
-                  var severity = event.Get("json.severity");
-                  if(severity != null) {
-                      event.Put("json.severity", severity.toString().toLowerCase());
-                  }
-              }
-        - add_fields:
-            when:
-              equals:
-                json.severity: "warn"
-            target: ""
-            fields:
-              json.severity: "warning"
-        # CU conf ends.
-        {{- end }}
     {{- end }}
     processors:
+      - decode_json_fields:
+          fields:
+            - "message"
+          target: "json"
+          overwrite_keys: true
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
-          ignore_missing: true
+              to: "filename"
       - drop_fields:
           fields:
             - "input"
@@ -229,12 +101,6 @@ data:
             - "host"
             - "agent"
             - "ecs"
-    {{- if $i.output.file.enabled }}
-    output.file:
-      path: {{ $i.output.file.path }}
-      filename: {{ $i.output.file.name }}
-    {{- end }}
-    {{- if $i.output.logTransformer.enabled }}
     output.logstash:
     {{- if $g.security.tls.enabled }}
       hosts: "{{ $default.logshipper.logtransformer.host }}:5044"
@@ -254,17 +120,13 @@ data:
       ssl.supported_protocols: ["TLSv1.2"]
       ssl.cipher_suites: []
       {{- end }}
-    {{- end }}
     filebeat.registry.flush: 5s
     logging.level: {{ $default.log.logshipper.level | quote | lower }}
-    # The list of debugging-only selector tags. Use * to enable debug output for all components.
-    logging.selectors: [ "beats", "service", "harvester", "input" ]
     logging.metrics.enabled: false
-    logging.json: true
     logging.to_files: true
     logging.files:
       path: {{ $storagePath }}
       name: filebeat.log
-      keepfiles: 5
-      permissions: 0644
-      rotateeverybytes: 2000000
+      keepfiles: 10
+      permissions: 0600
+      rotateeverybytes: 1000000

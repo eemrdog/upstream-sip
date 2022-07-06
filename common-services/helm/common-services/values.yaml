@@ -1,630 +1,518 @@
+# Default values for eric-bss-ecmeoc-common.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: stable
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
 affinity: {}
-ahSnmpTrapsConfigMap: |
-  {"trapTargets": [{"address":"10.100.110.10","community":"public"}]}
+
+iamAuth:
+  multitenancy: false
+  superUserOrganizationName: "Ericsson"
+  superUserOrganizationId: "eeeeeeee-117e-11ec-82a8-0242ac130003"
+  superUserPrivilegeName: "EriSuperUserPriv"
+
 credentials:
-  alarm:
-    db:
-      pwd: pgpwd
-      user: pguser
+  dced:
+    password: "password"
   cm:
     db:
-      pwd: pgpwd
       user: pguser
-  dced:
-    password: password
+      pwd: pgpwd
+  alarm:
+    db:
+      user: pguser
+      pwd: pgpwd
   iam:
     db:
-      pwd: pgpwd
       user: pguser
+      pwd: pgpwd
     kcadminid: admin
     kcpasswd: password
   nels:
     db:
-      pwd: lmpwd
       user: lmuser
+      pwd: lmpwd
   notification:
     db:
-      pwd: pgpwd
       user: pguser
-eric-bss-kafka-proxy:
-  enabled: false
-eric-bss-notification-service-database-pg:
-  affinity:
-    podAntiAffinity: soft
-  brAgent:
-    enabled: true
-    logLevel: info
-    logicalDBBackupEnable: false
-  credentials:
-    keyForUserId: notificationUKey
-    keyForUserPw: notificationPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: false
-  highAvailability:
-    replicaCount: 2
-    synchronousModeEnabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  metrics:
-    enabled: true
-    logLevel: info
-    service:
-      port: 9187
-  nameOverride: eric-bss-notification-service-database-pg
-  nodeSelector: {}
-  patroni:
-    logLevel: INFO
-  persistentVolumeClaim:
-    enabled: true
-    size: 8Gi
-    storageClassName: local-storage
-  postgresDatabase: bss-notification-service
-  resources:
-    bra:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 12Gi
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        ephemeral-storage: 10Gi
-        memory: 1Gi
-    brm:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 300m
-        memory: 256Mi
-    kube_client:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    metrics:
-      limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    postgres:
-      limits:
-        cpu: "1"
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 2560Mi
-      requests:
-        cpu: 100m
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 256Mi
-  security:
-    postgres:
-      tls:
-        enable: true
-    tls:
-      brAgent:
-        enabled: true
-  service:
-    endpoints:
-      postgres:
-        tls:
-          enforced: optional
-      postgresExporter:
-        tls:
-          enforced: optional
-  tolerations: []
-  updateStrategy:
-    rollingUpdate:
-      partition: 0
-    type: RollingUpdate
-eric-cm-database-pg:
-  affinity:
-    podAntiAffinity: soft
-  brAgent:
-    backupTypeList:
-    - configuration-data
-    enabled: true
-    logLevel: info
-    logicalDBBackupEnable: false
-  credentials:
-    keyForUserId: cmmUKey
-    keyForUserPw: cmmPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: false
-  highAvailability:
-    replicaCount: 2
-    synchronousModeEnabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  metrics:
-    enabled: true
-    logLevel: info
-    service:
-      port: 9187
-  nameOverride: eric-data-document-database-pg
-  nodeSelector: {}
-  patroni:
-    logLevel: INFO
-  persistentVolumeClaim:
-    enabled: true
-    size: 2Gi
-    storageClassName: local-storage
-  postgresDatabase: adp_gs_cm
-  resources:
-    bra:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 12Gi
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        ephemeral-storage: 10Gi
-        memory: 1Gi
-    brm:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 300m
-        memory: 256Mi
-    kube_client:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    metrics:
-      limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    postgres:
-      limits:
-        cpu: "1"
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 2560Mi
-      requests:
-        cpu: 100m
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 256Mi
-  security:
-    postgres:
-      tls:
-        enable: true
-  service:
-    endpoints:
-      postgres:
-        tls:
-          enforced: required
-      postgresExporter:
-        tls:
-          enforced: optional
-  tolerations: []
-  updateStrategy:
-    rollingUpdate:
-      partition: 0
-    type: RollingUpdate
-eric-cm-mediator:
-  backend:
-    dbname: adp_gs_cm
-    hostname: eric-data-document-database-pg
-    type: postgres
-  cmkey:
-    enable: false
-  cmm:
-    accessLogging: false
-    debug: false
-    gunicornAccessLogLevel: Info
-    gunicornLogLevel: Info
-    kafkaLogLevel: Info
-    logFormat: adpjson
-    logLevel: Info
-  credentials:
-    keyForUserId: cmmUKey
-    keyForUserPw: cmmPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: false
-  global:
-    security:
-      tls:
-        enabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  kafka:
-    hostname: eric-data-message-bus-kf-client
-  replicaCount: 2
-  resources:
-    eric-cm-mediator:
-      limits:
-        cpu: 2000m
-        memory: 512Mi
-      requests:
-        cpu: 500m
-        memory: 256Mi
-  service:
-    endpoints:
-      restapi:
-        tls:
-          enforced: optional
-          verifyClientCertificate: optional
-  updateStrategy:
-    rollingUpdate:
-      maxSurge: 50%
-      maxUnavailable: 50%
-    type: RollingUpdate
-eric-cm-mediator-rbac-proxy:
-  config:
-    certAuth:
-      clientCaSecret: null
-      enabled: false
-    oidcAuth:
-      caSecret: eric-sec-sip-tls-trusted-root-cert
-      clientId: AuthorizationClient
-      enabled: true
-      groupsClaim: groups
-      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
-      usernameClaim: email
-    upstream:
-      caSecret: eric-sec-sip-tls-trusted-root-cert
-      url: https://eric-cm-mediator:5004
-    verbose: false
-  enabled: false
-  ingress:
-    enabled: true
-    fqdn: null
-  nameOverride: eric-cm-mediator-rbac-proxy
-eric-ctrl-bro:
-  bro:
-    enableNotifications: true
-  enabled: false
-  kafka:
-    hostname: eric-data-message-bus-kf-client
-    port: 9092
-  persistence:
-    persistentVolumeClaim:
-      size: 5Gi
-      storageClassName: local-storage
-  resources:
-    backupAndRestore:
-      limits:
-        cpu: "2"
-        ephemeral-storage: 250Mi
-        memory: 4Gi
-      requests:
-        cpu: "1"
-        ephemeral-storage: 100Mi
-        memory: 2Gi
-  security:
-    tls:
-      broToAgent:
-        enabled: true
-      rest:
-        enabled: false
-  service:
-    endpoints:
-      broToAgent:
-        tls:
-          verifyClientCertificate: optional
-      cmmHttpNotif:
-        tls:
-          verifyClientCertificate: optional
-      restActions:
-        tls:
-          verifyClientCertificate: optional
-      scrape:
-        pm:
-          tls:
-            verifyClientCertificate: optional
-eric-data-coordinator-zk:
-  enabled: false
-  heap: 256M
-  imagePullPolicy: IfNotPresent
-  livenessProbeInitialDelaySeconds: 75
-  livenessProbeTimeoutSeconds: 75
-  logLevel: INFO
-  minAvailable: 55%
-  persistence:
-    persistentVolumeClaim:
-      size: 5Gi
-      storageClassName: local-storage
-  replicas: 3
-  resources:
-    brAgent:
-      limits:
-        cpu: "1"
-        memory: 2Gi
-      requests:
-        cpu: "1"
-        memory: 1Gi
-    datacoordinatorzk:
-      limits:
-        cpu: "2"
-        memory: 4Gi
-      requests:
-        cpu: "1"
-        memory: 2Gi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    metricsexporter:
-      limits:
-        cpu: 200m
-        memory: 32Mi
-      requests:
-        cpu: 100m
-        memory: 8Mi
-  security:
-    tls:
-      agentToBro:
-        enabled: true
-  updateStrategy:
-    type: RollingUpdate
+      pwd: pgpwd
+
 eric-data-distributed-coordinator-ed:
-  brAgent:
-    properties:
-      applicationProperties: |-
-        dced.agent.restore.type=overwrite
-        dced.excluded.paths=/shelter,/kms/core/lock
   enabled: true
-  imagePullPolicy: IfNotPresent
-  persistence:
-    persistentVolumeClaim:
-      size: 1Gi
-      storageClassName: local-storage
   pods:
-    dced:
-      replicas: 3
+    etcd:
+      replicas: 2
+  updateStrategy:
+    type: RollingUpdate
+  imagePullPolicy: IfNotPresent
+  brAgent:
+   properties:
+     applicationProperties: |-
+       dced.agent.restore.type=overwrite
+       dced.excluded.paths=/shelter,/kms/core/lock
   resources:
-    brAgent:
-      limits:
-        cpu: "1"
-        memory: 2Gi
-      requests:
-        cpu: 400m
-        memory: 400Mi
-    dced:
-      limits:
-        cpu: "1"
-        memory: 1Gi
-      requests:
-        cpu: 400m
-        memory: 400Mi
     init:
-      limits:
-        cpu: 500m
-        memory: 500Mi
       requests:
-        cpu: 200m
-        memory: 200Mi
+        cpu: "200m"
+        memory: "200Mi"
+      limits:
+        cpu: "500m"
+        memory: "500Mi"
+    dced:
+      requests:
+        # This is the min CPU setting at startup
+        cpu: "400m"
+        # This is the min Memory setting at startup
+        memory: "400Mi"
+      limits:
+        # This the maximum cpu setting that can be requested
+        cpu: "1"
+        # This is the max memory setting that can be requested
+        memory: "1Gi"
+    brAgent:
+      requests:
+        cpu: "400m"
+        memory: "400Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
     logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
       requests:
-        cpu: 50m
-        memory: 50Mi
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
     metricsexporter:
-      limits:
-        cpu: 200m
-        memory: 32Mi
       requests:
-        cpu: 100m
-        memory: 8Mi
+        cpu: "100m"
+        memory: "8Mi"
+      limits:
+        cpu: "200m"
+        memory: "32Mi"
   security:
     etcd:
       certificates:
         enabled: true
-  updateStrategy:
-    type: RollingUpdate
-eric-data-message-bus-kf:
-  configurationOverrides:
-    file.delete.delay.ms: "10000"
-    log.cleaner.delete.retention.ms: "1000"
-    log.cleaner.threads: "5"
-    log.retention.bytes: "1073741824"
-    log.retention.check.interval.ms: "30000"
-    log.segment.bytes: "65536000"
-    log.segment.delete.delay.ms: "1000"
-  enabled: false
-  imagePullPolicy: IfNotPresent
   persistence:
     persistentVolumeClaim:
-      enabled: true
-      size: 5Gi
+      size: "1Gi"
       storageClassName: local-storage
-  readynessProbeTimeoutSeconds: 10
-  replicas: 3
-  security:
-    tls:
-      messagebuskf:
-        provider: sip-tls
-  service:
-    endpoints:
-      dataCoordinator:
-        tls:
-          clientRenewalLeadTime: 4800
-          clientTimeToLive: 604800
-          enforced: required
-      messagebuskf:
-        sasl:
-          enforced: optional
-        tls:
-          enforced: optional
-          servcertRenewalLeadTime: 4800
-          servcertTimeToLive: 604800
-          verifyClientCertificate: optional
+
+eric-sec-key-management:
+  enabled: true
+  replicas: 1
   updateStrategy:
     type: RollingUpdate
-eric-data-object-storage-mn:
-  autoEncryption:
-    enabled: true
-    kmsConfigSecret: eric-data-object-storage-mn-kms-set
-  clusterDomain: cluster.local
-  credentials:
-    accesskey: TESTPKEY
-    kubernetesSecretName: object-storage-secret
-    secretkey: TESTPKEY
-  enabled: false
-  ingress:
-    annotations:
-      nginx.ingress.kubernetes.io/proxy-body-size: 20m
-      nginx.ingress.kubernetes.io/proxy-connect-timeout: "180"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
-      nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
-      nginx.ingress.kubernetes.io/rewrite-target: /$1
-      nginx.ingress.kubernetes.io/upstream-vhost: eric-data-object-storage-mn:9000
-    enabled: true
-    hosts:
-    - host: ingress-nginx
-      paths:
-      - /
-    tls:
-    - hosts:
-      - ingress-nginx
-      secretName: extingresscerts
-  mode: distributed
-  mountPath: /export
-  persistentVolumeClaim:
-    size: 10Gi
-    storageClassName: local-storage
-    storageConnectivity: local
-    subPath: ""
-    volumeNamePrefix: export
-  priorityClassName: ""
-  replicas: 4
-  tls:
-    caCert: cacertbundle.pem
-    caSecret: eric-sec-sip-tls-trusted-root-cert
-    certSecret: ""
-    privateKey: private.key
-    publicCrt: public.crt
-eric-data-search-engine:
-  autoSetRequiredWorkerNodeSysctl: true
-  enabled: false
   imageCredentials:
     pullPolicy: IfNotPresent
-  jvmHeap:
-    data: 1024m
-    ingest: 512m
-    master: 512m
-  metrics:
-    enabled: true
   persistence:
-    backup:
-      persistentVolumeClaim:
-        size: 1Gi
-        storageClassName: local-storage
-    data:
-      persistentVolumeClaim:
-        size: 1Gi
-        storageClassName: local-storage
-    master:
-      persistentVolumeClaim:
-        size: 64Mi
-        storageClassName: local-storage
-  replicaCount:
-    data: 2
-    ingest: 1
-    master: 3
+    type: etcd
+    etcd:
+      tls:
+        enabled: true
+  ## Shelter is the feature that provides the non-backed up Vault instance
+  shelter:
+    enabled: true
+  service:
+    tls:
+      enabled: true
   resources:
-    bragent:
-      limits:
-        cpu: 500m
-        memory: 1Gi
+    vault:
       requests:
-        cpu: 500m
-        memory: 1Gi
-    chmod:
+        cpu: "100m"
+        memory: "400Mi"
       limits:
-        cpu: 100m
-        memory: 128Mi
+        cpu: "300m"
+        memory: "1200Mi"
+
+eric-sec-sip-tls-crd:
+  enabled: false
+
+eric-sec-sip-tls:
+  enabled: true
+  updateStrategy:
+    type: RollingUpdate
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  logLevel: info
+  keyManagement:
+    hostname: eric-sec-key-management
+    port: 8210
+  etcd:
+    hostname: eric-data-distributed-coordinator-ed
+  kafka:
+    hostname: eric-data-message-bus-kf
+  resources:
+    sip-tls:
       requests:
-        cpu: 25m
-        memory: 64Mi
-    data:
+        memory: "200Mi"
+        cpu: "100m"
       limits:
-        cpu: 500m
-        memory: 2Gi
+        memory: "400Mi"
+        cpu: "3000m"
+    sip-tls-supervisor:
       requests:
-        cpu: 500m
-        memory: 2Gi
-    ingest:
+        memory: "200Mi"
+        cpu: "100m"
       limits:
-        cpu: 500m
-        memory: 1Gi
+        memory: "400Mi"
+        cpu: "3000m"
+    sip-tls-init:
       requests:
-        cpu: 500m
-        memory: 1Gi
+        memory: "200Mi"
+        cpu: "100m"
+      limits:
+        memory: "400Mi"
+        cpu: "3000m"
     logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
       requests:
-        cpu: 50m
-        memory: 50Mi
-    master:
+        memory: "80Mi"
+        cpu: "80m"
       limits:
-        cpu: 500m
-        memory: 1Gi
+        memory: "100Mi"
+        cpu: "100m"
+
+eric-log-shipper:
+  enabled: false
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 25%
+    type: RollingUpdate
+  logLevel: "error"
+  security:
+    tls:
+      logtransformer:
+        enabled: true
+  logshipper:
+    # consoleOutput: false - removed
+    cfgData: ""
+#    cfgData: |
+#      paths:
+#        - /var/lib/docker/containers/**/*.log
+#        - /var/log/pods/**/*.log
+#      fields:
+#        facility: "log audit"
+
+    autodiscover:
+      enabled: true
+      namespace: ".RELEASE.NAMESPACE"
+      logplane: kubelog
+      json:
+        enabled: true
+        target: json
+      hints:
+        enabled: false
+      inclusions:
+      exclusions:
+      - field: "kubernets.labels.app.kubernetes.io/name"
+        value: "eric-log-shipper"
+#      paths:
+#        - /var/log/pods/${data.kubernetes.container.id}/*-json.log
+#        - /var/log/pods/${data.kubernetes.namespace}_${data.kubernetes.pod.name}_${data.kubernetes.pod.uid}/${data.kubernetes.container.name}/*.log
+      templates:
+        - condition:
+            equals:
+                  kubernetes.container.runtime: containerd
+          config:
+            - type: log
+              paths:
+                - /var/log/pods/*_${data.kubernetes.pod.uid}/${data.kubernetes.container.name}/*.log
+#            - type: docker
+#              containers:
+#                ids:
+#                  - "${data.kubernetes.container.id}"
+#      providers:
+#        - type: docker
+#          templates:
+        - condition.contains:
+            kubernetes.container.image: wildfly
+          config:
+            - type: log
+              paths:
+                - /var/log/*/*/security/${data.kubernetes.pod.name}/*AuditTrail.log
+              fields:
+                facility: "log audit"
+        - condition.or:
+            - contains:
+                kubernetes.container.image: shoppingcart
+            - contains:
+                kubernetes.container.image: pobrowsing
+            - contains:
+                kubernetes.container.image: jxc
+            - contains:
+                kubernetes.container.image: technicalbrowsing
+            - contains:
+                kubernetes.container.image: som
+            - contains:
+                kubernetes.container.image: process-controller
+            - contains:
+                kubernetes.container.image: plm
+          config:
+            - type: log
+              paths:
+                - /var/log/*/*/security/${data.kubernetes.pod.name}/*security.log
+              fields:
+                facility: "log audit"
+    harvester:
+      closeTimeout: "0"
+      logData:
+        - format: json
+  resources:
+    logshipper:
       requests:
-        cpu: 500m
-        memory: 1Gi
+        cpu: "100m"
+        memory: "100Mi"
+      limits:
+        cpu: "250m"
+        memory: "500Mi"
+  rbac:
+    automountServiceAccountToken: true
+    createClusterRole: false
+    createClusterRoleBinding: false # must be the same as for createClusterRole
+
+  additionalVolumes: |
+    - name: docker-containers
+      hostPath:
+        path: /var/lib/docker/containers
+    - name: kubernetes-containers
+      hostPath:
+        path: /var/log
+
+  additionalVolumeMounts: |
+    - name: docker-containers
+      mountPath: /var/lib/docker/containers
+      readOnly: true
+    - name: kubernetes-containers
+      mountPath: /var/log
+      readOnly: true
+
+
+eric-log-transformer:
+  enabled: false
+  replicaCount: 1
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  searchengine:
+    host: eric-data-search-engine
+    logplaneConfig:
+    - field: "[extra_data][asi][log_plane]"
+      value: "alarm"
+      newLogplane: "adp-app-asi-logs"
+    - field: "[facility]"
+      value: "log audit"
+      newLogplane: "adp-app-audit-logs"
+    - field: "[metadata][category]"
+      contains: "-privacy-"
+      newLogplane: "adp-app-audit-logs"
+    exclusion:
+    - logplane:
+      rules:
+        - field:
+          value:
+  jvmHeap: 1024m
+  resources:
+    logtransformer:
+      requests:
+        cpu: 250m
+        memory: 2Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
     metrics:
       limits:
-        cpu: 100m
-        memory: 128Mi
+        cpu: "100m"
+        memory: "256Mi"
       requests:
-        cpu: 25m
-        memory: 64Mi
-    preupgradehook:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 25m
-        memory: 64Mi
-    sysctl:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 25m
-        memory: 64Mi
+        cpu: "25m"
+        memory: "64Mi"
     tlsproxy:
       limits:
-        cpu: 100m
-        memory: 128Mi
+        cpu: "100m"
+        memory: "128Mi"
       requests:
-        cpu: 25m
-        memory: 64Mi
+        cpu: "25m"
+        memory: "64Mi"
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+  logLevel: "error"
+  metrics:
+    enabled: true
+    httpPort: 9114
+  config:
+    adpJson:
+      validation:
+        enabled: false
+      transformation:
+        enabled: true
+      # Do not add quotes around the field name
+      decodedAdpJsonField: json
+    filebeat:
+      input:
+        beats:
+          client_inactivity_timeout: 120
+    fileOutput: false
+    filter: |
+        if [type] == "filebeat" {
+          json {
+            source => "message"
+          }
+          # cassandra
+          grok {
+            match => { "log" => "%{WORD:logType}\s\s\[%{NOTSPACE:thread}\]\s%{TIMESTAMP_ISO8601:logDate}\s%{NOTSPACE:service}\s\-\s%{GREEDYDATA:msgBody}" }
+          }
+          # CPR Application
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s\[%{WORD:logType}?\]\s\[%{WORD:logLevel}?\]\s\[%{NOTSPACE:hostName}?\]\s\[%{NOTSPACE:applicationName}\]\s\[%{NOTSPACE:executionId}?\]\s\[%{NOTSPACE:correlationId}?\]\s\s\[%{NOTSPACE:thread}?\]\s\[%{GREEDYDATA:className}?\]\s%{GREEDYDATA:msgBody}" }
+          }
+          # Application-Audit-log
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s\[%{WORD:logType}?\]\s\[%{WORD:logLevel}?\]\s\[%{NOTSPACE:hostName}?\]\s\[%{NOTSPACE:applicationName}\]\s\[%{NOTSPACE:executionId}?\]\s\[%{NOTSPACE:correlationId}?\]\s\[%{NOTSPACE:partyid}?\]\s\[%{NOTSPACE:userrole}?\]\s\s\[%{NOTSPACE:thread}?\]\s\[%{GREEDYDATA:className}?\]\s%{GREEDYDATA:msgBody}" }
+          }
+          # camunda
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logType}?\s\s\s\s\[%{WORD:thread}?\]\s\[%{NOTSPACE:applicationName}?\]\s%{GREEDYDATA:msgBody}" }
+          }
+          # cm-mediator
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{NOTSPACE:hostName}\s%{WORD:logType}\s%{GREEDYDATA:msgBody}" }
+          }
+          # PG
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}.*\:\s\s%{GREEDYDATA:msgBody}" }
+          }
+          # Wildfly Application
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logLevel}?\s\[%{NOTSPACE:thread}\]\s\(%{GREEDYDATA:className}?\)\s%{GREEDYDATA:msgBody}" }
+          }
+          # ECM/EOC Application
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logLevel}?\s\[%{WORD:logType}\]?\s\(%{NOTSPACE:className}\)\s%{TIMESTAMP_ISO8601:logDate}\s\[%{GREEDYDATA:thread}?\]\s%{GREEDYDATA:msgBody}" }
+          }
+          # OSGi Application 1
+          grok {
+            match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s?\s%{WORD:logLevel}\s?\s%{GREEDYDATA:thread}\s?\s%{NOTSPACE:applicaionName}\s?\s%{NOTSPACE:class}\s%{NOTSPACE:classid}\s?\s%{NOTSPACE:bundleid}\s?\s%{NOTSPACE:bundlename}\s?\s%{NOTSPACE:bundleversion}\s?\s%{GREEDYDATA:msgBody}" }
+          }
+          # OSGI Security Logs
+          grok {
+            match => { "log" => "%{WORD:contextName}\s?\s%{TIMESTAMP_ISO8601:logDate}\s?\s%{WORD:logLevel}\s?\s%{GREEDYDATA:thread}\s?\s%{NOTSPACE:class}\s%{NOTSPACE:classid}\s?\s%{GREEDYDATA:msgBody}" }
+          }
+        }
+    input:
+    output:
+  security:
+    tls:
+      logshipper:
+        enabled: true
+#  uncomment to enable audit logs streaming to external system
+#  syslog:
+#    defaultFacility: 1
+#    defaultSeverity: 5
+#    syslogLogplane: auditlog
+#    outputs:
+#      - host: "externalhostname"
+#        port: 514
+#    inclusion:
+#      - field: "[facility]"
+#        value: "log audit"
+#  networkPolicy:
+#    egress:
+#      - cidr: 172.17.0.0/32
+#        ports:
+#        - protocol: TCP
+#          port: 514
+
+eric-data-search-engine:
+  enabled: false
+  autoSetRequiredWorkerNodeSysctl: true
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  updateStrategy:
+    ingest:
+      type: "RollingUpdate"
+      rollingUpdate:
+        maxSurge: 2
+        maxUnavailable: 0
+    master:
+      type: "RollingUpdate"
+      rollingUpdate:
+        maxSurge: 4
+        maxUnavailable: 1
+    data:
+      type: "RollingUpdate"
+      rollingUpdate:
+        partition: 0
+    bragent:
+      type: "RollingUpdate"
+  replicaCount:
+    ingest: 1
+    master: 3
+    data: 2
+  metrics:
+    enabled: true
+  jvmHeap:
+    ingest: "512m"
+    master: "512m"
+    data: "1024m"
   service:
+    name: "eric-data-search-engine"
+    network:
+      protocol:
+        IPv6: false
     endpoints:
       internode:
         tls:
@@ -634,28 +522,99 @@ eric-data-search-engine:
           enforced: required
           verifyClientCertificate: optional
           verifyClientHostname: false
-    name: eric-data-search-engine
-    network:
-      protocol:
-        IPv6: false
-  updateStrategy:
-    bragent:
-      type: RollingUpdate
-    data:
-      rollingUpdate:
-        partition: 0
-      type: RollingUpdate
+  resources:
     ingest:
-      rollingUpdate:
-        maxSurge: 2
-        maxUnavailable: 0
-      type: RollingUpdate
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
     master:
-      rollingUpdate:
-        maxSurge: 4
-        maxUnavailable: 1
-      type: RollingUpdate
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+    data:
+      limits:
+        cpu: "500m"
+        memory: "2Gi"
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+    bragent:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+    metrics:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+    tlsproxy:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+    logshipper:
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+    sysctl:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+    chmod:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+    preupgradehook:
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
+      requests:
+        cpu: "25m"
+        memory: "64Mi"
+  persistence:
+    data:
+      persistentVolumeClaim:
+        size: "1Gi"
+        storageClassName: local-storage
+    backup:
+      persistentVolumeClaim:
+        size: "1Gi"
+        storageClassName: local-storage
+    master:
+      persistentVolumeClaim:
+        size: "64Mi"
+        storageClassName: local-storage
+
 eric-data-search-engine-curator:
+  enabled: false
+  cronjob:
+    curator:
+      enabled: true
+      schedule: "0 1 * * *"
+      successfulJobHistoryLimit: 1
+      failedJobHistoryLimit: 3
   actions: |
     1:
       action: delete_indices
@@ -670,257 +629,366 @@ eric-data-search-engine-curator:
         timestring: '%Y.%m.%d'
         unit: days
         unit_count: 5
-  cronjob:
-    curator:
-      enabled: true
-      failedJobHistoryLimit: 3
-      schedule: 0 1 * * *
-      successfulJobHistoryLimit: 1
+
+eric-data-coordinator-zk:
   enabled: false
-eric-data-search-engine-rbac-proxy:
-  config:
-    certAuth:
-      clientCaSecret: null
-      enabled: false
-    oidcAuth:
-      caSecret: eric-sec-sip-tls-trusted-root-cert
-      clientId: AuthorizationClient
+  replicas: 3
+  updateStrategy:
+    type: "RollingUpdate"
+  minAvailable: "55%"
+  imagePullPolicy: IfNotPresent
+  resources:
+    datacoordinatorzk:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+    brAgent:
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+    metricsexporter:
+      requests:
+        cpu: "100m"
+        memory: "8Mi"
+      limits:
+        cpu: "200m"
+        memory: "32Mi"
+  logLevel: "INFO"
+  heap: "256M"
+  persistence:
+    persistentVolumeClaim:
+      size: "5Gi"
+      storageClassName: local-storage
+  security:
+    tls:
+      agentToBro:
+        enabled: true
+  livenessProbeInitialDelaySeconds: 75
+  livenessProbeTimeoutSeconds: 75
+
+eric-data-message-bus-kf:
+  configurationOverrides:
+    "num.partitions": "3" # To be tuned based on the throughput
+    "min.insync.replicas": "2"
+    "num.io.threads": "3"     #Value based on the number of partitions
+    "num.network.threads": "3"  #Value based on the number of partitions
+    "log.retention.bytes": "1073741824" # To be tuned based on the throughput and disk storage
+    "log.segment.bytes": "65536000"
+    "log.retention.check.interval.ms": "30000"
+    "log.retention.minutes": "1" # To be tuned based on the throughput and disk storage
+    "log.retention.ms": "1000" # To be tuned based on the throughput and disk storage
+    "file.delete.delay.ms": "10000"
+    "log.cleaner.threads": "5" # Value based on the number of io threads
+    "log.cleaner.backoff.ms": "1000"
+    "log.cleaner.delete.retention.ms": "1000"
+    "log.cleaner.enable": "true"
+    "log.cleaner.delete.retention.ms": "1000"
+    "log.segment.delete.delay.ms": "1000"
+  enabled: false #Enable when deploy CPR
+  replicas: 3
+  updateStrategy:
+    type: "RollingUpdate"
+  imagePullPolicy: IfNotPresent
+  persistence:
+    persistentVolumeClaim:
       enabled: true
-      groupsClaim: groups
-      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
-      usernameClaim: email
-    upstream:
-      caSecret: null
-      url: http://eric-data-search-engine:9200
-    verbose: false
-  enabled: false
-  ingress:
-    enabled: true
-    fqdn: null
-  nameOverride: eric-data-search-engine-rbac-proxy
-eric-fh-alarm-handler:
-  alarmhandler:
-    configmap:
-      faultmappings: eric-fh-alarm-handler-faultmappings
-    debug: false
-    logFormat: adpjson
-  backend:
-    dbname: adp_gs_ah
-    dbuser: ah
-    hostname: eric-fm-database-pg
-    port: 5432
-    type: postgres
-  cmm:
-    hostname: eric-cm-mediator
-  credentials:
-    keyForUserId: ahUKey
-    keyForUserPw: ahPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  dataCoordinator:
-    hostname: eric-data-coordinator-zk
+      size: "5Gi"
+      storageClassName: local-storage
+  readynessProbeTimeoutSeconds: 10 # default 5 seconds is not enough
+  service:
+    endpoints:
+      messagebuskf:
+        sasl:
+          enforced: "optional"
+        tls:
+          enforced: "optional"
+          verifyClientCertificate: "optional"
+          servcertTimeToLive: 3600
+          servcertRenewalLeadTime: 3000
+      dataCoordinator:
+        tls:
+          enforced: "required"
+          clientTimeToLive: 3600
+          clientRenewalLeadTime: 3000
+  security:
+    tls:
+      messagebuskf:
+        provider: "sip-tls"
+
+eric-cm-mediator:
   enabled: false
   global:
     security:
       tls:
         enabled: true
+  replicaCount: 2
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+      maxSurge: 50%
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  service:
+    endpoints:
+      restapi:
+        tls:
+          enforced: optional # Must be optional because CPR does not work with if two ways tls is enforced.
+          verifyClientCertificate: optional # Must be optional because CPR does not work with if two ways tls is enforced.
+  cmm:
+    debug: False
+    logLevel: "Info"
+    logFormat: "adpjson"
+    kafkaLogLevel: "Info"
+  backend:
+    type: postgres
+    hostname: "eric-data-document-database-pg"
+    dbname: adp_gs_cm
   kafka:
-    hostname: eric-data-message-bus-kf-client
-  redis:
-    hostname: eric-data-key-value-database-rd-operand
+    hostname: "eric-data-message-bus-kf-client"
+  resources:
+    eric-cm-mediator:
+      requests:
+        cpu: "500m"
+        memory: "256Mi"
+      limits:
+        cpu: "2000m"
+        memory: "512Mi"
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "cmmUKey"
+    keyForUserPw: "cmmPKey"
+  cmkey:
+    enable: false #CM Key is needed for certificate manager
+
+eric-fh-alarm-handler:
+  enabled: false #Enable when deploy CPR
   replicaCount: 1
+  global:
+    security:
+      tls:
+        enabled: true
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+      maxSurge: 50%
+  alarmhandler:
+    debug: false
+    configmap:
+      faultmappings: "eric-fh-alarm-handler-faultmappings"
+    logFormat: "adpjson"
+  backend:
+    type: postgres
+    hostname: "eric-fm-database-pg"
+    dbname: adp_gs_ah
+    dbuser: ah
+    port: 5432
+  cmm:
+    hostname: eric-cm-mediator
+  dataCoordinator:
+    hostname: "eric-data-coordinator-zk"
+  kafka:
+    hostname: "eric-data-message-bus-kf-client"
+  redis:
+    hostname: "eric-data-key-value-database-rd-operand"
   resources:
     alarmhandler:
-      limits:
-        cpu: 1000m
-        ephemeral-storage: 4Gi
-        memory: 512Mi
       requests:
-        cpu: 500m
-        ephemeral-storage: 2Gi
-        memory: 384Mi
-    ericsecoauthproxy:
+        memory: "384Mi"
+        cpu: "500m"
+        ephemeral-storage: "2Gi"
       limits:
-        cpu: 50m
-        memory: 150Mi
-      requests:
-        cpu: 10m
-        memory: 30Mi
-    ericsecoauthsap:
-      limits:
-        cpu: 50m
-        memory: 150Mi
-      requests:
-        cpu: 10m
-        memory: 30Mi
-    logshipper:
-      disableProbes: false
-      limits:
-        cpu: 50m
-        memory: 100Mi
-      requests:
-        cpu: 20m
-        memory: 50Mi
+        memory: "512Mi"
+        cpu: "1000m"
+        ephemeral-storage: "4Gi"
     topiccreator:
-      limits:
-        cpu: 1000m
-        ephemeral-storage: 2Gi
-        memory: 512Mi
       requests:
-        cpu: 500m
-        ephemeral-storage: 1Gi
-        memory: 384Mi
-  updateStrategy:
-    rollingUpdate:
-      maxSurge: 50%
-      maxUnavailable: 50%
-    type: RollingUpdate
-eric-fh-alarm-handler-rbac-proxy:
-  config:
-    certAuth:
-      clientCaSecret: null
-      enabled: false
-    oidcAuth:
-      caSecret: eric-sec-sip-tls-trusted-root-cert
-      clientId: AuthorizationClient
-      enabled: true
-      groupsClaim: groups
-      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
-      usernameClaim: email
-    upstream:
-      caSecret: null
-      url: http://eric-fh-alarm-handler:5005
-    verbose: false
-  enabled: false
-  ingress:
-    enabled: true
-    fqdn: null
-  nameOverride: eric-fh-alarm-handler-rbac-proxy
+        memory: "384Mi"
+        cpu: "500m"
+        ephemeral-storage: "1Gi"
+      limits:
+        memory: "512Mi"
+        cpu: "1000m"
+        ephemeral-storage: "2Gi"
+    logshipper:
+      requests:
+        cpu: "20m"
+        memory: "50Mi"
+      limits:
+        cpu: "50m"
+        memory: "100Mi"
+      disableProbes: false
+    ericsecoauthproxy:
+      requests:
+        memory: 30Mi
+        cpu: 10m
+      limits:
+        memory: 150Mi
+        cpu: 50m
+    ericsecoauthsap:
+      requests:
+        memory: 30Mi
+        cpu: 10m
+      limits:
+        memory: 150Mi
+        cpu: 50m
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "ahUKey"
+    keyForUserPw: "ahPKey"
+
 eric-fh-snmp-alarm-provider:
-  ah:
-    caName: eric-fh-alarm-handler-ca
-    clientCertSecret: eric-sec-snmp-ap-ah-cert
   enabled: false
   imageCredentials:
     pullPolicy: IfNotPresent
+  service:
+    snmpAgentPort: 1161 # Do not change it to default:161, as it will already be in use.
+    replicas: 1 # Scaling not supported
+    secretName: "eric-bss-ecmeoc-common-alarm-provider"
   ingress:
     enabled: true
-    hostname: eric-fh-snmp-alarm-provider
     snmpAgentPort: 161
+    hostname: "eric-fh-snmp-alarm-provider"
     tls:
       passthrough: false
-  messageBusKF:
-    caName: eric-data-message-bus-kf-client-client-ca
-    clientCertSecret: eric-sec-snmp-ap-message-bus-kf-cert
   resources:
     alarmprovider:
-      limits:
-        cpu: "0.2"
-        ephemeral-storage: 4Gi
-        memory: 1.5Gi
       requests:
+        memory: "384Mi"
         cpu: "0.1"
         ephemeral-storage: 2Gi
-        memory: 384Mi
+      limits:
+        memory: "1.5Gi"
+        cpu: "0.2"
+        ephemeral-storage: 4Gi
     logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
       requests:
-        cpu: 50m
-        memory: 50Mi
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
     vip:
-      limits:
-        cpu: 40m
-        ephemeral-storage: 200Mi
-        memory: 50Mi
       requests:
-        cpu: 25m
+        memory: "30Mi"
+        cpu: "25m"
         ephemeral-storage: 100Mi
-        memory: 30Mi
-  service:
-    replicas: 1
-    secretName: eric-bss-ecmeoc-common-alarm-provider
-    snmpAgentPort: 1161
-eric-fm-database-pg:
-  affinity:
-    podAntiAffinity: soft
-  credentials:
-    keyForUserId: ahUKey
-    keyForUserPw: ahPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: false
-  highAvailability:
-    replicaCount: 2
-    synchronousModeEnabled: true
+      limits:
+        memory: "50Mi"
+        cpu: "40m"
+        ephemeral-storage: 200Mi
+  ah:
+    # ah client certificate secret name
+    clientCertSecret: eric-sec-snmp-ap-ah-cert
+    # AH certificate authority
+    caName: eric-fh-alarm-handler-ca
+  messageBusKF:
+    # messageBusKF client certificate secret name
+    clientCertSecret: eric-sec-snmp-ap-message-bus-kf-cert
+    # messageBusKF certificate authority
+    caName: eric-data-message-bus-kf-client-client-ca
+
+#Override during installation
+ahSnmpTrapsConfigMap: |
+  {"trapTargets": [{"address":"10.100.110.10","community":"public"}]}
+
+eric-idam-database-pg:
+  nameOverride: eric-idam-database-pg
+  enabled: true
+  brAgent:
+    enabled: true
+    logLevel: info
+    logicalDBBackupEnable: false
+    backupTypeList:
+      - "idam-data"
   imageCredentials:
     pullPolicy: IfNotPresent
+  highAvailability:
+    synchronousModeEnabled: true
+    replicaCount: 2
+  postgresDatabase: "idam"
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "amUKey"
+    keyForUserPw: "amPKey"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  persistentVolumeClaim:
+    storageClassName: local-storage
+    enabled: true
+    size: 2Gi
+  patroni:
+    logLevel: INFO
   metrics:
     enabled: true
     logLevel: info
     service:
       port: 9187
-  nameOverride: eric-fm-database-pg
-  nodeSelector: {}
-  patroni:
-    logLevel: INFO
-  persistentVolumeClaim:
-    enabled: true
-    size: 2Gi
-    storageClassName: local-storage
-  postgresDatabase: adp_gs_ah
   resources:
-    bra:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 12Gi
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        ephemeral-storage: 10Gi
-        memory: 1Gi
-    brm:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 300m
-        memory: 256Mi
-    kube_client:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
     logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
       requests:
-        cpu: 50m
-        memory: 50Mi
-    metrics:
+        memory: "50Mi"
+        cpu: "50m"
       limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+        memory: "100Mi"
+        cpu: "100m"
     postgres:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+        hugepages-2Mi:
+        hugepages-1Gi:
       limits:
         cpu: "1"
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 2560Mi
+        memory: "2560Mi"
+        hugepages-2Mi:
+        hugepages-1Gi:
+    metrics:
       requests:
-        cpu: 100m
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 256Mi
-  security:
-    postgres:
-      tls:
-        enable: true
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    kube_client:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    brm:
+      requests:
+        memory: "256Mi"
+        cpu: "300m"
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    bra:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+        ephemeral-storage: "10Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "12Gi"
   service:
     endpoints:
       postgres:
@@ -929,93 +997,10 @@ eric-fm-database-pg:
       postgresExporter:
         tls:
           enforced: optional
-  tolerations: []
-  updateStrategy:
-    rollingUpdate:
-      partition: 0
-    type: RollingUpdate
-eric-idam-database-pg:
-  affinity:
-    podAntiAffinity: soft
-  brAgent:
-    backupTypeList:
-    - idam-data
-    enabled: true
-    logLevel: info
-    logicalDBBackupEnable: false
-  credentials:
-    keyForUserId: amUKey
-    keyForUserPw: amPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: true
-  highAvailability:
-    replicaCount: 2
-    synchronousModeEnabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  metrics:
-    enabled: true
-    logLevel: info
-    service:
-      port: 9187
-  nameOverride: eric-idam-database-pg
   nodeSelector: {}
-  patroni:
-    logLevel: INFO
-  persistentVolumeClaim:
-    enabled: true
-    size: 2Gi
-    storageClassName: local-storage
-  postgresDatabase: idam
-  resources:
-    bra:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 12Gi
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        ephemeral-storage: 10Gi
-        memory: 1Gi
-    brm:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 300m
-        memory: 256Mi
-    kube_client:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    metrics:
-      limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    postgres:
-      limits:
-        cpu: "1"
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 2560Mi
-      requests:
-        cpu: 100m
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 256Mi
+  tolerations: []
+  affinity:
+    podAntiAffinity: "soft" # String value, valid values are "soft" or "hard".
   security:
     postgres:
       tls:
@@ -1023,352 +1008,121 @@ eric-idam-database-pg:
     tls:
       brAgent:
         enabled: true
-  service:
-    endpoints:
-      postgres:
-        tls:
-          enforced: required
-      postgresExporter:
-        tls:
-          enforced: optional
-  tolerations: []
+
+eric-bss-notification-service-database-pg:
+  nameOverride: eric-bss-notification-service-database-pg
+  enabled: false
+  brAgent:
+    enabled: true
+    logLevel: info
+    logicalDBBackupEnable: false
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  highAvailability:
+    synchronousModeEnabled: true
+    replicaCount: 2
+  postgresDatabase: "bss-notification-service"
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "notificationUKey"
+    keyForUserPw: "notificationPKey"
   updateStrategy:
+    type: RollingUpdate
     rollingUpdate:
       partition: 0
-    type: RollingUpdate
-eric-lcm-container-registry:
-  enabled: false
-  registry:
-    users:
-      secret: eric-lcm-container-registry
-eric-lcm-helm-chart-registry:
-  enabled: false
-eric-lm-combined-server:
-  database:
-    credentials:
-      passwordKey: nelsPKey
-      secretName: eric-data-document-database-pg-credentials
-      userKey: nelsUKey
-    host: eric-nels-database-pg
-  enabled: true
-  global:
-    ericsson:
-      licensing:
-        licenseDomains:
-        - customerId: 800141
-          productType: CATALOG_MANAGER
-          swltId: STB-CATALOG_MANAGER-1
-        - customerId: 800141
-          productType: ORDER_CARE
-          swltId: STB-ORDER_CARE-1
-  imageCredentials:
-    pullSecret: scmcred
-  licenseServerClient:
-    licenseServer:
-      thrift:
-        host: 10.221.14.90
-  nameOverride: eric-lm-combined-server
-  tls:
-    lch:
-      certTtl: 15778800
-eric-log-shipper:
-  additionalVolumeMounts: |
-    - name: docker-containers
-      mountPath: /var/lib/docker/containers
-      readOnly: true
-    - name: kubernetes-containers
-      mountPath: /var/log
-      readOnly: true
-  additionalVolumes: |
-    - name: docker-containers
-      hostPath:
-        path: /var/lib/docker/containers
-    - name: kubernetes-containers
-      hostPath:
-        path: /var/log
-  enabled: false
-  logLevel: error
-  logshipper:
-    autodiscover:
-      enabled: true
-      exclusions:
-      - field: kubernets.labels.app.kubernetes.io/name
-        value: eric-log-shipper
-      hints:
-        enabled: false
-      inclusions: null
-      json:
-        enabled: true
-        target: json
-      logplane: kubelog
-      namespace: .RELEASE.NAMESPACE
-      templates:
-      - condition:
-          equals:
-            kubernetes.container.runtime: containerd
-        config:
-        - paths:
-          - /var/log/pods/*_${data.kubernetes.pod.uid}/${data.kubernetes.container.name}/*.log
-          type: log
-      - condition.contains:
-          kubernetes.container.image: wildfly
-        config:
-        - fields:
-            facility: log audit
-          paths:
-          - /var/log/*/*/security/${data.kubernetes.pod.name}/*AuditTrail.log
-          type: log
-      - condition.or:
-        - contains:
-            kubernetes.container.image: shoppingcart
-        - contains:
-            kubernetes.container.image: pobrowsing
-        - contains:
-            kubernetes.container.image: jxc
-        - contains:
-            kubernetes.container.image: technicalbrowsing
-        - contains:
-            kubernetes.container.image: som
-        - contains:
-            kubernetes.container.image: process-controller
-        - contains:
-            kubernetes.container.image: plm
-        config:
-        - fields:
-            facility: log audit
-          paths:
-          - /var/log/*/*/security/${data.kubernetes.pod.name}/*security.log
-          type: log
-    cfgData: ""
-    harvester:
-      closeTimeout: "0"
-      logData:
-      - format: json
-  rbac:
-    automountServiceAccountToken: true
-    createClusterRole: false
-    createClusterRoleBinding: false
-  resources:
-    logshipper:
-      limits:
-        cpu: 250m
-        memory: 500Mi
-      requests:
-        cpu: 100m
-        memory: 100Mi
-  security:
-    tls:
-      logtransformer:
-        enabled: true
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 25%
-    type: RollingUpdate
-eric-log-transformer:
-  config:
-    adpJson:
-      decodedAdpJsonField: json
-      transformation:
-        enabled: true
-      validation:
-        enabled: false
-    fileOutput: false
-    filebeat:
-      input:
-        beats:
-          client_inactivity_timeout: 120
-    filter: |
-      if [type] == "filebeat" {
-        json {
-          source => "message"
-        }
-        # cassandra
-        grok {
-          match => { "log" => "%{WORD:logType}\s\s\[%{NOTSPACE:thread}\]\s%{TIMESTAMP_ISO8601:logDate}\s%{NOTSPACE:service}\s\-\s%{GREEDYDATA:msgBody}" }
-        }
-        # CPR Application
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s\[%{WORD:logType}?\]\s\[%{WORD:logLevel}?\]\s\[%{NOTSPACE:hostName}?\]\s\[%{NOTSPACE:applicationName}\]\s\[%{NOTSPACE:executionId}?\]\s\[%{NOTSPACE:correlationId}?\]\s\s\[%{NOTSPACE:thread}?\]\s\[%{GREEDYDATA:className}?\]\s%{GREEDYDATA:msgBody}" }
-        }
-        # Application-Audit-log
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s\[%{WORD:logType}?\]\s\[%{WORD:logLevel}?\]\s\[%{NOTSPACE:hostName}?\]\s\[%{NOTSPACE:applicationName}\]\s\[%{NOTSPACE:executionId}?\]\s\[%{NOTSPACE:correlationId}?\]\s\[%{NOTSPACE:partyid}?\]\s\[%{NOTSPACE:userrole}?\]\s\s\[%{NOTSPACE:thread}?\]\s\[%{GREEDYDATA:className}?\]\s%{GREEDYDATA:msgBody}" }
-        }
-        # camunda
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logType}?\s\s\s\s\[%{WORD:thread}?\]\s\[%{NOTSPACE:applicationName}?\]\s%{GREEDYDATA:msgBody}" }
-        }
-        # cm-mediator
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{NOTSPACE:hostName}\s%{WORD:logType}\s%{GREEDYDATA:msgBody}" }
-        }
-        # PG
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}.*\:\s\s%{GREEDYDATA:msgBody}" }
-        }
-        # Wildfly Application
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logLevel}?\s\[%{NOTSPACE:thread}\]\s\(%{GREEDYDATA:className}?\)\s%{GREEDYDATA:msgBody}" }
-        }
-        # ECM/EOC Application
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s%{WORD:logLevel}?\s\[%{WORD:logType}\]?\s\(%{NOTSPACE:className}\)\s%{TIMESTAMP_ISO8601:logDate}\s\[%{GREEDYDATA:thread}?\]\s%{GREEDYDATA:msgBody}" }
-        }
-        # OSGi Application 1
-        grok {
-          match => { "log" => "%{TIMESTAMP_ISO8601:logDate}\s?\s%{WORD:logLevel}\s?\s%{GREEDYDATA:thread}\s?\s%{NOTSPACE:applicaionName}\s?\s%{NOTSPACE:class}\s%{NOTSPACE:classid}\s?\s%{NOTSPACE:bundleid}\s?\s%{NOTSPACE:bundlename}\s?\s%{NOTSPACE:bundleversion}\s?\s%{GREEDYDATA:msgBody}" }
-        }
-        # OSGI Security Logs
-        grok {
-          match => { "log" => "%{WORD:contextName}\s?\s%{TIMESTAMP_ISO8601:logDate}\s?\s%{WORD:logLevel}\s?\s%{GREEDYDATA:thread}\s?\s%{NOTSPACE:class}\s%{NOTSPACE:classid}\s?\s%{GREEDYDATA:msgBody}" }
-        }
-      }
-    input: null
-    output: null
-  enabled: false
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  jvmHeap: 4096m
-  logLevel: error
-  metrics:
+  persistentVolumeClaim:
+    storageClassName: local-storage
     enabled: true
-    httpPort: 9114
-  replicaCount: 1
-  resources:
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    logtransformer:
-      limits:
-        cpu: 1000m
-        memory: 6Gi
-      requests:
-        cpu: 250m
-        memory: 6Gi
-    metrics:
-      limits:
-        cpu: 100m
-        memory: 256Mi
-      requests:
-        cpu: 25m
-        memory: 64Mi
-    tlsproxy:
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 25m
-        memory: 64Mi
-  searchengine:
-    exclusion:
-    - logplane: null
-      rules:
-      - field: null
-        value: null
-    host: eric-data-search-engine
-    logplaneConfig:
-    - field: '[extra_data][asi][log_plane]'
-      newLogplane: adp-app-asi-logs
-      value: alarm
-    - field: '[facility]'
-      newLogplane: adp-app-audit-logs
-      value: log audit
-    - contains: -privacy-
-      field: '[metadata][category]'
-      newLogplane: adp-app-audit-logs
-  security:
-    tls:
-      logshipper:
-        enabled: true
-  updateStrategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
-eric-nels-database-pg:
-  affinity:
-    podAntiAffinity: soft
-  credentials:
-    keyForUserId: nelsUKey
-    keyForUserPw: nelsPKey
-    kubernetesSecretName: eric-data-document-database-pg-credentials
-  enabled: true
-  highAvailability:
-    replicaCount: 1
-    synchronousModeEnabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
+    size: 8Gi
+  patroni:
+    logLevel: INFO
   metrics:
     enabled: true
     logLevel: info
     service:
       port: 9187
-  nameOverride: eric-nels-database-pg
-  nodeSelector: {}
-  patroni:
-    logLevel: INFO
-  persistentVolumeClaim:
-    enabled: true
-    size: 8Gi
-    storageClassName: local-storage
-  postgresDatabase: licensemanager_db
   resources:
-    bra:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 12Gi
-        memory: 2Gi
-      requests:
-        cpu: 500m
-        ephemeral-storage: 10Gi
-        memory: 1Gi
-    brm:
-      limits:
-        cpu: "1"
-        memory: 512Mi
-      requests:
-        cpu: 300m
-        memory: 256Mi
-    kube_client:
-      limits:
-        cpu: 200m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
     logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
       requests:
-        cpu: 50m
-        memory: 50Mi
-    metrics:
+        memory: "50Mi"
+        cpu: "50m"
       limits:
-        cpu: 200m
-        memory: 256Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+        memory: "100Mi"
+        cpu: "100m"
     postgres:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+        hugepages-2Mi:
+        hugepages-1Gi:
       limits:
         cpu: "1"
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 2560Mi
+        memory: "2560Mi"
+        hugepages-2Mi:
+        hugepages-1Gi:
+    metrics:
       requests:
-        cpu: 100m
-        hugepages-1Gi: null
-        hugepages-2Mi: null
-        memory: 256Mi
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    kube_client:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    brm:
+      requests:
+        memory: "256Mi"
+        cpu: "300m"
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    bra:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+        ephemeral-storage: "10Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "12Gi"
+  service:
+    endpoints:
+      postgres:
+        tls:
+          enforced: optional
+      postgresExporter:
+        tls:
+          enforced: optional
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity: "soft" # String value, valid values are "soft" or "hard".
   security:
     postgres:
       tls:
         enable: true
+    tls:
+      brAgent:
+        enabled: true
+
+eric-fm-database-pg:
+  nameOverride: eric-fm-database-pg
+  enabled: false
+  highAvailability:
+    replicaCount: 2
+    synchronousModeEnabled: true
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  postgresDatabase: "adp_gs_ah"
+  persistentVolumeClaim:
+    storageClassName: local-storage
+    enabled: true
+    size: 2Gi
   service:
     endpoints:
       postgres:
@@ -1377,154 +1131,482 @@ eric-nels-database-pg:
       postgresExporter:
         tls:
           enforced: optional
+  nodeSelector: {}
   tolerations: []
+  affinity:
+    podAntiAffinity: "soft" # String value, valid values are "soft" or "hard".
   updateStrategy:
+    type: RollingUpdate
     rollingUpdate:
       partition: 0
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "ahUKey"
+    keyForUserPw: "ahPKey"
+  patroni:
+    logLevel: INFO
+  security:
+    postgres:
+      tls:
+        enable: true
+  metrics:
+    enabled: true
+    logLevel: info
+    service:
+      port: 9187
+  resources:
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+    postgres:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+        hugepages-2Mi:
+        hugepages-1Gi:
+      limits:
+        cpu: "1"
+        memory: "2560Mi"
+        hugepages-2Mi:
+        hugepages-1Gi:
+    metrics:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    kube_client:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    brm:
+      requests:
+        memory: "256Mi"
+        cpu: "300m"
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    bra:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+        ephemeral-storage: "10Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "12Gi"
+
+eric-cm-database-pg:
+  nameOverride: eric-data-document-database-pg
+  enabled: false
+  # global:
+  #   security:
+  #     tls:
+  #       enabled: true
+  highAvailability:
+    replicaCount: 2
+    synchronousModeEnabled: true
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  postgresDatabase: "adp_gs_cm"
+  persistentVolumeClaim:
+    storageClassName: local-storage
+    enabled: true
+    size: 2Gi
+  service:
+    endpoints:
+      postgres:
+        tls:
+          enforced: required
+      postgresExporter:
+        tls:
+          enforced: optional
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity: "soft" # String value, valid values are "soft" or "hard".
+  updateStrategy:
     type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "cmmUKey"
+    keyForUserPw: "cmmPKey"
+  patroni:
+    logLevel: INFO
+  security:
+    postgres:
+      tls:
+        enable: true # For cm-mediator 6.0.0, the certificate generated by global.security.tls is used.
+  metrics:
+    enabled: true
+    logLevel: info
+    service:
+      port: 9187
+  brAgent:
+    enabled: true
+    logicalDBBackupEnable: false
+    backupTypeList:
+      - "configuration-data"
+    logLevel: info
+  resources:
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+    postgres:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+        hugepages-2Mi:
+        hugepages-1Gi:
+      limits:
+        cpu: "1"
+        memory: "2560Mi"
+        hugepages-2Mi:
+        hugepages-1Gi:
+    metrics:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    kube_client:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    brm:
+      requests:
+        memory: "256Mi"
+        cpu: "300m"
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    bra:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+        ephemeral-storage: "10Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "12Gi"
+
+eric-ctrl-bro:
+  enabled: false
+  bro:
+    enableNotifications: true
+  kafka:
+    hostname: eric-data-message-bus-kf-client
+    port: 9092
+  persistence:
+    persistentVolumeClaim:
+      storageClassName: local-storage
+      size: 5Gi
+  resources:
+    backupAndRestore:
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+        ephemeral-storage: "250Mi"
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "100Mi"
+  security:
+    tls:
+      broToAgent:
+        enabled: true
+      rest:
+        enabled: false
+
+eric-sec-access-mgmt:
+  enabled: true
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  statefulset:
+    adminSecret: eric-sec-access-mgmt-creds
+    userkey: kcadminid
+    passwdkey: kcpasswd
+  service:
+    tls:
+      enabled: true
+  global:
+    security:
+      tls:
+        enabled: true
+  tls:
+    client:
+      pg:
+        ## The issuer must match the issuer named by PG chart. The general format
+        ## [chart-name]-client-ca. Change the value when PG chart is installed with
+        ## a different alias, accordingly.
+        issuer: eric-idam-database-pg-client-ca
+        ## The PG database user name must be the subject of client certificate
+        ## if the user does not exist it will be created automatically
+        subject: "pguser"
+        mountPath: "/run/secrets/pg-client-certificate"
+  ingress:
+    enabled: false
+    hostname: eric-sec-access-mgmt # Don't change, otherwise RBAC proxy won't work.
+    inghostname: #iam.fqdn.of.your.cluster # Update this to create the NGINX Ingress
+  persistence:
+    dbHost: eric-idam-database-pg
+    dbName: idam
+    dbUserkey: amUKey
+    dbPasswdkey: amPKey
+    dbsecret: eric-data-document-database-pg-credentials
+    tls:
+      enabled: false # If this is true then the pod is not deployed due to a fault in the statefulset.
+  resources:
+    iam:
+      requests:
+        cpu: 300m
+        memory: 768Mi
+      limits:
+        cpu: 3000m
+        memory: 2036Mi
+  metrics:
+    enabled: false
+  http:
+    hostValidation:
+      ## Host Validation is always enabled by default. Following hosts are
+      ## considered valid by default:
+      ## * IAM service DNS
+      ## * Ingress hostname
+      ## Additinally a comma-separated list of values to be considered valid
+      ## for the HTTP `Host` header in requests passed to IAM (during Host
+      ## header validation) can be specified below.
+      allowedHosts:
+
+eric-data-search-engine-rbac-proxy:
+  enabled: false
+  nameOverride: eric-data-search-engine-rbac-proxy
+  config:
+    upstream:
+      url: http://eric-data-search-engine:9200
+      caSecret:
+    certAuth:
+      enabled: false
+      clientCaSecret:
+    oidcAuth:
+      enabled: true
+      caSecret: eric-sec-sip-tls-trusted-root-cert
+      clientId: AuthorizationClient
+      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
+      usernameClaim: email
+      groupsClaim: groups
+    verbose: false
+  ingress:
+    enabled: true
+    fqdn:
+
+eric-fh-alarm-handler-rbac-proxy:
+  enabled: false
+  nameOverride: eric-fh-alarm-handler-rbac-proxy
+  config:
+    upstream:
+      url: http://eric-fh-alarm-handler:5005
+      caSecret:
+    certAuth:
+      enabled: false
+      clientCaSecret:
+    oidcAuth:
+      enabled: true
+      caSecret: eric-sec-sip-tls-trusted-root-cert
+      clientId: AuthorizationClient
+      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
+      usernameClaim: email
+      groupsClaim: groups
+    verbose: false
+  ingress:
+    enabled: true
+    fqdn:
+
+eric-pm-server-rbac-proxy:
+  enabled: false
+  nameOverride: eric-pm-server-rbac-proxy
+  config:
+    upstream:
+      url: http://eric-pm-server:9090
+      caSecret:
+    certAuth:
+      enabled: false
+      clientCaSecret:
+    oidcAuth:
+      enabled: true
+      caSecret: eric-sec-sip-tls-trusted-root-cert
+      clientId: AuthorizationClient
+      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
+      usernameClaim: email
+      groupsClaim: groups
+    verbose: false
+  ingress:
+    enabled: true
+    fqdn:
+
+eric-cm-mediator-rbac-proxy:
+  enabled: false
+  nameOverride: eric-cm-mediator-rbac-proxy
+  config:
+    upstream:
+      url: https://eric-cm-mediator:5004
+      caSecret: eric-sec-sip-tls-trusted-root-cert
+    certAuth:
+      enabled: false
+      clientCaSecret:
+    oidcAuth:
+      enabled: true
+      caSecret: eric-sec-sip-tls-trusted-root-cert
+      clientId: AuthorizationClient
+      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
+      usernameClaim: email
+      groupsClaim: groups
+    verbose: false
+  ingress:
+    enabled: true
+    fqdn:
+
 eric-pm-bulk-reporter:
   enabled: false
+  userConfig:
+    secretName: pm-br-sftp-users-secret
+    secretKey: users.yaml
   resources:
-    alarmreporter:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 500Mi
-        memory: 200Mi
-      requests:
-        cpu: 100m
-        ephemeral-storage: 50Mi
-        memory: 50Mi
-    bulkreporter:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 500Mi
-        memory: 200Mi
-      requests:
-        cpu: 100m
-        ephemeral-storage: 50Mi
-        memory: 50Mi
     initcontainer:
+      requests:
+        cpu: "50m"
+        memory: "50Mi"
       limits:
         cpu: "1"
-        memory: 200Mi
+        memory: "200Mi"
+    bulkreporter:
       requests:
-        cpu: 50m
-        memory: 50Mi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 50m
-        memory: 50Mi
-    pmsftp:
-      limits:
-        cpu: "1"
-        ephemeral-storage: 500Mi
-        memory: 200Mi
-      requests:
-        cpu: 50m
+        cpu: "100m"
+        memory: "50Mi"
         ephemeral-storage: 50Mi
-        memory: 50Mi
+      limits:
+        cpu: "1"
+        memory: "200Mi"
+        ephemeral-storage: 500Mi
+    alarmreporter:
+      requests:
+        cpu: "100m"
+        memory: "50Mi"
+        ephemeral-storage: 50Mi
+      limits:
+        cpu: "1"
+        memory: "200Mi"
+        ephemeral-storage: 500Mi
+    pmsftp:
+      requests:
+        cpu: "50m"
+        memory: "50Mi"
+        ephemeral-storage: 50Mi
+      limits:
+        cpu: "1"
+        memory: "200Mi"
+        ephemeral-storage: 500Mi
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
   thresholdReporter:
     enabled: false
     kafkahost: eric-data-message-bus-kf:9093
-    thresholdGps: ten-seconds thirty-seconds one-min five-min fifteen-min thirty-min
-      one-hour twelve-hour one-day
-  userConfig:
-    secretKey: users.yaml
-    secretName: pm-br-sftp-users-secret
-  yangModelSupport:
-    enabled: false
+    thresholdGps: "ten-seconds thirty-seconds one-min five-min fifteen-min thirty-min one-hour twelve-hour one-day"
+  #nodeSelector:
+
+
 eric-pm-server:
   enabled: false
-  rbac:
-    appMonitoring:
-      configFileCreate: false
-      enabled: true
-  resources:
-    eric-pm-configmap-reload:
-      limits:
-        cpu: 200m
-        memory: 32Mi
-      requests:
-        cpu: 100m
-        memory: 8Mi
-    eric-pm-exporter:
-      limits:
-        cpu: 200m
-        memory: 32Mi
-      requests:
-        cpu: 100m
-        memory: 8Mi
-    eric-pm-reverseproxy:
-      limits:
-        cpu: "2"
-        memory: 128Mi
-      requests:
-        cpu: 100m
-        memory: 32Mi
-    eric-pm-server:
-      limits:
-        cpu: "2"
-        memory: 2048Mi
-      requests:
-        cpu: 250m
-        memory: 512Mi
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 50Mi
-      requests:
-        cpu: 50m
-        memory: 25Mi
   server:
+    serviceAccountName: eric-pm-server
     persistentVolume:
+      enabled: true
       accessModes:
       - ReadWriteOnce
       annotations: {}
-      enabled: true
-      mountPath: /data
-      retention: 15d
+      mountPath: "/data"
       size: 8Gi
       storageConnectivity: networked
-      subPath: ""
-    serviceAccountName: eric-pm-server
+      subPath: ''
+      retention: '15d'
+      # storageClass: local-storage # Use when storageConnectivity is local
+    #replicaCount: 1
+  rbac:
+    appMonitoring:
+      enabled: true
+      configFileCreate: false
+  resources:
+    eric-pm-server:
+      limits:
+        cpu: "2"
+        memory: "2048Mi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    eric-pm-configmap-reload:
+      limits:
+        cpu: "200m"
+        memory: "32Mi"
+      requests:
+        cpu: "100m"
+        memory: "8Mi"
+    eric-pm-exporter:
+      limits:
+        cpu: "200m"
+        memory: "32Mi"
+      requests:
+        cpu: "100m"
+        memory: "8Mi"
+    eric-pm-reverseproxy:
+      limits:
+        cpu: "2"
+        memory: "128Mi"
+      requests:
+        cpu: "100m"
+        memory: "32Mi"
+    logshipper:
+      limits:
+        cpu: "100m"
+        memory: "50Mi"
+      requests:
+        cpu: "50m"
+        memory: "25Mi"
+  #imageCredentials:
+    #repoPath: "proj-common-assets-cd/monitoring/pm"
+  # Expose pm-server to run on port 9090
+  service:
+    endpoints:
+      reverseproxy:
+        tls:
+          verifyClientCertificate: optional
   serverFiles:
-    kafkaMetrics-rules.yml: |
-      groups:
-        - name: kafkaMetrics
-          rules:
-            - record: kafka_cpu_usages
-              expr: sum(rate(container_cpu_usage_seconds_total{name=~".*message-bus-kf.*", image!="", container!="POD"}[10m])) by (pod, container) / sum(container_spec_cpu_quota{name=~".*message-bus-kf.*", image!="", container!="POD"}/container_spec_cpu_period{name=~".*message-bus-kf.*", image!="", container!="POD"}) by (pod, container)
-            - record: kafka_memory_usage
-              expr: rate(java_lang_OperatingSystem_FreePhysicalMemorySize{kubernetes_pod_name=~".*message-bus-kf.*"}[5m]) / java_lang_OperatingSystem_TotalPhysicalMemorySize{kubernetes_pod_name=~".*message-bus-kf.*"}
-            - record: kafka_disk_usage
-              expr: (kubelet_volume_stats_capacity_bytes {persistentvolumeclaim=~".*message-bus-kf.*"} - kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*message-bus-kf.*"}) / kubelet_volume_stats_capacity_bytes {persistentvolumeclaim=~".*message-bus-kf.*"} * 100
-            - record: kafka_produce_processing_time
-              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="Produce"})
-            - record: kafka_fetch_processing_time
-              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="Fetch"})
-            - record: kafka_fetchConsumer_processing_time
-              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="FetchConsumer"})
-            - record: kafka_failure_request_count
-              expr: sum(kafka_network_RequestMetrics_Count{name="ErrorsPerSec",error!="NONE"})
-            - record: kafka_produce_purgatory_size
-              expr: Max(kafka_server_DelayedOperationPurgatory_Value{name="PurgatorySize",delayedOperation="Produce"})
-            - record: kafka_fetch_purgatory_size
-              expr: Max(kafka_server_DelayedOperationPurgatory_Value{name="PurgatorySize",delayedOperation="Fetch"})
-            - record: kafka_replicated_partition_size
-              expr: sum(kafka_server_ReplicaManager_Value{name="UnderReplicatedPartitions"})
-            - record: kafka_partition_without_leader
-              expr: sum(kafka_controller_KafkaController_Value{name="OfflinePartitionsCount"})
-            - record: kafka_leader_election_rate
-              expr: sum(kafka_controller_ControllerStats_50thPercentile{name="LeaderElectionRateAndTimeMs"})
-            - record: kafka_active_controller_count
-              expr: sum(kafka_controller_KafkaController_Value{name="ActiveControllerCount"})
-            - record: kafka_unclean_leader_election_rate
-              expr: sum(kafka_controller_ControllerStats_FiveMinuteRate{name="UncleanLeaderElectionsPerSec"})
-            - record: kafka_max_lag_between_leader_and_follower
-              expr: kafka_server_ReplicaFetcherManager_Value{app="eric-data-message-bus-kf",name="MaxLag"}
     prometheus.yml: |
       global:
         scrape_interval: 15s
@@ -1769,190 +1851,282 @@ eric-pm-server:
               expr: max(cassandra_table_live_sstables)
             - record: Cassandra_table_sstable_per_read_count
               expr: max(cassandra_table_sstables_per_read)
-  service:
-    endpoints:
-      reverseproxy:
-        tls:
-          verifyClientCertificate: optional
-eric-pm-server-rbac-proxy:
-  config:
-    certAuth:
-      clientCaSecret: null
-      enabled: false
-    oidcAuth:
-      caSecret: eric-sec-sip-tls-trusted-root-cert
-      clientId: AuthorizationClient
-      enabled: true
-      groupsClaim: groups
-      issuerUrl: https://eric-sec-access-mgmt/auth/realms/master
-      usernameClaim: email
-    upstream:
-      caSecret: null
-      url: http://eric-pm-server:9090
-    verbose: false
-  enabled: false
-  ingress:
-    enabled: true
-    fqdn: null
-  nameOverride: eric-pm-server-rbac-proxy
-eric-sec-access-mgmt:
-  authenticationProxy:
-    cookieDomain: ""
-    enabled: false
-    ingress:
-      enabled: false
-    lastlogintimeEnabled: true
-  enabled: true
-  global:
-    security:
-      tls:
-        enabled: true
-  http:
-    hostValidation:
-      allowedHosts: null
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  ingress:
-    enabled: false
-    hostname: eric-sec-access-mgmt
-    inghostname: null
-  logLevel: info
-  metrics:
-    enabled: false
-  persistence:
-    dbHost: eric-idam-database-pg
-    dbName: idam
-    dbPasswdkey: amPKey
-    dbUserkey: amUKey
-    dbsecret: eric-data-document-database-pg-credentials
-    tls:
-      enabled: false
-  resources:
-    iam:
-      limits:
-        cpu: 3000m
-        memory: 2036Mi
-      requests:
-        cpu: 300m
-        memory: 768Mi
-  service:
-    tls:
-      enabled: true
-  sipoauth2:
-    enabled: false
-  statefulset:
-    adminSecret: eric-sec-access-mgmt-creds
-    passwdkey: kcpasswd
-    userkey: kcadminid
-  tls:
-    client:
-      pg:
-        issuer: eric-idam-database-pg-client-ca
-        mountPath: /run/secrets/pg-client-certificate
-        subject: pguser
-  updateStrategy:
-    iam:
-      type: RollingUpdate
-eric-sec-key-management:
-  enabled: true
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  persistence:
-    etcd:
-      tls:
-        enabled: true
-    type: etcd
-  replicas: 2
-  resources:
-    vault:
-      limits:
-        cpu: 300m
-        memory: 1200Mi
-      requests:
-        cpu: 100m
-        memory: 400Mi
-  service:
-    tls:
-      enabled: true
-  shelter:
-    enabled: true
-  updateStrategy:
-    type: RollingUpdate
-eric-sec-sip-tls:
-  enabled: true
-  etcd:
-    hostname: eric-data-distributed-coordinator-ed
-  imageCredentials:
-    pullPolicy: IfNotPresent
-  kafka:
-    hostname: eric-data-message-bus-kf
-  keyManagement:
-    hostname: eric-sec-key-management
-    port: 8210
-  logLevel: info
-  replicaCount: 2
-  resources:
-    logshipper:
-      limits:
-        cpu: 100m
-        memory: 100Mi
-      requests:
-        cpu: 80m
-        memory: 80Mi
-    sip-tls:
-      limits:
-        cpu: 1000m
-        memory: 400Mi
-      requests:
-        cpu: 100m
-        memory: 200Mi
-    sip-tls-init:
-      limits:
-        cpu: 300m
-        memory: 200Mi
-      requests:
-        cpu: 100m
-        memory: 100Mi
-    sip-tls-supervisor:
-      limits:
-        cpu: 300m
-        memory: 400Mi
-      requests:
-        cpu: 100m
-        memory: 200Mi
-  updateStrategy:
-    type: RollingUpdate
-eric-sec-sip-tls-crd:
-  enabled: false
+    kafkaMetrics-rules.yml: |
+      groups:
+        - name: kafkaMetrics
+          rules:
+            - record: kafka_cpu_usages
+              expr: sum(rate(container_cpu_usage_seconds_total{name=~".*message-bus-kf.*", image!="", container!="POD"}[10m])) by (pod, container) / sum(container_spec_cpu_quota{name=~".*message-bus-kf.*", image!="", container!="POD"}/container_spec_cpu_period{name=~".*message-bus-kf.*", image!="", container!="POD"}) by (pod, container)
+            - record: kafka_memory_usage
+              expr: rate(java_lang_OperatingSystem_FreePhysicalMemorySize{kubernetes_pod_name=~".*message-bus-kf.*"}[5m]) / java_lang_OperatingSystem_TotalPhysicalMemorySize{kubernetes_pod_name=~".*message-bus-kf.*"}
+            - record: kafka_disk_usage
+              expr: (kubelet_volume_stats_capacity_bytes {persistentvolumeclaim=~".*message-bus-kf.*"} - kubelet_volume_stats_available_bytes{persistentvolumeclaim=~".*message-bus-kf.*"}) / kubelet_volume_stats_capacity_bytes {persistentvolumeclaim=~".*message-bus-kf.*"} * 100
+            - record: kafka_produce_processing_time
+              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="Produce"})
+            - record: kafka_fetch_processing_time
+              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="Fetch"})
+            - record: kafka_fetchConsumer_processing_time
+              expr: max(kafka_network_RequestMetrics_99thPercentile{name="TotalTimeMs", request="FetchConsumer"})
+            - record: kafka_failure_request_count
+              expr: sum(kafka_network_RequestMetrics_Count{name="ErrorsPerSec",error!="NONE"})
+            - record: kafka_produce_purgatory_size
+              expr: Max(kafka_server_DelayedOperationPurgatory_Value{name="PurgatorySize",delayedOperation="Produce"})
+            - record: kafka_fetch_purgatory_size
+              expr: Max(kafka_server_DelayedOperationPurgatory_Value{name="PurgatorySize",delayedOperation="Fetch"})
+            - record: kafka_replicated_partition_size
+              expr: sum(kafka_server_ReplicaManager_Value{name="UnderReplicatedPartitions"})
+            - record: kafka_partition_without_leader
+              expr: sum(kafka_controller_KafkaController_Value{name="OfflinePartitionsCount"})
+            - record: kafka_leader_election_rate
+              expr: sum(kafka_controller_ControllerStats_50thPercentile{name="LeaderElectionRateAndTimeMs"})
+            - record: kafka_active_controller_count
+              expr: sum(kafka_controller_KafkaController_Value{name="ActiveControllerCount"})
+            - record: kafka_unclean_leader_election_rate
+              expr: sum(kafka_controller_ControllerStats_FiveMinuteRate{name="UncleanLeaderElectionsPerSec"})
+            - record: kafka_max_lag_between_leader_and_follower
+              expr: kafka_server_ReplicaFetcherManager_Value{app="eric-data-message-bus-kf",name="MaxLag"}
+  #nodeSelector:
+
 eric-tm-ingress-controller-cr-crd:
   enabled: false
-fullnameOverride: ""
-global:
-  ingress:
-    annotations:
-      kubernetes.io/ingress.class: nginx
-      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-      nginx.ingress.kubernetes.io/use-regex: "true"
-    controllerType: nginx
-iamAuth:
-  multitenancy: false
-  superUserOrganizationId: eeeeeeee-117e-11ec-82a8-0242ac130003
-  superUserOrganizationName: Ericsson
-  superUserPrivilegeName: EriSuperUserPriv
-image: 451278531435.dkr.ecr.us-east-1.amazonaws.com/proj-adp-eric-data-distributed-coordinator-ed-drop/eric-data-distributed-coordinator-ed:3.3.0-13
-imagePullSecrets: []
-ingress:
-  annotations: {}
+
+eric-lcm-container-registry:
   enabled: false
-  hosts:
-  - host: chart-example.local
-    paths: []
-  tls: []
-nameOverride: ""
-nodeSelector: {}
-replicaCount: 1
-resources: {}
-service:
-  port: 80
-  type: ClusterIP
-tolerations: []
+  registry:
+    users:
+      secret: eric-lcm-container-registry
+
+eric-lcm-helm-chart-registry:
+  enabled: false
+
+eric-bss-kafka-proxy:
+  enabled: false
+
+eric-nels-database-pg:
+  nameOverride: eric-nels-database-pg
+  enabled: true
+  # global:
+  #   security:
+  #     tls:
+  #       enabled: false
+  imageCredentials:
+    pullPolicy: IfNotPresent
+  highAvailability:
+    synchronousModeEnabled: true
+    replicaCount: 1
+  postgresDatabase: "licensemanager_db"
+  credentials:
+    kubernetesSecretName: "eric-data-document-database-pg-credentials"
+    keyForUserId: "nelsUKey"
+    keyForUserPw: "nelsPKey"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  persistentVolumeClaim:
+    storageClassName: local-storage
+    enabled: true
+    size: 8Gi
+  patroni:
+    logLevel: INFO
+  metrics:
+    enabled: true
+    logLevel: info
+    service:
+      port: 9187
+  resources:
+    logshipper:
+      requests:
+        memory: "50Mi"
+        cpu: "50m"
+      limits:
+        memory: "100Mi"
+        cpu: "100m"
+    postgres:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+        hugepages-2Mi:
+        hugepages-1Gi:
+      limits:
+        cpu: "1"
+        memory: "2560Mi"
+        hugepages-2Mi:
+        hugepages-1Gi:
+    metrics:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    kube_client:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    brm:
+      requests:
+        memory: "256Mi"
+        cpu: "300m"
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+    bra:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+        ephemeral-storage: "10Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+        ephemeral-storage: "12Gi"
+  service:
+    endpoints:
+      postgres:
+        tls:
+          enforced: required
+      postgresExporter:
+        tls:
+          enforced: optional
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity: "soft" # String value, valid values are "soft" or "hard".
+  security:
+    postgres:
+      tls:
+        enable: true
+
+eric-lm-combined-server:
+  nameOverride: eric-lm-combined-server
+  enabled: true
+  imageCredentials:
+    pullSecret: scmcred
+  # Mandatory: global.ericsson.licensing.licenseDomains - The licensing domain information for
+  # each product type used by ADP LM, formatted as entries in an array like so:
+  #  - productType: <product type>
+  #    swltId: <software license target ID>
+  #    customerId: <customer Id>
+  global:
+    ericsson:
+      licensing:
+        licenseDomains:
+          - productType: CATALOG_MANAGER # ECM
+            swltId: STB-CATALOG_MANAGER-1
+            customerId: 800141
+          - productType: ORDER_CARE # EOC
+            swltId: STB-ORDER_CARE-1
+            customerId: 800141
+    # security:
+    #   tls:
+    #     enabled: false
+  licenseServerClient:
+    licenseServer:
+      thrift:
+        host: 10.221.14.90 # Central Nels Server
+  database:
+    credentials:
+      secretName: eric-data-document-database-pg-credentials
+      userKey: nelsUKey
+      passwordKey: nelsPKey
+    host: eric-nels-database-pg
+    # tls:
+    #   enforced: optional
+  tls:
+    lch:
+      # tls.lch.certTtl - The duration (seconds) that the certificate is valid, range 180 - 315576000
+      certTtl: 15778800
+
+eric-data-object-storage-mn:
+  enabled: false
+  ## set kubernetes cluster domain where object-storage service is running
+  ##
+  clusterDomain: cluster.local
+
+  ## distributed  vs standalone
+  ##
+  mode: distributed
+
+  ## Pod priority settings
+  ##
+  priorityClassName: ""
+
+  ## Mandatory parameters
+  ## Credentials to access storage service, a standard k8s secret, with data: accesskey and secretkey.
+  credentials:
+    kubernetesSecretName: "object-storage-secret"
+    accesskey: "TESTPKEY"
+    secretkey: "TESTPKEY"
+
+  ## Set default Minio volume mount path and number of nodes (only used for Minio distributed mode)
+  ##
+  mountPath: "/export"
+  replicas: 4
+
+  ## TLS Settings for Minio
+  tls:
+    ## Given secret with publicCrt and privateKey files and pass that here as service certificate.
+    ## Otherwise SIP-TLS auto-generates a service certificate as default if certSecret "".
+    certSecret: ""
+    publicCrt: public.crt
+    privateKey: private.key
+    # Root CA for connecting Object Storage by HTTPS
+    caSecret: "eric-sec-sip-tls-trusted-root-cert"
+    caCert: "cacertbundle.pem"
+
+
+  ## Object Storage Data Scurity, auto Encryption/Decryption Setting
+  ## Object Storage sevice ensures all uploaded objects are encrypted using specified KMS configuration.
+  ## It only supports approle authentication type to login KMS. And tls enable is mandatory.
+  ##
+  autoEncryption:
+    enabled: true
+    kmsConfigSecret: eric-data-object-storage-mn-kms-set
+
+  ## Persistent storage attributes (mandatory parameters)
+  ##
+  ##  Object storage pods use local storage if storageConnectivity set as "local".
+  ##  Because local volumes do not currently support dynamic provisioning, this
+  ##  requires system administrator to prepare,
+  ##    1. Specified StorageClass to delay volume binding until pod scheduling.
+  ##    2. PersistentVolume with spec.storageClassName as "local storage" per worker node.
+  ##  Note:
+  ##    The number of worker node must be equal or large than replicas number in distributed mode.
+  ##    And, guarantee the node in health state so that the pod can be scheduled on that node.
+
+  persistentVolumeClaim:
+    # The storage class name for persistent volume,
+    storageClassName: "local-storage"
+    # The connectivity of the storage, either local or networked, networked is default
+    storageConnectivity: local
+    #size of each pvc
+    size: 10Gi
+    #pvc name format: [volumeNamePrefix-]helmRelease-ChartName
+    volumeNamePrefix: export
+    # If subPath is set mount a sub folder of a volume instead of the root of the volume.
+    subPath: ""
+
+  ## Custom Ingess to access Minio presigned URL from Web application
+  ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+        nginx.ingress.kubernetes.io/proxy-body-size: 20m
+        nginx.ingress.kubernetes.io/proxy-connect-timeout: "180"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
+        nginx.ingress.kubernetes.io/upstream-vhost: eric-data-object-storage-mn:9000
+        nginx.ingress.kubernetes.io/use-regex: "true"
+        nginx.ingress.kubernetes.io/rewrite-target: /$1
+      hosts:
+        - host: ingress-nginx
+          paths:
+          - /
+      tls:
+        - secretName: extingresscerts
+          hosts:
+          - ingress-nginx

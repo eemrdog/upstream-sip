@@ -1,0 +1,16 @@
+{{- if and .Values.brAgent.enabled (eq .Values.brAgent.backupRepository.type "fs") -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-repository
+  labels:
+{{- include "eric-data-search-engine.labels" . | indent 4 }}
+spec:
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backup.persistentVolumeClaim.size | quote }}
+  accessModes: ["ReadWriteMany"]
+  {{- if .Values.persistence.backup.persistentVolumeClaim.storageClassName }}
+  storageClassName: {{ .Values.persistence.backup.persistentVolumeClaim.storageClassName | quote }}
+  {{- end }}
+{{- end }}

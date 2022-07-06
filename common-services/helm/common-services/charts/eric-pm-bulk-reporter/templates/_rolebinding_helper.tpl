@@ -19,11 +19,8 @@
   {{- end -}}
 {{- end -}}
 
-# Automatically generated annotations for documentation purposes.
 {{- define "eric-pm-bulk-reporter.roleBinding.annotations" -}}
-  {{- $static := dict -}}
-  {{- $_ := set $static "ericsson.com/security-policy.type" "restricted/custom" -}}
-  {{- $_ := set $static "ericsson.com/security-policy.capabilities" "audit_write chown kill net_bind_service setgid setuid sys_chroot" -}}
-  {{- $annotations := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
-  {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $static $annotations)) | trim }}
+# Automatically generated annotations for documentation purposes.
+ericsson.com/security-policy.type: "restricted/custom"
+ericsson.com/security-policy.capabilities: "audit_write chown kill net_bind_service setgid setuid sys_chroot"
 {{- end -}}

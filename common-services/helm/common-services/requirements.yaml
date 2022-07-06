@@ -1,100 +1,100 @@
 dependencies:
-  - condition: eric-log-shipper.enabled
-    name: eric-log-shipper
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 9.3.0+24
-  - condition: eric-log-transformer.enabled
-    name: eric-log-transformer
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 8.2.0+17
-  - condition: eric-data-search-engine.enabled
-    name: eric-data-search-engine
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 10.1.0+22
-  - condition: eric-data-search-engine-curator.enabled
-    name: eric-data-search-engine-curator
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 2.9.0+22
-  - condition: eric-sec-sip-tls.enabled
-    name: eric-sec-sip-tls
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 4.2.0+32
-  - condition: eric-sec-key-management.enabled
-    name: eric-sec-key-management
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 3.4.0+15
-  - condition: eric-data-distributed-coordinator-ed.enabled
-    name: eric-data-distributed-coordinator-ed
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 3.3.0+13
-  - alias: eric-idam-database-pg
-    condition: eric-idam-database-pg.enabled
-    name: eric-data-document-database-pg
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.4.0+44
-  - alias: eric-bss-notification-service-database-pg
-    condition: eric-bss-notification-service-database-pg.enabled
-    name: eric-data-document-database-pg
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.4.0+44
-  - alias: eric-fm-database-pg
-    condition: eric-fm-database-pg.enabled
-    name: eric-data-document-database-pg
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.4.0+44
-  - alias: eric-cm-database-pg
-    condition: eric-cm-database-pg.enabled
-    name: eric-data-document-database-pg
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.4.0+44
-  - condition: eric-data-coordinator-zk.enabled
-    name: eric-data-coordinator-zk
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 1.28.0+12
-  - condition: eric-data-message-bus-kf.enabled
-    name: eric-data-message-bus-kf
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 1.27.0+21
-  - condition: eric-cm-mediator.enabled
-    name: eric-cm-mediator
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.16.0+29
-  - condition: eric-fh-alarm-handler.enabled
-    name: eric-fh-alarm-handler
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 8.3.0+63
-  - condition: eric-fh-snmp-alarm-provider.enabled
-    name: eric-fh-snmp-alarm-provider
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 6.3.0+49
-  - condition: eric-ctrl-bro.enabled
-    name: eric-ctrl-bro
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 5.5.0+49
-  - condition: eric-sec-access-mgmt.enabled
-    name: eric-sec-access-mgmt
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 12.0.0+39
-  - condition: eric-pm-server.enabled
-    name: eric-pm-server
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 10.0.0+14
-  - condition: eric-pm-bulk-reporter.enabled
-    name: eric-pm-bulk-reporter
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.5.0+19
-  - alias: eric-nels-database-pg
-    condition: eric-nels-database-pg.enabled
-    name: eric-data-document-database-pg
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
-    version: 7.4.0+44
-  - alias: eric-lm-combined-server
-    condition: eric-lm-combined-server.enabled
-    name: eric-lm-combined-server
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
-    version: 6.0.0+38
-  - alias: eric-data-object-storage-mn
-    condition: eric-data-object-storage-mn.enabled
-    name: eric-data-object-storage-mn
-    repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-eric-data-object-storage-mn-released-helm
-    version: 1.23.0+22
+- condition: eric-log-shipper.enabled
+  name: eric-log-shipper
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 8.0.0+19
+- condition: eric-log-transformer.enabled
+  name: eric-log-transformer
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 7.0.1+2
+- condition: eric-data-search-engine.enabled
+  name: eric-data-search-engine
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 8.2.0+28
+- condition: eric-data-search-engine-curator.enabled
+  name: eric-data-search-engine-curator
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 2.6.0+18
+- condition: eric-sec-sip-tls.enabled
+  name: eric-sec-sip-tls
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 3.0.0+46
+- condition: eric-sec-key-management.enabled
+  name: eric-sec-key-management
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 2.24.0+10
+- condition: eric-data-distributed-coordinator-ed.enabled
+  name: eric-data-distributed-coordinator-ed
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 3.0.0+9
+- alias: eric-idam-database-pg
+  condition: eric-idam-database-pg.enabled
+  name: eric-data-document-database-pg
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.4.0+9
+- alias: eric-bss-notification-service-database-pg
+  condition: eric-bss-notification-service-database-pg.enabled
+  name: eric-data-document-database-pg
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.4.0+9
+- alias: eric-fm-database-pg
+  condition: eric-fm-database-pg.enabled
+  name: eric-data-document-database-pg
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.4.0+9
+- alias: eric-cm-database-pg
+  condition: eric-cm-database-pg.enabled
+  name: eric-data-document-database-pg
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.4.0+9
+- condition: eric-data-coordinator-zk.enabled
+  name: eric-data-coordinator-zk
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 1.24.0+5
+- condition: eric-data-message-bus-kf.enabled
+  name: eric-data-message-bus-kf
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 1.23.0+17
+- condition: eric-cm-mediator.enabled
+  name: eric-cm-mediator
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 7.11.0+17
+- condition: eric-fh-alarm-handler.enabled
+  name: eric-fh-alarm-handler
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 7.5.0+23
+- condition: eric-fh-snmp-alarm-provider.enabled
+  name: eric-fh-snmp-alarm-provider
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 6.0.0+5
+- condition: eric-ctrl-bro.enabled
+  name: eric-ctrl-bro
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 5.1.0+18
+- condition: eric-sec-access-mgmt.enabled
+  name: eric-sec-access-mgmt
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 9.1.0+36
+- condition: eric-pm-server.enabled
+  name: eric-pm-server
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 6.6.0+23
+- condition: eric-pm-bulk-reporter.enabled
+  name: eric-pm-bulk-reporter
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.7.0+51
+- alias: eric-nels-database-pg
+  condition: eric-nels-database-pg.enabled
+  name: eric-data-document-database-pg
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm/
+  version: 6.4.0+9
+- alias: eric-lm-combined-server
+  condition: eric-lm-combined-server.enabled
+  name: eric-lm-combined-server
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-gs-all-helm
+  version: 5.0.0+15
+- alias: eric-data-object-storage-mn
+  condition: eric-data-object-storage-mn.enabled
+  name: eric-data-object-storage-mn
+  repository: https://arm.sero.gic.ericsson.se/artifactory/proj-adp-eric-data-object-storage-mn-released-helm
+  version: 1.19.0+5

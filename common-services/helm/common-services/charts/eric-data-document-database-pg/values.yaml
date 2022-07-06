@@ -1,7 +1,7 @@
-# global:
+#global:
 #  pullSecret:
 #  registry:
-#    url: armdocker.rnd.ericsson.se
+#    url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
 #    pullSecret: # deprecated
 #    imagePullPolicy:
 #  adpBR:
@@ -21,8 +21,6 @@
   #    erole-f003d240cca24da741: customer-z-network
   #internalIPFamily: IPv6 or IPv4
   #nodeSelector: {}
-  # networkPolicy:
-  #   enabled: false
  
 brAgent:
   enabled: false
@@ -42,7 +40,7 @@ brAgent:
   backupTypeList: []
 
   properties:
-    production_date: 2022-04-14
+    production_date: 2021-12-16
   ## By default, brLabelValue is the Chart.Name which is unique
   brLabelValue:
   ## For backupTypeList only declares a single value, backup and restore action need more parameters which will
@@ -247,10 +245,6 @@ resources:
       cpu: "1"
       memory: "2Gi"
       ephemeral-storage: "12Gi"
-    jvm:
-      initialMemoryAllocationPercentage: 50%
-      smallMemoryAllocationMaxPercentage: 70%
-      largeMemoryAllocationMaxPercentage: 50%
 service:
   port: 5432
   # nodePort:
@@ -410,27 +404,7 @@ securityContext:
 topologySpreadConstraints:
   postgres: []
 
-# Pod priority configuration aligned to DR-D1120-110-AD
-podPriority:
-    postgres:
-        priorityClassName: "" # No priority set
-    brAgent:
-        priorityClassName: ""
-    cleanuphook:
-        priorityClassName: ""
-
-# Pod bandwidth limit comply with DR-D1125-040-AD
-bandwidth:
-  postgres:
-    maxEgressRate:
-  brAgent:
-    maxEgressRate:
-  cleanuphook:
-    maxEgressRate:
-
 labels: {}
 annotations: {}
 
-networkPolicy:
-  enabled: true
-  matchLabels: []
+targetPGversion: "10"

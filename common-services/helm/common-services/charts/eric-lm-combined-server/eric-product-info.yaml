@@ -4,28 +4,28 @@ images:
   databaseMigration:
     productName: "database_migration_image"
     productNumber: "CXC 201 2374"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-license-manager-released
     name: "eric-lm-database-migration"
-    tag: 6.0.0-38
+    tag: 5.0.0-15
   lch:
     productName: "lch_image"
     productNumber: "CXC 201 1716"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-license-manager-released
     name: "eric-lm-license-consumer-handler"
-    tag: 6.0.0-38
+    tag: 5.0.0-15
   lsc:
     productName: "lsc_image"
     productNumber: "CXC 201 2375"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-license-manager-released
     name: "eric-lm-license-server-client"
-    tag: 6.0.0-38
-  logshipper:
+    tag: 5.0.0-15
+  logShipper:
     productName: "log_shipper_image"
     productNumber: "CXU 101 0642"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: "proj-adp-log-released"
     name: "eric-log-shipper"
-    tag: 8.2.0-16
+    tag: 7.3.0-23

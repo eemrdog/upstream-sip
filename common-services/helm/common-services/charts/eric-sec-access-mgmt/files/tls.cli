@@ -3,23 +3,21 @@
 ## The following will configure a Keystore, Key manager and SSL context used by the IAM server
 ## env.KEYSTORE_SECRET needs to exist and is used to access the keystore contents
 ## In the current implementation env.KEYSTORE_SECRET is not permanently stored in the ENV of the container
-/subsystem=elytron/key-store=httpsKS:add(path=${env.RUNDIR_SAFE_PATH}/server.keystore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+/subsystem=elytron/key-store=httpsKS:add(path=server.keystore, relative-to=jboss.server.config.dir,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
 /subsystem=elytron/key-manager=httpsKM:add(key-store=httpsKS,credential-reference={clear-text=${env.KEYSTORE_SECRET}})
 ## Create truststore to be used for Auth proxy mTLS
 {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
 {{- if $global.security.tls.enabled }}
-/subsystem=elytron/key-store=qsTrustStore:add(path=${env.RUNDIR_SAFE_PATH}/server.truststore,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
+/subsystem=elytron/key-store=qsTrustStore:add(path=server.truststore,relative-to=jboss.server.config.dir,credential-reference={clear-text=${env.KEYSTORE_SECRET}},type=JKS)
 /subsystem=elytron/trust-manager=qsTrustManager:add(key-store=qsTrustStore)
 {{- if eq .Values.service.endpoints.iam.tls.verifyClientCertificate "optional" }}
-/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.3","TLSv1.2"], trust-manager=qsTrustManager, want-client-auth=true)
+/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.2"], trust-manager=qsTrustManager, want-client-auth=true)
 {{- else }}
-/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.3","TLSv1.2"], trust-manager=qsTrustManager, need-client-auth=true)
+/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.2"], trust-manager=qsTrustManager, need-client-auth=true)
 {{- end }}
 {{- else }}
-/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.3","TLSv1.2"])
+/subsystem=elytron/server-ssl-context=httpsSSC:add(key-manager=httpsKM,protocols=["TLSv1.2"])
 {{- end }}
-# TLS 1.3 is enabled only when cipher-suite-names are provided
-/subsystem=elytron/server-ssl-context=httpsSSC:write-attribute(name=cipher-suite-names,value=TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256)
 /subsystem=undertow/server=default-server/https-listener=https:undefine-attribute(name=security-realm)
 /subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=ssl-context,value=httpsSSC)
 /subsystem=undertow/server=default-server/https-listener=https: write-attribute(name=proxy-address-forwarding, value=${env.PROXY_ADDRESS_FORWARDING})

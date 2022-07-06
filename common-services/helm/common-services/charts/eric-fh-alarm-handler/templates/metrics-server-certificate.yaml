@@ -1,7 +1,6 @@
 {{- $tls := (include "eric-fh-alarm-handler.tls.enabled" .) -}}
 {{- $tlsOnly := (include "eric-fh-alarm-handler.metrics.server.tlsOnly" .) -}}
-{{- $metricsEnabled := ( .Values.service.endpoints.metrics.enabled | toString | lower) -}}
-{{- if eq $metricsEnabled "true" }}
+
 {{- if and (eq $tls "true") (eq $tlsOnly "true") }}
 apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
@@ -14,16 +13,13 @@ metadata:
 spec:
   kubernetes:
     generatedSecretName: {{ template "eric-fh-alarm-handler.metrics.server.certSecret" . }}
-    certificateName: cert.pem
-    privateKeyName: key.pem
   certificate:
     subject:
       cn: {{ template "eric-fh-alarm-handler.name" . }}
     extendedKeyUsage:
-      tlsClientAuth: false
-      tlsServerAuth: true
+      tlsClientAuth: False
+      tlsServerAuth: True
     subjectAlternativeName:
       dns:
         - {{ template "eric-fh-alarm-handler.metrics.client.subAltNameDN" . }}
-{{- end }}
 {{- end }}

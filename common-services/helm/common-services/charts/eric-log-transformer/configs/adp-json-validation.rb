@@ -13,8 +13,8 @@ def register(params)
     @cached_validators = Hash.new
 
     preload_schemas.each { |schema_file|
-        major_schema_version = File.basename(schema_file, ".*")[1..-1]
-        @cached_validators[major_schema_version] = JSONSchemer.schema(
+        schema_version = File.basename(schema_file, ".*")
+        @cached_validators[schema_version] = JSONSchemer.schema(
             Pathname.new(schema_file))
         logger.debug? && logger.debug("JSON schema loaded: #{schema_file}")
     }
@@ -41,8 +41,7 @@ def filter(event)
             return [event]
         end
 
-        major_version = version.partition(".").first
-        validator = @cached_validators["#{major_version}"]
+        validator = @cached_validators["#{version}"]
         if !validator.nil?
 
             if @report_validation_errors

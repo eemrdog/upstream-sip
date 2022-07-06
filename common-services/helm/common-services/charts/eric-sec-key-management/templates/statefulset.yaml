@@ -8,7 +8,7 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
 
 ---
 
@@ -28,28 +28,23 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- $svcAcc := dict -}}
-    {{- $_ := set $svcAcc "kubernetes.io/service-account.name" (printf "%s-auth" (include "eric-sec-key-management.name" .)) -}}
-    {{- $commonAnn := include "eric-sec-key-management.annotations" . | fromYaml -}}
-    {{- include "eric-sec-key-management.mergeAnnotations" (dict "location" .Template.Name "sources" (list $svcAcc $commonAnn)) | trim | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
+    kubernetes.io/service-account.name: {{ template "eric-sec-key-management.name" . }}-auth
 type: kubernetes.io/service-account-token
 
 ---
 
-{{- $globals       := fromJson (include "eric-sec-key-management.global" .) -}}
-{{- $etcd          := eq .Values.persistence.type "etcd" }}
-{{- $pvc           := eq .Values.persistence.type "pvc" }}
-{{- $shelter       := eq .Values.shelter.enabled true }}
-{{- $metrics       := eq .Values.metrics.enabled true }}
-{{- $serviceTls    := eq .Values.service.tls.enabled true }}
-{{- $metricsTls    := and $metrics $globals.security.tls.enabled }}
-{{- $etcdTls       := and $etcd .Values.persistence.etcd.tls.enabled }}
-{{- $haEnabled     := gt (.Values.replicas | int64) 1 }}
-{{- $startupProbe  := semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) -}}
-{{- $logStdout     := has "stdout" .Values.log.outputs -}}
-{{- $logStream     := has "stream" .Values.log.outputs -}}
-{{- $initFast     := eq $globals.featureGates.caBootstrap_v2 true -}}
-{{- $networkPolicy := eq (include "eric-sec-key-management.networkPolicy" .) "true" -}}
+{{- $etcd         := eq .Values.persistence.type "etcd" }}
+{{- $pvc          := eq .Values.persistence.type "pvc" }}
+{{- $tlsEnabled   := eq .Values.service.tls.enabled true }}
+{{- $etcdTls      := and $etcd .Values.persistence.etcd.tls.enabled }}
+{{- $haEnabled    := gt (.Values.replicas | int64) 1 }}
+{{- $shelter      := eq .Values.shelter.enabled true }}
+{{- $metrics      := eq .Values.metrics.enabled true }}
+{{- $globals      := fromJson (include "eric-sec-key-management.global" .) -}}
+{{- $startupProbe := semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) -}}
+{{- $logStdout    := has "stdout" .Values.log.outputs -}}
+{{- $logStream    := has "stream" .Values.log.outputs -}}
 
 apiVersion: apps/v1
 kind: StatefulSet
@@ -58,7 +53,7 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicas }}
   serviceName: {{ template "eric-sec-key-management.name" . }}-peer
@@ -71,46 +66,12 @@ spec:
   template:
     metadata:
       labels:
-        {{- $accessLabels := dict -}}
-        {{- if and $etcd $networkPolicy }}
-          {{- $_ := set $accessLabels (printf "%s-access" .Values.persistence.etcd.serviceName) "true" -}}
-        {{- end }}
-        {{- $commonLabels := include "eric-sec-key-management.labels" . | fromYaml -}}
-        {{- include "eric-sec-key-management.mergeLabels" (dict "location" .Template.Name "sources" (list $accessLabels $commonLabels)) | trim | nindent 8 }}
+        {{- include "eric-sec-key-management.labels" . | nindent 8 }}
       annotations:
-        {{- $localAnn := dict -}}
-        {{- $_ := set $localAnn "prometheus.io/scrape" (.Values.metrics.enabled | toString) -}}
-        {{- $_ := set $localAnn "prometheus.io/port" "8888" -}}
-        {{- if (.Values.bandwidth).maxEgressRate -}}
-        {{- $_ := set $localAnn "kubernetes.io/egress-bandwidth" .Values.bandwidth.maxEgressRate -}}
-        {{- end -}}
-        {{- $commonAnn := include "eric-sec-key-management.annotations" . | fromYaml -}}
-        {{- $kmsAppArmorAnn := include "eric-sec-key-management.kms.appArmorAnnotations" . | fromYaml -}}
-        {{- $kmsMonAppArmorAnn := include "eric-sec-key-management.kms-mon.appArmorAnnotations" . | fromYaml -}}
-        {{- $kmsCaAppArmorAnn := include "eric-sec-key-management.kms-ca.appArmorAnnotations" . | fromYaml -}}
-        {{- $kmsMetricsAppArmorAnn := include "eric-sec-key-management.eric-sec-key-management-metrics.appArmorAnnotations" . | fromYaml -}}
-        {{- $kmsShelterAppArmorAnn := include "eric-sec-key-management.shelter.appArmorAnnotations" . | fromYaml -}}
-        {{- $kmsLogshipperAppArmorAnn := include "eric-sec-key-management.logshipper.appArmorAnnotations" . | fromYaml -}}
-        {{- $apparmorAnn := dict -}}
-        {{- if $etcdTls }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsCaAppArmorAnn }}
-        {{- end }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsMonAppArmorAnn }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsAppArmorAnn }}
-        {{- if $shelter }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsShelterAppArmorAnn }}
-        {{- end }}
-        {{- if $metrics }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsMetricsAppArmorAnn }}
-        {{- end }}
-        {{- if $logStream }}
-        {{- $apparmorAnn = merge $apparmorAnn $kmsLogshipperAppArmorAnn }}
-        {{- end }}
-        {{- include "eric-sec-key-management.mergeAnnotations" (dict "location" .Template.Name "sources" (list $localAnn $commonAnn $apparmorAnn)) | trim | nindent 8 }}
+        prometheus.io/scrape: {{ .Values.metrics.enabled | quote }}
+        prometheus.io/port: "8888"
+        {{- include "eric-sec-key-management.product-info" . | indent 8 }}
     spec:
-      {{- if index .Values.podPriority "eric-sec-key-management-main" "priorityClassName" }}
-      priorityClassName: {{ index .Values.podPriority "eric-sec-key-management-main" "priorityClassName" | quote }}
-      {{- end }}
       {{- if $pvc }}
       securityContext:
         fsGroup: {{ include "eric-sec-key-management.fsGroup.coordinated" . }}
@@ -119,7 +80,7 @@ spec:
         {{- if $etcdTls }}
         - name: "kms-ca"
           image: {{ include "eric-sec-key-management.caImagePath" . }}
-          imagePullPolicy: {{ template "eric-sec-key-management.imagePullPolicy" . }}
+          imagePullPolicy: {{ template "eric-sec-key-management.pullPolicy" . }}
           env:
             - name: ETCDCTL_ENDPOINT
               value: "{{ .Values.persistence.etcd.serviceName }}:{{ .Values.persistence.etcd.servicePort }}"
@@ -144,7 +105,6 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-{{- include "eric-sec-key-management.kms-ca.seccompProfile" . | indent 12 }}
             capabilities:
               drop:
                 - all
@@ -158,24 +118,22 @@ spec:
               mountPath: "/tmp"
             - name: kms-ca-run
               mountPath: "/kms/run"
+            - name: bootstrap-ca
+              mountPath: "/run/secrets/tls-bootstrap-ca"
+              readOnly: true
             - name: ca-trusted-cert
               mountPath: "/run/secrets/tls-root-ca"
               readOnly: true
             - name: etcd-root-client-certs
               mountPath: "/run/secrets/etcd-root-client-certs"
               readOnly: true
-            {{- if not $initFast }}
-            - name: bootstrap-ca
-              mountPath: "/run/secrets/tls-bootstrap-ca"
-              readOnly: true
-            {{- end }}
             {{- if $logStream }}
             {{- include "eric-sec-key-management.logshipper-storage-path" . | indent 12 }}
             {{- end }}
         {{- end }}
         - name: "kms-mon"
           image: {{ include "eric-sec-key-management.unsealerImagePath" . }}
-          imagePullPolicy: {{ template "eric-sec-key-management.imagePullPolicy" . }}
+          imagePullPolicy: {{ template "eric-sec-key-management.pullPolicy" . }}
           env:
             - name: KMS_ADMIN_SVC_ACC_NAME
               value: {{ template "eric-sec-key-management.name" . }}-admin
@@ -195,8 +153,6 @@ spec:
               value: {{ template "eric-sec-key-management.name" . }}
             - name: SHELTER_ENABLED
               value: {{ if $shelter }}"true"{{ else }}"false"{{ end }}
-            - name: INITFAST
-              value: {{ $initFast | quote }}
             {{- if $haEnabled }}
             # Vault storage configuration
             - name: ETCD_HA_ENABLED
@@ -217,7 +173,6 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-{{- include "eric-sec-key-management.kms-mon.seccompProfile" . | indent 12 }}
             capabilities:
               drop:
                 - all
@@ -263,7 +218,7 @@ spec:
       containers:
         - name: "kms"
           image: {{ include "eric-sec-key-management.vaultImagePath" . }}
-          imagePullPolicy: {{ template "eric-sec-key-management.imagePullPolicy" . }}
+          imagePullPolicy: {{ template "eric-sec-key-management.pullPolicy" . }}
           command: ["catatonit", "--"]
           {{- if $logStream }}
           args: ["/kms/stdout-redirect", "-logfile", "/logs/kms.log", "-redirect", {{ include "eric-sec-key-management.log-redirect-param" . }}, "-run", "/kms/start.py"]
@@ -275,7 +230,6 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-{{- include "eric-sec-key-management.kms.seccompProfile" . | indent 12 }}
             capabilities:
               drop:
                 - all
@@ -298,8 +252,6 @@ spec:
             # Vault CLI settings
             - name: VAULT_ADDR
               value: "http://127.0.0.1:8202"
-            - name: INITFAST
-              value: {{ $initFast | quote }}
             {{- if $haEnabled }}
             # Vault storage configuration
             - name: ETCD_HA_ENABLED
@@ -310,7 +262,7 @@ spec:
                   fieldPath: metadata.name
               # The address that is advertised for client redirection
             - name: VAULT_API_ADDR
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               value: "https://$(POD_NAME).{{ template "eric-sec-key-management.name" . }}-peer:8200"
               {{- else }}
               value: "http://$(POD_NAME).{{ template "eric-sec-key-management.name" . }}-peer:8200"
@@ -324,7 +276,7 @@ spec:
             httpGet:
               path: "/v1/sys/health?standbyok=true&activecode=204&standbycode=204&drsecondarycode=204&uninitcode=204&sealedcode=204"
               port: 8200
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.vault-startup" . | nindent 12 }}
@@ -333,7 +285,7 @@ spec:
             httpGet:
               path: "/v1/sys/health?standbyok=true&activecode=204&standbycode=204&drsecondarycode=204&uninitcode=204&sealedcode=204"
               port: 8200
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.vault-liveness" . | nindent 12 }}
@@ -357,7 +309,7 @@ spec:
             - name: vault-storage
               mountPath: /kms/data
             {{- end }}
-            {{- if $serviceTls }}
+            {{- if $tlsEnabled }}
             - name: vault-cert
               mountPath: /run/secrets/tls-int-srv-cert
               readOnly: true
@@ -379,7 +331,7 @@ spec:
         {{- if $shelter }}
         - name: "shelter"
           image: {{ include "eric-sec-key-management.shelterImagePath" . }}
-          imagePullPolicy: {{ template "eric-sec-key-management.imagePullPolicy" . }}
+          imagePullPolicy: {{ template "eric-sec-key-management.pullPolicy" . }}
           command: ["catatonit", "--"]
           {{- if $logStream }}
           args: ["/kms/stdout-redirect", "-logfile", "/logs/shelter.log", "-redirect", {{ include "eric-sec-key-management.log-redirect-param" . }}, "-run", "/kms/start.py"]
@@ -391,7 +343,6 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-{{- include "eric-sec-key-management.shelter.seccompProfile" . | indent 12 }}
             capabilities:
               drop:
                 - all
@@ -414,8 +365,6 @@ spec:
             # Vault CLI settings
             - name: VAULT_ADDR
               value: "http://127.0.0.1:8212"
-            - name: INITFAST
-              value: {{ $initFast | quote }}
             {{- if $haEnabled }}
             # Vault storage configuration
             - name: ETCD_HA_ENABLED
@@ -426,7 +375,7 @@ spec:
                   fieldPath: metadata.name
               # The address that is advertised for client redirection
             - name: VAULT_API_ADDR
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               value: "https://$(POD_NAME).{{ template "eric-sec-key-management.name" . }}-peer:8210"
               {{- else }}
               value: "http://$(POD_NAME).{{ template "eric-sec-key-management.name" . }}-peer:8210"
@@ -440,7 +389,7 @@ spec:
             httpGet:
               path: "/v1/sys/health?standbyok=true&activecode=204&standbycode=204&drsecondarycode=204&uninitcode=204&sealedcode=204"
               port: 8210
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.shelter-startup" . | nindent 12 }}
@@ -449,7 +398,7 @@ spec:
             httpGet:
               path: "/v1/sys/health?standbyok=true&activecode=204&standbycode=204&drsecondarycode=204&uninitcode=204&sealedcode=204"
               port: 8210
-              {{- if $serviceTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.shelter-liveness" . | nindent 12 }}
@@ -473,7 +422,7 @@ spec:
             - name: vault-storage
               mountPath: /kms/data
             {{- end }}
-            {{- if $serviceTls }}
+            {{- if $tlsEnabled }}
             - name: vault-cert
               mountPath: /run/secrets/tls-int-srv-cert
               readOnly: true
@@ -496,7 +445,7 @@ spec:
         {{- if $metrics }}
         - name: "eric-sec-key-management-metrics"
           image: {{ include "eric-sec-key-management.metricsExporterImagePath" . }}
-          imagePullPolicy: {{ template "eric-sec-key-management.imagePullPolicy" . }}
+          imagePullPolicy: {{ template "eric-sec-key-management.pullPolicy" . }}
           command: ["catatonit", "--"]
           {{- if $logStream }}
           args: ["/kms/stdout-redirect", "-logfile", "/logs/metrics.log", "-redirect", {{ include "eric-sec-key-management.log-redirect-param" . }}, "-run", "/kms/metrics-exporter"]
@@ -508,7 +457,6 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-{{- include "eric-sec-key-management.eric-sec-key-management-metrics.seccompProfile" . | indent 12 }}
             capabilities:
               drop:
                 - all
@@ -525,12 +473,12 @@ spec:
             - name: SHELTER_ENABLED
               value: {{ if $shelter }}"true"{{ else }}"false"{{ end }}
             - name: TLS_ENABLED
-              value: {{ if $metricsTls }}"true"{{ else }}"false"{{ end}}
+              value: {{ if $tlsEnabled }}"true"{{ else }}"false"{{ end}}
             - name: METRICS_BIND_PORT
               value: "8888"
             - name: PROBE_BIND_PORT
               value: "8889"
-            {{- if $metricsTls }}
+            {{- if $tlsEnabled }}
             - name: SERVER_CERT_MOUNT_PATH
               value: /run/secrets/metrics-server-cert
             - name: CLIENT_CA_CERT_MOUNT_PATH
@@ -546,7 +494,7 @@ spec:
             httpGet:
               path: "/liveness"
               port: http-probes
-              {{- if $metricsTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.metrics-liveness" . | nindent 12 }}
@@ -554,14 +502,14 @@ spec:
             httpGet:
               path: "/readiness"
               port: http-probes
-              {{- if $metricsTls }}
+              {{- if $tlsEnabled }}
               scheme: HTTPS
               {{- end }}
             {{- include "eric-sec-key-management.metrics-readiness" . | nindent 12 }}
           volumeMounts:
             - name: kms-metrics-tmp
               mountPath: "/tmp"
-            {{- if $metricsTls }}
+            {{- if $tlsEnabled }}
             - name: vault-cert
               mountPath: /run/secrets/metrics-server-cert
               readOnly: true
@@ -576,16 +524,16 @@ spec:
       {{- if $logStream }}
       {{- include "eric-sec-key-management.logshipper-container" . | indent 8 }}
        {{- end }}
-      {{- if include "eric-sec-key-management.imagePullSecrets" . }}
+      {{- if include "eric-sec-key-management.pullSecrets" . }}
       imagePullSecrets:
-        - name: {{ include "eric-sec-key-management.imagePullSecrets" . }}
+        - name: {{ template "eric-sec-key-management.pullSecrets" . }}
       {{- end }}
       volumes:
-      - name: kms-mon-tmp
+      - name: kms-metrics-tmp
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
-      - name: kms-mon-run
+      - name: kms-mon-tmp
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
@@ -593,17 +541,23 @@ spec:
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
+      - name: kms-shelter-tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
+      - name: kms-tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
+      - name: kms-mon-run
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
       - name: kms-ca-run
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
-      {{- if $metrics }}
-      - name: kms-metrics-tmp
-        emptyDir:
-          sizeLimit: "10Mi"
-          medium: "Memory"
-      {{- end }}
-      - name: kms-tmp
+      - name: kms-shelter-run
         emptyDir:
           sizeLimit: "10Mi"
           medium: "Memory"
@@ -618,14 +572,6 @@ spec:
             - key: 'vault.json'
               path: 'vault.json'
       {{- if $shelter }}
-      - name: kms-shelter-tmp
-        emptyDir:
-          sizeLimit: "10Mi"
-          medium: "Memory"
-      - name: kms-shelter-run
-        emptyDir:
-          sizeLimit: "10Mi"
-          medium: "Memory"
       - name: shelter-config
         configMap:
           name: {{ template "eric-sec-key-management.configMapName" . }}
@@ -644,37 +590,32 @@ spec:
         persistentVolumeClaim:
           claimName: {{ template "eric-sec-key-management.name" . }}-pvc
       {{- end }}
-      {{- if $serviceTls }}
+      {{- if $tlsEnabled }}
       - name: vault-cert
         secret:
           secretName: {{ template "eric-sec-key-management.name" . }}-kms-cert
-          optional: true
-      {{- end }}
-      {{- if $metricsTls }}
+      {{- if $metrics }}
       - name: metrics-client-ca
         secret:
           optional: true
-          secretName: {{ .Values.metrics.serviceName }}-ca
+          secretName:  eric-pm-server-ca
+      {{- end }}
       {{- end }}
       {{- if $etcdTls }}
       - name: ca-trusted-cert
         secret:
           optional: true
           secretName: {{ .Values.persistence.etcd.tls.trustedCaSecret | quote }}
+      - name: etcd-root-client-certs
+        secret:
+          secretName: {{ .Values.persistence.etcd.serviceName }}-etcdctl-client-cert
       - name: vault-client-cert
         secret:
           secretName: {{ template "eric-sec-key-management.name" . }}-client-cert
-          optional: true
-      {{- if not $initFast }}
       - name: bootstrap-ca
         secret:
           optional: true
           secretName: eric-sec-sip-tls-bootstrap-ca-cert
-      {{- end }}
-      - name: etcd-root-client-certs
-        secret:
-          secretName: {{ .Values.persistence.etcd.serviceName }}-etcdctl-client-cert
-          optional: true
       {{- end }}
       {{- if $logStream }}
 {{- include "eric-sec-key-management.logshipper-volume" . | indent 6 }}
@@ -687,19 +628,12 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.topologySpreadConstraints }}
+      {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
-      {{- range $tscvalues := .Values.topologySpreadConstraints }}
-      - maxSkew: {{ $tscvalues.maxSkew }}
-        topologyKey: {{ $tscvalues.topologyKey }}
-        whenUnsatisfiable: {{ $tscvalues.whenUnsatisfiable }}
-        labelSelector:
-          matchLabels:
-            app: {{ template "eric-sec-key-management.name" $ }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- end }}
-      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

@@ -6,11 +6,8 @@ metadata:
   labels:
     {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
   annotations:
-    {{- $k8sLabels := dict }}
-    {{- $_ := set $k8sLabels "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) }}
-
-    {{- $base := include "eric-lm-combined-server.annotations" . | fromYaml -}}
-    {{- include "eric-lm-combined-server.mergeAnnotations" (dict "location" .Template.Name "sources" (list $k8sLabels $base)) | trim | nindent 4 }}
+    {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.ingressClass }}
 spec:
   virtualhost:
     fqdn: {{ .Values.ingress.hostname | quote }}

@@ -3,19 +3,17 @@ kind: Service
 metadata:
   name: {{ template "eric-data-message-bus-kf.fullname" . }}
   labels:
-    {{- include "eric-data-message-bus-kf.labels" . | nindent 4 }}
+{{- include "eric-data-message-bus-kf.labels" . | indent 4}}
   annotations:
-    {{- $prometheusAnnotations := dict -}}
-    {{- $_ := set $prometheusAnnotations "prometheus.io/scrape" (.Values.metricsexporter.enabled | toString) -}}
-    {{- $_ := set $prometheusAnnotations "prometheus.io/port" (.Values.metricsexporter.port | toString) -}}
-    {{- if eq (include "eric-data-message-bus-kf.tls" .) "true" -}}
-      {{- $_ := set $prometheusAnnotations "prometheus.io/scheme" "https" -}}
-    {{- else -}}
-      {{- $_ := set $prometheusAnnotations "prometheus.io/scheme" "http" -}}
-    {{- end -}}
-
-    {{- $defaultAnnotations := include "eric-data-message-bus-kf.annotations" . | fromYaml -}}
-    {{- include "eric-data-message-bus-kf.mergeAnnotations" (dict "location" .Template.Name "sources" (list $defaultAnnotations $prometheusAnnotations)) | trim | nindent 4 }}
+{{- include "eric-data-message-bus-kf.productinfo" . | indent 4 }}
+{{- include "eric-data-message-bus-kf.config-annotations" . | indent 4}}
+    prometheus.io/scrape: "{{ .Values.metricsexporter.enabled }}"
+    prometheus.io/port: "{{ .Values.metricsexporter.port }}"
+{{- if eq (include "eric-data-message-bus-kf.tls" .) "true" }}
+    prometheus.io/scheme: "https"
+{{- else }}
+    prometheus.io/scheme: "http"
+{{- end }}
 spec:
   # ipFamilies was introduced in K8s v1.20
   {{- if (include "eric-data-message-bus-kf.internalIPFamily.global" .) }}
@@ -38,4 +36,4 @@ spec:
 {{- end }}
   clusterIP: None
   selector:
-    {{- include "eric-data-message-bus-kf.selector-labels-k8s" . | trim | nindent 4 }}
+{{- include "eric-data-message-bus-kf.selectorLabels" . | indent 4}}

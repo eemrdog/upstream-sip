@@ -5,12 +5,11 @@ kind: RoleBinding
 metadata:
   name: {{ include "eric-ctrl-bro.name" . }}-rb
   annotations:
-    {{- $securityAnn := dict -}}
-    {{- $_ := set $securityAnn "ericsson.com/security-policy.capabilities" "" -}}
-    {{- $_ := set $securityAnn "ericsson.com/security-policy.type" "restricted/default" -}}
-    {{- $defaultAnn := fromYaml (include "eric-ctrl-bro.annotations" .) -}}
-    {{- include "eric-ctrl-bro.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityAnn $defaultAnn)) | trim | nindent 4}}
-  labels: {{- include "eric-ctrl-bro.labels" . | nindent 4 }}
+    {{- include "eric-ctrl-bro.prodInfoAnnotations" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+    ericsson.com/security-policy.type: "restricted/default"
+  labels:
+{{ include "eric-ctrl-bro.k8sLabels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

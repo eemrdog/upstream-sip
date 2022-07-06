@@ -4,7 +4,7 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalUserCA
 metadata:
   name: {{ template "eric-pm-server.name" . }}-ca
-  annotations: {{- include "eric-pm-server.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-server.annotations" . | nindent 2 }}
   labels: {{- include "eric-pm-server.labels" . | nindent 4 }}
 spec:
 

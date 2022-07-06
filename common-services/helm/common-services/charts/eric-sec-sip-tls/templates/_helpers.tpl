@@ -6,13 +6,12 @@ This hides defaults from values file.
   {{- $globalDefaults := dict "security" (dict "tls" (dict "enabled" true)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "nodeSelector" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "timezone" "UTC") -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "armdocker.rnd.ericsson.se")) -}}
+  {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "url" "451278531435.dkr.ecr.us-east-1.amazonaws.com")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "registry" (dict "imagePullPolicy" "IfNotPresent")) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "pullSecret" "") -}}
   {{- $globalDefaults := merge $globalDefaults (dict "networkPolicy" (dict "enabled" false)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "annotations" (dict)) -}}
   {{- $globalDefaults := merge $globalDefaults (dict "labels" (dict)) -}}
-  {{- $globalDefaults := merge $globalDefaults (dict "featureGates" (dict "caBootstrap_v2" false)) -}}
   {{ if .Values.global }}
     {{- mergeOverwrite $globalDefaults .Values.global | toJson -}}
   {{ else }}
@@ -51,7 +50,7 @@ Create chart version as used by the version label.
 {{- end -}}
 
 {{/*
-Create annotation for the product information (DR-D1121-064, DR-D1121-067)
+Create annotation for the product information
 */}}
 {{- define "eric-sec-sip-tls.product-info" }}
 ericsson.com/product-name: {{ (fromYaml (.Files.Get "eric-product-info.yaml")).productName | quote }}
@@ -60,7 +59,7 @@ ericsson.com/product-revision: {{ regexReplaceAll "(.*)[+|-].*" .Chart.Version "
 {{- end}}
 
 {{/*
-The sip image path (DR-D1121-067)
+The sip image path
 */}}
 {{- define "eric-sec-sip-tls.sipPath" }}
     {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
@@ -82,12 +81,9 @@ The sip image path (DR-D1121-067)
                     {{- $registryUrl = .Values.imageCredentials.sip.registry.url -}}
                 {{- end -}}
             {{- end -}}
-            {{- if not (kindIs "invalid" .Values.imageCredentials.sip.repoPath) -}}
+            {{- if .Values.imageCredentials.sip.repoPath -}}
                 {{- $repoPath = .Values.imageCredentials.sip.repoPath -}}
             {{- end -}}
-        {{- end -}}
-        {{- if not (kindIs "invalid" .Values.imageCredentials.repoPath) -}}
-            {{- $repoPath = .Values.imageCredentials.repoPath -}}
         {{- end -}}
     {{- end -}}
     {{- if .Values.images -}}
@@ -107,7 +103,7 @@ The sip image path (DR-D1121-067)
 {{- end -}}
 
 {{/*
-The supervisor image path (DR-D1121-067)
+The supervisor image path
 */}}
 {{- define "eric-sec-sip-tls.supervisorPath" }}
     {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
@@ -129,12 +125,9 @@ The supervisor image path (DR-D1121-067)
                     {{- $registryUrl = .Values.imageCredentials.supervisor.registry.url -}}
                 {{- end -}}
             {{- end -}}
-            {{- if not (kindIs "invalid" .Values.imageCredentials.supervisor.repoPath) -}}
+            {{- if .Values.imageCredentials.supervisor.repoPath -}}
                 {{- $repoPath = .Values.imageCredentials.supervisor.repoPath -}}
             {{- end -}}
-        {{- end -}}
-        {{- if not (kindIs "invalid" .Values.imageCredentials.repoPath) -}}
-            {{- $repoPath = .Values.imageCredentials.repoPath -}}
         {{- end -}}
     {{- end -}}
     {{- if .Values.images -}}
@@ -154,7 +147,7 @@ The supervisor image path (DR-D1121-067)
 {{- end -}}
 
 {{/*
-The init image path (DR-D1121-067)
+The init image path
 */}}
 {{- define "eric-sec-sip-tls.initPath" }}
     {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
@@ -176,12 +169,9 @@ The init image path (DR-D1121-067)
                     {{- $registryUrl = .Values.imageCredentials.init.registry.url -}}
                 {{- end -}}
             {{- end -}}
-            {{- if not (kindIs "invalid" .Values.imageCredentials.init.repoPath) -}}
+            {{- if .Values.imageCredentials.init.repoPath -}}
                 {{- $repoPath = .Values.imageCredentials.init.repoPath -}}
             {{- end -}}
-        {{- end -}}
-        {{- if not (kindIs "invalid" .Values.imageCredentials.repoPath) -}}
-            {{- $repoPath = .Values.imageCredentials.repoPath -}}
         {{- end -}}
     {{- end -}}
     {{- if .Values.images -}}
@@ -296,10 +286,20 @@ Create a merged set of nodeSelectors from global and service level.
 If there is overlap (same key with different values) of global and service level nodeSelector, an error will be thrown.
 */}}
 {{ define "eric-sec-sip-tls.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- $context := "eric-sec-sip-tls.nodeSelector" -}}
-  {{- include "eric-sec-sip-tls.aggregatedMerge" (dict "context" $context "location" .Template.Name "sources" (list $global $service)) | trim -}}
+  {{- $g := fromJson (include "eric-sec-sip-tls.global" .) -}}
+  {{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $g.nodeSelector $key -}}
+          {{- $globalValue := index $g.nodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified in both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- toYaml (merge $g.nodeSelector .Values.nodeSelector) | trim -}}
+  {{- else -}}
+    {{- toYaml $g.nodeSelector | trim -}}
+  {{- end -}}
 {{ end }}
 
 {{/*
@@ -362,38 +362,76 @@ ericsson.com/security-policy.capabilities: "N/A"
 Create a merged set of labels from global and service level.
 If there is overlap (same key with different values) of global and service level labels, an error will be thrown.
 */}}
-{{- define "eric-sec-sip-tls.config-labels" -}}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-sec-sip-tls.mergeLabels" (dict "location" .Template.Name "sources" (list $global $service)) -}}
+{{- define "eric-sec-sip-tls.merged-labels" -}}
+  {{- $g := fromJson (include "eric-sec-sip-tls.global" .) -}}
+
+  {{/* If local and global has the same key but different values, print error */}}
+  {{- if .Values.labels -}}
+    {{- range $key, $localValue := .Values.labels -}}
+      {{- if hasKey $g.labels $key -}}
+        {{- $globalValue := index $g.labels $key -}}
+        {{- if ne $globalValue $localValue -}}
+          {{- printf "label \"%s\" is specified on both a global (%s: %s) and service level (%s: %s) with differing values, which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{/* Merge local and global labels */}}
+    {{- toYaml (merge $g.labels .Values.labels) | trim -}}
+  {{- else -}}
+    {{- if $g.labels -}}
+      {{/* Print global labels */}}
+      {{- toYaml $g.labels | trim -}}
+    {{- end -}}
+  {{- end -}}
 {{- end -}}
 
 {{/*
-Define the labels.
+Define the labels
 */}}
 {{- define "eric-sec-sip-tls.labels" }}
-  {{- $productLabels := include "eric-sec-sip-tls.product-labels" . | fromYaml -}}
-  {{- $configLabels := include "eric-sec-sip-tls.config-labels" . | fromYaml -}}
-  {{- include "eric-sec-sip-tls.mergeLabels" (dict "location" .Template.Name "sources" (list $productLabels $configLabels)) | trim }}
+{{- include "eric-sec-sip-tls.product-labels" . -}}
+{{- if (include "eric-sec-sip-tls.merged-labels" .) -}}
+    {{- include "eric-sec-sip-tls.merged-labels" . | nindent 0 -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
 Create a merged set of annotations from global and service level.
 If there is overlap (same key with different values) of global and service level annotations, an error will be thrown.
 */}}
-{{- define "eric-sec-sip-tls.config-annotations" -}}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $global $service)) -}}
+{{- define "eric-sec-sip-tls.merged-annotations" -}}
+  {{- $g := fromJson (include "eric-sec-sip-tls.global" .) -}}
+
+  {{/* If local and global has the same key but different values, print error */}}
+  {{- if .Values.annotations -}}
+    {{- range $key, $localValue := .Values.annotations -}}
+      {{- if hasKey $g.annotations $key -}}
+        {{- $globalValue := index $g.annotations $key -}}
+        {{- if ne $globalValue $localValue -}}
+          {{- printf "annotation \"%s\" is specified on both a global (%s: %s) and service level (%s: %s) with differing values, which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{/* Merge local and global annotations */}}
+    {{- toYaml (merge $g.annotations .Values.annotations) | trim -}}
+  {{- else -}}
+    {{- if $g.annotations -}}
+      {{/* Print global annotations */}}
+      {{- toYaml $g.annotations | trim -}}
+    {{- end -}}
+  {{- end -}}
 {{- end -}}
 
 {{/*
-Define the common annotations.
+Define the common annotations
 */}}
 {{- define "eric-sec-sip-tls.annotations" -}}
-  {{- $productInfo := include "eric-sec-sip-tls.product-info" . | fromYaml -}}
-  {{- $configAnn := include "eric-sec-sip-tls.config-annotations" . | fromYaml -}}
-  {{- include "eric-sec-sip-tls.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $configAnn)) | trim }}
+{{- include "eric-sec-sip-tls.product-info" . -}}
+{{- if (include "eric-sec-sip-tls.merged-annotations" .) -}}
+    {{- include "eric-sec-sip-tls.merged-annotations" . | nindent 0 -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -420,7 +458,7 @@ affinity:
     requiredDuringSchedulingIgnoredDuringExecution:
     - labelSelector:
         matchExpressions:
-        - key: app.kubernetes.io/name
+        - key: app
           operator: In
           values:
           - {{ template "eric-sec-sip-tls.name" . }}
@@ -433,10 +471,24 @@ affinity:
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-          - key: app.kubernetes.io/name
+          - key: app
             operator: In
             values:
             - {{ template "eric-sec-sip-tls.name" . }}
         topologyKey: "kubernetes.io/hostname"
 {{- end -}}
+{{- end -}}
+
+{{/*
+Create security context
+*/}}
+{{- define "eric-sec-sip-tls.securityContext" -}}
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - all
 {{- end -}}

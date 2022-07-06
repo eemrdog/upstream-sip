@@ -2,8 +2,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ template "eric-data-coordinator-zk.name" . }}
-  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4}}
-  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+  labels:
+{{- include "eric-data-coordinator-zk.labels" . | indent 4}}
+  annotations:
+{{- include "eric-data-coordinator-zk.productinfo" . | indent 4 }}
+{{- include "eric-data-coordinator-zk.config-annotations" . | indent 4 }}
 data:
   zoo.cfg: |
     standaloneEnabled=false
@@ -49,9 +52,6 @@ data:
 {{- end }}
 
 {{- if (eq (include "eric-data-coordinator-zk.tls" .) "true") }}
-    ssl.protocol=TLSv1.3
-    ssl.enabledProtocols=TLSv1.3,TLSv1.2
-    ssl.ciphersuites={{ .Values.tlsCiphers }}
     serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory
     sslQuorumReloadCertFiles=true
     quorumListenOnAllIPs=true

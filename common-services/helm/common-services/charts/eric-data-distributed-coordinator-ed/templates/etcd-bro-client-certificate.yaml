@@ -1,6 +1,6 @@
 {{- if and ( eq (include "eric-data-distributed-coordinator-ed.brAgent.tls" . ) "true" ) (.Values.brAgent.enabled) }}
 
-apiVersion: siptls.sec.ericsson.com/v1
+apiVersion: siptls.sec.ericsson.com/v1alpha1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-data-distributed-coordinator-ed.name" . }}-etcd-bro-client-cert

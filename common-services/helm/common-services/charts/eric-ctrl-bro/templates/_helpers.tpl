@@ -78,15 +78,15 @@ Expand the name of the chart.
 {{- end -}}
 
 {{/*
-Standard labels of Helm and Kubernetes.
+Template for k8s labels.
 */}}
-{{- define "eric-ctrl-bro.standard-labels" }}
-app.kubernetes.io/instance: {{.Release.Name | quote }}
+{{- define "eric-ctrl-bro.k8sLabels" -}}
 app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+chart: {{ template "eric-ctrl-bro.chart" . }}
 app.kubernetes.io/name: {{ template "eric-ctrl-bro.name" . }}
 app.kubernetes.io/version: {{ template  "eric-ctrl-bro.version" . }}
-chart: {{ template "eric-ctrl-bro.chart" . }}
-{{- end }}
+app.kubernetes.io/instance: {{.Release.Name | quote }}
+{{- end -}}
 
 {{/*
 Ericsson product info values.
@@ -99,20 +99,6 @@ Ericsson product info values.
 {{- $productInfo := fromYaml (.Files.Get "eric-product-info.yaml") -}}
 {{- printf "%s" $productInfo.productNumber -}}
 {{- end -}}
-
-{{/*
-Ericsson pod priority.
-*/}}
-{{- define "eric-ctrl-bro.priority" -}}
-{{- $priority:= .Values.podPriority }}
-{{- $priorityPod:= index $priority (include "eric-ctrl-bro.name" .) }}
-{{- if $priorityPod }}
-{{- $classname:= index $priorityPod "priorityClassName" }}
-{{- if $classname }}
-{{- printf "%s" $classname }}
-{{- end }}
-{{- end }}
-{{- end }}
 
 {{/*
 Ericsson pod resources.
@@ -141,49 +127,36 @@ limits:
 {{- end -}}
 
 {{/*
-Create a user defined label (DR-D1121-068, DR-D1121-060).
+Ericsson product info annotations. The Chart version should match the product information.
 */}}
-{{ define "eric-ctrl-bro.config-labels" }}
-  {{- $global := (.Values.global).labels -}}
-  {{- $service := .Values.labels -}}
-  {{- include "eric-ctrl-bro.mergeLabels" (dict "location" .Template.Name "sources" (list $global $service)) -}}
-{{- end }}
-
-{{/*
-Merged labels for default, which includes standard-labels and config-labels.
-*/}}
-{{- define "eric-ctrl-bro.labels" -}}
-  {{- $standard := include "eric-ctrl-bro.standard-labels" . | fromYaml -}}
-  {{- $config := include "eric-ctrl-bro.config-labels" . | fromYaml -}}
-  {{- include "eric-ctrl-bro.mergeLabels" (dict "location" .Template.Name "sources" (list $standard $config)) | trim }}
+{{- define "eric-ctrl-bro.prodInfoAnnotations" -}}
+{{ template "eric-ctrl-bro.prodBaseAnnotations" . -}}
+ {{- if .Values.annotations }}
+{{- range $key, $value := .Values.annotations }}
+{{ $key | indent 0 }}: {{ $value | quote }}
+ {{- end }}
+ {{- end -}}
 {{- end -}}
 
 {{/*
-Create a user defined annotation (DR-D1121-065, DR-D1121-060).
+Ericsson product info labels.
 */}}
-{{ define "eric-ctrl-bro.config-annotations" }}
-  {{- $global := (.Values.global).annotations -}}
-  {{- $service := .Values.annotations -}}
-  {{- include "eric-ctrl-bro.mergeAnnotations" (dict "location" .Template.Name "sources" (list $global $service)) -}}
+{{- define "eric-ctrl-bro.prodInfoLabels" -}}
+ {{- if .Values.labels }}
+{{- range $key, $value := .Values.labels }}
+{{ $key | indent 0}}: {{ $value | quote }}
+ {{- end }}
 {{- end }}
+{{- end -}}
 
 {{/*
 Ericsson product information annotations
 */}}
-{{- define "eric-ctrl-bro.product-info" -}}
+{{- define "eric-ctrl-bro.prodBaseAnnotations" }}
 ericsson.com/product-name: "{{ template "eric-ctrl-bro.productName" . }}"
 ericsson.com/product-number: "{{ template "eric-ctrl-bro.productNumber" . }}"
-ericsson.com/product-revision: "{{ regexReplaceAll "(.*)[+].*" .Chart.Version "${1}" }}"
+ericsson.com/product-revision: {{regexReplaceAll "(.*)[+].*" .Chart.Version "${1}" }}
 {{- end -}}
-
-{{/*
-Merged annotations for default, which includes product-info and config-annotations.
-*/}}
-{{- define "eric-ctrl-bro.annotations" }}
-  {{- $productInfo := include "eric-ctrl-bro.product-info" . | fromYaml -}}
-  {{- $config := include "eric-ctrl-bro.config-annotations" . | fromYaml -}}
-  {{- include "eric-ctrl-bro.mergeAnnotations" (dict "location" .Template.Name "sources" (list $productInfo $config)) | trim }}
-{{- end }}
 
 {{/*
 Comma separated list of product numbers
@@ -328,11 +301,6 @@ configmap volumes + additional volumes
   configMap:
     defaultMode: 0444
     name: {{ template "eric-ctrl-bro.name" . }}-logging
-{{- if eq .Values.osmn.enabled true }}
-- name: {{ template "eric-ctrl-bro.name" . }}-object-store-secret
-  secret:
-    secretName: {{ .Values.osmn.credentials.secretName }}
-{{- end }}
 {{- if (eq (include "eric-ctrl-bro.globalSecurity" .) "true") }}
 - name: {{ template "eric-ctrl-bro.name" . }}-server-cert
   secret:
@@ -402,10 +370,6 @@ configmap volumemounts + additional volume mounts
 - name: {{ template "eric-ctrl-bro.name" . }}-serviceproperties
   mountPath: "/opt/ericsson/br/application.properties"
   subPath: "application.properties"
-{{- if eq .Values.osmn.enabled true }}
-- name: {{ template "eric-ctrl-bro.name" . }}-object-store-secret
-  mountPath: "/run/sec/certs/objectstore/credentials"
-{{- end }}
 {{- if (eq (include "eric-ctrl-bro.globalSecurity" .) "true") }}
 - name: {{ template "eric-ctrl-bro.name" . }}-server-cert
   mountPath: "/run/sec/certs/server"
@@ -455,14 +419,7 @@ configmap volumemounts + additional volume mounts
 {{ end -}}
 
 {{/*
-Volume mount name used for StatefulSet.
-*/}}
-{{- define "eric-ctrl-bro.persistence.persistentVolumeClaim.name" -}}
-  {{- printf "%s" "backup-data" -}}
-{{- end -}}
-
-{{/*
-Create the name of the service account to use. BRO needs the service account (containing cm-key) to access the KMS and decrypt the password.
+Create the name of the service account to use
 */}}
 {{- define "eric-ctrl-bro.serviceAccountName" -}}
 {{ include "eric-ctrl-bro.name" . }}-cm-key
@@ -569,11 +526,29 @@ Return the brLabelKey set via global parameter if it's set, otherwise adpbrlabel
 {{/*
 Create a merged set of nodeSelectors from global and service level.
 */}}
-{{- define "eric-ctrl-bro.nodeSelector" }}
-  {{- $global := (.Values.global).nodeSelector -}}
-  {{- $service := .Values.nodeSelector -}}
-  {{- include "eric-ctrl-bro.aggregatedMerge" (dict "context" "eric-ctrl-bro.nodeSelector" "location" .Template.Name "sources" (list $global $service)) }}
-{{- end }}
+{{- define "eric-ctrl-bro.nodeSelector" -}}
+{{- $globalNodeSelector := dict -}}
+{{- if .Values.global -}}
+    {{- if .Values.global.nodeSelector -}}
+        {{- $globalNodeSelector = .Values.global.nodeSelector -}}
+    {{- end -}}
+{{- end -}}
+{{- if .Values.nodeSelector -}}
+    {{- range $key, $localValue := .Values.nodeSelector -}}
+      {{- if hasKey $globalNodeSelector $key -}}
+          {{- $globalValue := index $globalNodeSelector $key -}}
+          {{- if ne $globalValue $localValue -}}
+            {{- printf "nodeSelector \"%s\" is specified on both global (%s: %s) and service level (%s: %s) with differing values which is not allowed." $key $key $globalValue $key $localValue | fail -}}
+          {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    nodeSelector: {{- toYaml (merge $globalNodeSelector .Values.nodeSelector) | trim | nindent 2 -}}
+{{- else -}}
+    {{- if not ( empty $globalNodeSelector ) -}}
+    nodeSelector: {{- toYaml $globalNodeSelector | trim | nindent 2 -}}
+    {{- end -}}
+{{- end -}}
+{{- end -}}
 
 {{/*
 Return the fsgroup set via global parameter if it's set, otherwise 10000
@@ -812,84 +787,3 @@ ericsson.com/security-policy.privileged: "false"
 ericsson.com/security-policy.capabilities: "N/A"
 {{- end -}}
 */}}
-
-{{/*
-Defines the appArmor profile annotation for the BRO container.
-The configuration can be set per container, but it applies to all containers
-when the container name is ommited.
-*/}}
-{{- define "eric-ctrl-bro.appArmorAnnotation" }}
-{{- if .Values.appArmorProfile }}
-{{- $profile := .Values.appArmorProfile }}
-{{- $containerName := (include "eric-ctrl-bro.name" .)}}
-{{- if index $profile $containerName }}
-{{- $profile = index $profile $containerName }}
-{{- end }}
-{{- include "eric-ctrl-bro.getAppArmorAnnotationFromProfile" (dict "profile" $profile "containerName" $containerName)}}
-{{- end }}
-{{- end }}
-
-{{/*
-Gets the appArmor annotation for the BRO container
-from the appArmor profile object
-*/}}
-{{- define "eric-ctrl-bro.getAppArmorAnnotationFromProfile" }}
-{{- $profile := index . "profile" }}
-{{- $containerName := index . "containerName" }}
-{{- if $profile.type}}
-{{- $appArmorProfile := lower $profile.type }}
-{{- if eq "runtime/default" $appArmorProfile}}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "runtime/default"
-{{- else if eq "unconfined" $appArmorProfile}}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "unconfined"
-{{- else if eq "localhost" $appArmorProfile}}
-{{- $localHostProfile := $profile.localhostProfile }}
-{{- if $localHostProfile }}
-{{- $localHostProfileList := (splitList "/" $localHostProfile)}}
-{{- if (last $localHostProfileList) }}
-container.apparmor.security.beta.kubernetes.io/{{ $containerName }}: "localhost/{{ (last $localHostProfileList) }}"
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Defines the Seccomp security context for the BRO container.
-The configuration can be set per container, but it applies to all containers
-when the container name is ommited.
-*/}}
-{{- define "eric-ctrl-bro.secCompSecurityContext" }}
-{{- if .Values.seccompProfile }}
-{{- $profile := .Values.seccompProfile }}
-{{- $containerName := (include "eric-ctrl-bro.name" .)}}
-{{- if index $profile $containerName }}
-{{- $profile = index $profile $containerName }}
-{{- end }}
-{{- include "eric-ctrl-bro.getSeccompSecurityContextFromProfile" (dict "profile" $profile)}}
-{{- end }}
-{{- end }}
-
-{{/*
-Gets the Seccomp security context for the BRO container
-from the Seccomp profile object.
-*/}}
-{{- define "eric-ctrl-bro.getSeccompSecurityContextFromProfile" }}
-{{- $profile := index . "profile" }}
-{{- if $profile.type}}
-{{- $seccompProfile := lower $profile.type }}
-{{- if eq "runtimedefault" $seccompProfile}}
-seccompProfile:
-  type: RuntimeDefault
-{{- else if eq "unconfined" $seccompProfile}}
-seccompProfile:
-  type: Unconfined
-{{- else if eq "localhost" $seccompProfile}}
-{{- if $profile.localhostProfile }}
-seccompProfile:
-  type: Localhost
-  localhostProfile: {{ $profile.localhostProfile }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}

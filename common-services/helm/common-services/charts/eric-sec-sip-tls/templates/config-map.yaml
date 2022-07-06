@@ -1,4 +1,3 @@
-{{- $globals := fromJson (include "eric-sec-sip-tls.global" .) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,14 +5,13 @@ metadata:
   labels:
     {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}
 data:
   # Keys in the json should follow same syntactical rules as with Python variables
   config.json: |
     {
       "bootstrap_ca": {
-        "name": "{{ template "eric-sec-sip-tls.name" . }} Internal Bootstrap CA",
-        "bootstrapByKMS": {{ $globals.featureGates.caBootstrap_v2 | quote }}
+        "name": "{{ template "eric-sec-sip-tls.name" . }} Internal Bootstrap CA"
       },
       "root_ca": {
         "name": "{{ template "eric-sec-sip-tls.name" . }} Internal Root CA",
@@ -106,14 +104,10 @@ data:
         "endpoint": {{ include "eric-sec-sip-tls.metrics.server.endpoint" . | quote }},
         "tls_only": {{ include "eric-sec-sip-tls.metrics.server.tlsOnly" . | quote }},
         "verify_client": {{ include "eric-sec-sip-tls.metrics.server.verifyClient" . | quote }},
-        "cert_mount_path": "{{ template "eric-sec-sip-tls.metrics.server.cert.mountFolder" . }}",
         "cert": "{{ template "eric-sec-sip-tls.metrics.server.certPath" . }}",
         "key": "{{ template "eric-sec-sip-tls.metrics.server.keyPath" . }}",
-        "ca_cert_mount_path": "{{ template "eric-sec-sip-tls.metrics.client.cacert.mountFolder" . }}",
         "ca_cert": "{{ template "eric-sec-sip-tls.metrics.client.cacertPath" . }}"
       }
     }
   release.info: |
-    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
-  labels.info: |
-    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+    {{- include "eric-sec-sip-tls.annotations" . | indent 4 }}

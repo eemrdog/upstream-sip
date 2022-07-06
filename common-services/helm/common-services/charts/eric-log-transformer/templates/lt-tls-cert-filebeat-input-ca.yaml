@@ -7,8 +7,8 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalUserCA
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-filebeat-input-ca-cert
-  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
-  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations: {{ include "eric-log-transformer.annotations" . | indent 4 }}
+  labels: {{ include "eric-log-transformer.labels" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: {{ include "eric-log-transformer.fullname" . }}-filebeat-input-ca-cert
@@ -23,8 +23,8 @@ apiVersion: com.ericsson.sec.tls/v1alpha1
 kind: CertificateAuthority
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-filebeat-input-ca-cert
-  annotations: {{- include "eric-log-transformer.annotations" . | nindent 4 }}
-  labels: {{- include "eric-log-transformer.labels" . | nindent 4 }}
+  annotations: {{ include "eric-log-transformer.annotations" . | indent 4 }}
+  labels: {{ include "eric-log-transformer.labels" . | indent 4 }}
 spec:
   generated-secret-name: {{ include "eric-log-transformer.fullname" . }}-filebeat-input-ca-cert
   common-name: "{{ include "eric-log-transformer.fullname" . }} CA"

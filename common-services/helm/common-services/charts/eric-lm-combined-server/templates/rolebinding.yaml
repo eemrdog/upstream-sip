@@ -3,8 +3,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ include "eric-lm-combined-server.name" . }}-rolebinding
-  labels:
-    {{- include "eric-lm-combined-server.labels" . | nindent 4 }}
   annotations:
     {{- include "eric-lm-combined-server.annotations" . | nindent 4 }}
 roleRef:

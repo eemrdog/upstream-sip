@@ -4,7 +4,7 @@ kind: RoleBinding
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}-kms-rolebinding
   labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
-  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

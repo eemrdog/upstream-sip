@@ -3,23 +3,17 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}-key-init
-  labels: {{- include "eric-cm-mediator.labels" . | nindent 4 }}
-  annotations:
-    {{- $helmAnnotations := dict }}
-    {{- $_ := set $helmAnnotations "helm.sh/hook" "pre-install,pre-upgrade,pre-rollback,pre-delete" }}
-    {{- $_ := set $helmAnnotations "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded,hook-failed" }}
-
-    {{- $baseAnnotations := include "eric-cm-mediator.baseAnnotations" . | fromYaml  -}}
-    {{- include "eric-cm-mediator.mergeAnnotations" (dict "location" .Template.Name "sources" (list $helmAnnotations $baseAnnotations)) | trim | nindent 4}}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
+    "helm.sh/hook": pre-install,pre-upgrade,pre-rollback,pre-delete
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
 spec:
   template:
     metadata:
       name: {{ template "eric-cm-mediator.name" . }}-key-init
       labels: {{ include "eric-cm-mediator.labels" . | nindent 8 }}
-      annotations:
-        {{- include "eric-cm-mediator-key-cleanup.pod.annotations" . | nindent 8 }}
+      annotations: {{ include "eric-cm-mediator.annotations" . | nindent 8 }}
     spec:
-      securityContext: {{- include "eric-cm-mediator.seccomp" (dict "pod" "eric-cm-key-init" "Values" .Values ) | nindent 8 }}
       serviceAccountName: {{ template "eric-cm-mediator.name" . }}-hook
       automountServiceAccountToken: false
       {{- if include "eric-cm-mediator.pullSecret" . }}
@@ -27,16 +21,10 @@ spec:
       - name: {{ template "eric-cm-mediator.pullSecret" . }}
       {{- end }}
       restartPolicy: Never
-      {{- if include "eric-cm-mediator.nodeSelector.general" . }}
+      {{- if include "eric-cm-mediator.nodeSelector" . }}
       nodeSelector:
-        {{ template "eric-cm-mediator.nodeSelector.general" . }}
-      {{- else if include "eric-cm-mediator-key-init.nodeSelector" . }}
-      nodeSelector:
-        {{ template "eric-cm-mediator-key-init.nodeSelector" . }}
+        {{ template "eric-cm-mediator.nodeSelector" . }}
       {{- end }}
-{{- if index .Values.podPriority "eric-cm-key-init" "priorityClassName" }}
-      priorityClassName: {{ index .Values.podPriority "eric-cm-key-init" "priorityClassName" | quote }}
-{{- end }}
 {{- if (index .Values "tolerations" "eric-cm-key-init") }}
       tolerations:
 {{ toYaml (index .Values "tolerations" "eric-cm-key-init") | indent 6 }}
@@ -45,7 +33,7 @@ spec:
       - name: eric-cm-key-init
         image: {{ template "eric-cm-mediator.imagePath" (dict "root" .Values "image" "eric-cm-key-init" "files" .Files) }}
         imagePullPolicy: {{ template "eric-cm-mediator.pullPolicy" . }}
-        securityContext: {{- include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
+        securityContext: {{ include "eric-cm-mediator.containerSecurityContext" . | nindent 10 }}
 {{ if index .Values "resources" "eric-cm-key-init" }}
         resources:
 {{ toYaml (index .Values "resources" "eric-cm-key-init") | indent 10 }}

@@ -1,0 +1,53 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if and .Values.ingress.enabled (not $global.security.tls.enabled) -}}
+{{- if eq .Values.ingress.type "nginx" -}}
+{{/*
+The apiVersion check can be removed when only k8s >=1.19 is supported
+*/}}
+{{- $isApiNetworkingV1 := .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+{{- if $isApiNetworkingV1 }}
+apiVersion: networking.k8s.io/v1
+{{- else }}
+apiVersion: networking.k8s.io/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-ingress
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-For "$remote_addr";
+{{- if .Values.ingress.annotations }}
+{{ toYaml .Values.ingress.annotations | indent 4 }}
+{{- end }}
+{{- if .Values.ingress.ingressClass }}
+    kubernetes.io/ingress.class: {{.Values.ingress.ingressClass | quote }}
+{{- end }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
+spec:
+{{- if or (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "true") (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "optional") }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostname | quote }}
+      secretName: {{ template "eric-sec-access-mgmt.ingressTLSSecret" . }}
+{{- end }}
+  rules:
+    - host: {{ .Values.ingress.hostname | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.path | quote }}
+            {{- if $isApiNetworkingV1 }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ template "eric-sec-access-mgmt.name" $ }}-http
+                port:
+                  number: {{ template "eric-sec-access-mgmt.serviceHttpPort" . }}
+            {{- else }}
+            backend:
+              serviceName: {{ template "eric-sec-access-mgmt.name" $ }}-http
+              servicePort: {{ template "eric-sec-access-mgmt.serviceHttpPort" . }}
+            {{- end }}
+{{- end }}
+{{- end -}}

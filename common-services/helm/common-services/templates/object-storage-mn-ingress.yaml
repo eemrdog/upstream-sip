@@ -4,25 +4,15 @@
 {{- $fullName := "eric-data-object-storage-mn" -}}
 {{- $pathMatcher:= "/minio/?(.*)" -}}
 {{- $port:= 9000 -}}
-{{- $controllerAnnotations := printf "%s" "annotations" -}}
-{{- if ne .Values.global.ingress.controllerType "nginx" -}}
-  {{- $controllerAnnotations = printf "%s%s" .Values.global.ingress.controllerType "_annotations" -}}
-{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}-ingress
+  {{- with index .Values "eric-data-object-storage-mn" "ingress" "annotations" }}
   annotations:
-  {{- with index .Values.global.ingress $controllerAnnotations }}
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with index .Values "eric-data-object-storage-mn" "ingress" $controllerAnnotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-{{- if .Values.global.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.global.ingress.ingressClassName }}
-{{- end }}
 {{- if index .Values "eric-data-object-storage-mn" "ingress" "tls" }}
   tls:
   {{- range index .Values "eric-data-object-storage-mn" "ingress" "tls" }}

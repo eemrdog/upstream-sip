@@ -12,17 +12,20 @@ kind: HTTPProxy
 metadata:
   name: {{ template "eric-fh-alarm-handler.name" . }}-ingress
   annotations:
-    {{- $ingressClass := dict }}
-    {{- if .Values.ingress.ingressClass -}}
-    {{- $_ := set $ingressClass "kubernetes.io/ingress.class" (.Values.ingress.ingressClass) -}}
-    {{- end -}}
-    {{- $ingressAnn := .Values.ingress.annotations -}}
-    {{- $baseAnn := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
-    {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $ingressClass $ingressAnn $baseAnn)) | indent 4}}
+    {{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+    {{- if (semverCompare "<1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }} 
+    {{- if .Values.ingress.ingressClass }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.ingressClass | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.ingress.annotations -}}
+    {{- range $key, $val := .Values.ingress.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+    {{- end }}
   labels:
-    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
-    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
-    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels )) | indent 4}}
+    {{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+    {{- include "eric-fh-alarm-handler.authz-proxy-labels" . | nindent 4 }}
 spec:
   virtualhost:
     fqdn: {{ .Values.ingress.hostname | quote }}
@@ -50,22 +53,27 @@ apiVersion: {{ include "eric-fh-alarm-handler.ingress.apiversion" . }}
 kind: Ingress
 metadata:
   name: {{ template "eric-fh-alarm-handler.name" . }}-ingress
-  labels:
-    {{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
   annotations:
-    {{- $nginxAnn := dict }}
-    {{- $_ := set $nginxAnn "nginx.ingress.kubernetes.io/ssl-redirect" "false" -}}
-    {{- $_ := set $nginxAnn "nginx.ingress.kubernetes.io/ssl-passthrough" (toString .Values.ingress.tls.passthrough) -}}
-
-    {{- $ingressTLS := include "eric-fh-alarm-handler.ingress.tls.annotations" . | fromYaml -}}
-    {{- $clientVerification := include "eric-fh-alarm-handler.ingress.clientverification.annotations" . | fromYaml -}}
-
-    {{- $ingressAnn := .Values.ingress.annotations -}}
-    {{- $baseAnn := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
-    {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $nginxAnn $ingressTLS $clientVerification $ingressAnn $baseAnn)) | indent 4}}
+    {{- include "eric-fh-alarm-handler.annotations" . | nindent 4 }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-passthrough: {{ toString .Values.ingress.tls.passthrough | quote }}
+    {{- include "eric-fh-alarm-handler.ingress.tls.annotations" . | nindent 4 }}
+    {{- include "eric-fh-alarm-handler.ingress.clientverification.annotations" . | nindent 4 }}
+    {{- if (semverCompare "<1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }}
+    {{- if .Values.ingress.ingressClass }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.ingressClass | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.ingress.annotations -}}
+    {{- range $key, $val := .Values.ingress.annotations }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+    {{- end }}
 spec:
+  {{- if (semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor))) }}
   {{- if .Values.ingress.ingressClass }}
   ingressClassName: {{ .Values.ingress.ingressClass | quote }}
+  {{- end }}
   {{- end }}
   rules:
   - host: {{ .Values.ingress.hostname | quote }}

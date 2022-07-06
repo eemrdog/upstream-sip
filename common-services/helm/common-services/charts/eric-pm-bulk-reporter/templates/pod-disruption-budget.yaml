@@ -1,13 +1,9 @@
-{{- if .Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
 apiVersion: policy/v1
-{{- else }}
-apiVersion: policy/v1beta1
-{{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ template "eric-pm-bulk-reporter.name" . }}
-  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+  labels: {{ include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations: {{ include "eric-pm-bulk-reporter.annotations" . | nindent 2 }}
 spec:
   minAvailable: {{ int .Values.podDisruptionBudget.minAvailable }}
   selector:

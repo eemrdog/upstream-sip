@@ -6,4 +6,4 @@ maintainers:
 - email: PDLTEAMKOO@pdl.internal.ericsson.com
   name: PDU OSS Team Koopa Troopas
 name: eric-data-coordinator-zk
-version: 1.28.0+12
+version: 1.24.0+5

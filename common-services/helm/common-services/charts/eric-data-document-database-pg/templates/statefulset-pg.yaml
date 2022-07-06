@@ -6,15 +6,19 @@ kind: StatefulSet
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}
   labels:
-    {{- $statefulSetAnn := dict -}}
-    {{- $_ := set $statefulSetAnn "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels.extended-defaults" .) -}}
-    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $statefulSetAnn $commonLabels)) | trim | nindent 4 }}
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $statefulSetAnn := dict -}}
-    {{- $_ := set $statefulSetAnn "currentPGVersion" "13" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $statefulSetAnn $commonAnn)) | nindent 4 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    currentPGVersion: {{ default "10" .Values.targetPGversion | quote }}
 spec:
   replicas: {{ .Values.highAvailability.replicaCount }}
   serviceName: {{ template "eric-data-document-database-pg.name" . }}
@@ -23,27 +27,23 @@ spec:
       partition: {{ .Values.updateStrategy.rollingUpdate.partition }}
     type: {{ .Values.updateStrategy.type }}
   selector:
-    matchLabels:
+    matchLabels: 
       app: {{ template "eric-data-document-database-pg.name" . }}
       cluster-name: {{ template "eric-data-document-database-pg.name" . }}
   template:
     metadata:
       labels:
-        {{- $podTempLabels := dict -}}
-        {{- $_ := set $podTempLabels "app" (include "eric-data-document-database-pg.name" .) -}}
-        {{- $_ := set $podTempLabels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $podTempLabels $commonLabels)) | trim | nindent 8 }}
+{{- include "eric-data-document-database-pg.labels" . | indent 8 }}
+        app: {{ template "eric-data-document-database-pg.name" . }}
+        cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 8 }}
       annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "STS" "containerList" (list "postgres")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- $_ := set $podTempAnn "prometheus.io/scrape" "true" -}}
-        {{- $_ := set $podTempAnn "prometheus.io/port" (.Values.metrics.service.port | toString) -}}
-        {{- if .Values.bandwidth.postgres.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.postgres.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 8 }}
+        ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+        ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+        ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.metrics.service.port | quote }}
     spec:
       serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-sa
       {{- if include "eric-data-document-database-pg.pullSecrets" . }}
@@ -52,7 +52,6 @@ spec:
       {{- end }}
       securityContext:
         fsGroup: {{ template "eric-data-document-database-pg.fsGroup.coordinated" . }}
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
       {{- if .Values.affinity.podAntiAffinity }}
       affinity:
 {{ include "eric-data-document-database-pg.affinity" .| indent 8 }}
@@ -75,12 +74,13 @@ spec:
       {{- if .Values.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.postgres | int }}
       {{- end }}
-      {{- if .Values.podPriority.postgres.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.postgres.priorityClassName | quote }}
-      {{- end }}
       containers:
       - name: {{ template "eric-data-document-database-pg.name" . }}
+        {{ if eq (include "eric-data-document-database-pg.targetPGversion" .) "13" -}}
         image: {{ template "eric-data-document-database-pg.pg13ImagePath" . }}
+        {{- else -}}
+        image: {{ template "eric-data-document-database-pg.postgresImagePath" . }}
+        {{- end }}
         imagePullPolicy: {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
         command: 
         - /bin/bash
@@ -97,8 +97,6 @@ spec:
           valueFrom: { fieldRef: { fieldPath: status.podIP } }
         - name: POD_NAME
           valueFrom: { fieldRef: { fieldPath: metadata.name } }
-        - name: RELEASE_NAME
-          value: {{ .Release.Name | quote }}
         - name: KUBERNETES_NAMESPACE
           valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
         - name: STS_REPLICA_SIZE
@@ -322,7 +320,7 @@ spec:
         - name: PGDATA
           value: "$(PATRONI_POSTGRESQL_DATA_DIR)"
         - name: TARGET_PG_VERSION
-          value: "13"
+          value: {{ default "10" .Values.targetPGversion | quote }}
         - name: LOGGING_COLLECTOR
           value: {{ .Values.postgresLogging.enabled | quote }}
         - name: LIVENESS_TIMEOUT
@@ -517,7 +515,6 @@ spec:
           {{- end }}
 
         securityContext:
-          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "postgres") | nindent 10 }}
           allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
           privileged: false
           readOnlyRootFilesystem: true
@@ -722,7 +719,6 @@ spec:
           {{- end }}
 
         securityContext:
-          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "metrics") | nindent 10 }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
@@ -800,30 +796,30 @@ spec:
       {{- else }}
   volumeClaimTemplates:
     - metadata:
-        {{- $vctName := include "eric-data-document-database-pg.persistence.volumeMount.name" . -}}
-        {{- $name := include "eric-data-document-database-pg.name" . }}
-
-        {{- $VCTLabels := dict -}}
-        {{- $_ := set $VCTLabels "app" (include "eric-data-document-database-pg.name" .) -}}
-        {{- $_ := set $VCTLabels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
-        {{- $_ := set $VCTLabels "heritage" "Tiller" -}} {{- /* workaround after migrate from helm2 to helm3. Avoid upgrade fail. ADPPRG-26626 */ -}}
-        {{- $_ := set $VCTLabels "release" .Release.Name -}}
-        {{- $commonLabels := include "eric-data-document-database-pg.labels" . | fromYaml -}}
-        {{- $_ := unset $commonLabels "app.kubernetes.io/version" -}}
-        {{- $mergedLabels := include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $VCTLabels $commonLabels)) | fromYaml -}}
-
-        {{- $copiedVCTLabels := include "eric-data-document-database-pg.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name "customKeys" $mergedLabels) }}
-        {{- $copiedVCTAnn := include "eric-data-document-database-pg.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) }}
-
-        {{- if $copiedVCTLabels }}
+        name: pg-data
+        {{- $currentStatefulSetObject := (lookup "apps/v1" "StatefulSet" .Release.Namespace (include "eric-data-document-database-pg.name"  .) ) -}}
+        {{- if $currentStatefulSetObject -}}
+        {{- $vCTsFirstEntryLabels := ($currentStatefulSetObject.spec.volumeClaimTemplates | first).metadata.labels -}}
+        {{- if $vCTsFirstEntryLabels }}
         labels:
-          {{- $copiedVCTLabels | nindent 10 }}
+{{ $vCTsFirstEntryLabels | toYaml | nindent 10 }}
+        {{- else }}
+        labels:
+          app: {{ template "eric-data-document-database-pg.name" . }}
+          release: {{ .Release.Name | quote }}
+          cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+          heritage: Tiller
+{{- include "eric-data-document-database-pg.labels" . | indent 10 }}
+          {{- end }}
+        {{- else }}
+        labels:
+          app: {{ template "eric-data-document-database-pg.name" . }}
+          release: {{ .Release.Name | quote }}
+          cluster-name: {{ template "eric-data-document-database-pg.name" . }}
+          ## workaround after migrate from helm2 to helm3. Avoid upgrade fail. ADPPRG-26626
+          heritage: Tiller
+{{- include "eric-data-document-database-pg.labels" . | indent 10 }}
         {{- end }}
-        {{- if $copiedVCTAnn }}
-        annotations:
-          {{- $copiedVCTAnn | nindent 10 }}
-        {{- end }}
-        name: {{ template "eric-data-document-database-pg.persistence.volumeMount.name" . }}
       spec:
         accessModes:
           - ReadWriteOnce

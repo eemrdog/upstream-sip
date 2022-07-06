@@ -71,7 +71,7 @@ service:
   # External IP addresses
   # externalIPs: []
   # IP address to assign to load balancer (if supported)
-  loadBalancerIP:
+  loadBalancerIP: 
   # List of IP CIDRs allowed access to load balancer (if supported)
   loadBalancerSourceRanges: []
   # Service type
@@ -121,10 +121,10 @@ probes:
 
 #SNMP protocol releted values - begin
 
-# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306.
+# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306. 
 # Possible values are 0(Unknown), 1(IPV4), 2(IPV6)
 sourceIdentifierType: 1
-# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306.
+# MR: Support for new SNMP_v2c varbinds, ADPPRG-55306. 
 # Should be in IPv4 or IPv6 format, depends on SourceIdentifierType
 sourceIdentifier: 127.0.0.1
 
@@ -228,9 +228,7 @@ messageBusRd:
   #ACL support
   acl:
     enabled: true
-    user: default
-    userKey: "username"
-    passKey: "password"
+    secret: eric-data-key-value-database-rd-internal-user-secret
 
 vpnGw:
   verboseMode:
@@ -258,31 +256,6 @@ logshipper:
   logtransformer:
     host: eric-log-transformer
 
-# DR-D1123-127
-appArmorProfile:
-  type: ""
-  localhostProfile: ""
-  snmpAP:
-    type: ""
-    localhostProfile: ""
-  vip:
-    type: ""
-    localhostProfile: ""
-
-# DR-D1123-128 The Seccomp profile will be present in security context on a container level
-seccompProfile:
-  type: ""
-  localhostProfile: ""
-  snmpAP:
-    type: ""
-    localhostProfile: ""
-  vip:
-    type: ""
-    localhostProfile: ""
-  logshipper:
-    type: ""
-    localhostProfile: ""
-
 tolerations:
   snmpAP:
     - key: node.kubernetes.io/not-ready
@@ -296,8 +269,3 @@ tolerations:
 
 #Upper limit of graceful termination execution time (DR-D1120-080 )
 terminationGracePeriodSeconds: 30
-
-# Pod priority configuration for deployments
-podPriority:
-  snmpAP:
-    priorityClassName : ""

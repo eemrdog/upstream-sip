@@ -7,12 +7,9 @@ metadata:
   labels:
     {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
   annotations:
-    {{- $rolebindingDict := dict -}}
-    {{- $_ := set $rolebindingDict "ericsson.com/security-policy.capabilities" "" -}}
-    {{- $_ := set $rolebindingDict "ericsson.com/security-policy.type" "restricted/default" -}}
-
-    {{- $default := include "eric-data-search-engine-curator.annotations" . | fromYaml -}}
-    {{- include "eric-data-search-engine-curator.mergeAnnotations" (dict "location" .Template.Name "sources" (list $default $rolebindingDict)) | trim | nindent 4 }}
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+    ericsson.com/security-policy.type: "restricted/default"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

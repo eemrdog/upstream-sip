@@ -6,42 +6,52 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}-bragent
-  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
-  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+  labels:
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
+  annotations:
+{{- include "eric-data-document-database-pg.annotations" . | indent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
-    matchLabels:
+    matchLabels: 
       app: {{ template "eric-data-document-database-pg.name" . }}-bragent
   template:
     metadata:
       labels:
-        {{- $podTempLabels := dict -}}
-        {{- $_ := set $podTempLabels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "bragent") -}}
-        {{- $adpBrLabelKey := fromYaml (include "eric-data-document-database-pg.br-labelkey" .) -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $podTempLabels $adpBrLabelKey $commonLabels)) | trim | nindent 8 }}
+        app: {{ template "eric-data-document-database-pg.name" . }}-bragent
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 8 }}
+    {{ if and .Values.brAgent (eq .Values.brAgent.enabled true ) }}
+    {{ if and $globalValue.adpBR.brLabelKey }}
+        {{ $globalValue.adpBR.brLabelKey }}: {{ .Values.brAgent.brLabelValue | default .Chart.Name | quote }}
+    {{ end }}
+    {{ end }}
+{{- include "eric-data-document-database-pg.labels" . | indent 8 }}
       annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "BRAgent" "containerList" (list "brm" "bra")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- if .Values.brAgent.backupTypeList -}}
-          {{- $_ := set $podTempAnn "backupType" (include "eric-data-document-database-pg.br-backuptypes" .) -}}
-        {{- end -}}
-        {{- if .Values.bandwidth.brAgent.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.brAgent.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        {{ if .Values.brAgent.backupTypeList }}
+        backupType: {{- range $i, $e := .Values.brAgent.backupTypeList -}}
+                      {{- if eq $i 0 -}}{{- printf " " -}}{{- else -}};{{- end -}}{{- . -}}
+                    {{- end }}
+        {{ end }}
+{{- include "eric-data-document-database-pg.annotations" . | indent 8 }}
+        ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+        ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+        ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
     spec:
       serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-sa
       {{- if include "eric-data-document-database-pg.pullSecrets" . }}
       imagePullSecrets:
         - name: {{ template "eric-data-document-database-pg.pullSecrets" . }}
       {{- end }}
-      securityContext:
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
       {{- if .Values.affinity.podAntiAffinity }}
       affinity:
 {{ include "eric-data-document-database-pg.affinity" .| indent 8 }}
@@ -49,7 +59,7 @@ spec:
       {{- if or (not (empty .Values.nodeSelector.brAgent)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
       nodeSelector:
 {{- include "eric-data-document-database-pg.nodeSelector.brAgent" . | nindent 8 }}
-      {{- end }}
+      {{- end }}     
       tolerations:
       {{- if .Values.tolerations }}
 {{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.brAgent" . | indent 8 }}
@@ -59,9 +69,6 @@ spec:
       {{- end }}
       {{- if .Values.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.brAgent | int }}
-      {{- end }}
-      {{- if .Values.podPriority.brAgent.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.brAgent.priorityClassName | quote }}
       {{- end }}
       containers:
       - name: {{ template "eric-data-document-database-pg.name" . }}-bra
@@ -74,7 +81,7 @@ spec:
           {{ if has "stream" .Values.log.outputs -}}
           {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
           {{- end -}}
-           /usr/bin/java {{ template "eric-data-document-database-pg.JVMHeapSize" . }} -Dlog4j.configurationFile=/opt/log4j2/log4j2.xml -jar /opt/pgagent.jar /opt/application.properties"
+           /usr/bin/java -Dlog4j.configurationFile=/opt/log4j2/log4j2.xml -jar /opt/pgagent.jar /opt/application.properties"
         env:
           # For global
           - name: POD_IP
@@ -165,7 +172,6 @@ spec:
         {{- include "eric-data-document-database-pg.logshipper-storage-path" . | indent 10 }}
         {{- end }}
         securityContext:
-          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "bra") | nindent 10 }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
@@ -174,7 +180,11 @@ spec:
             drop:
               - all
       - name: {{ template "eric-data-document-database-pg.name" . }}-brm
+        {{ if eq (include "eric-data-document-database-pg.targetPGversion" .) "13" -}}
         image: {{ template "eric-data-document-database-pg.brm13ImagePath" . }}
+        {{- else -}}
+        image: {{ template "eric-data-document-database-pg.brmImagePath" . }}
+        {{- end }}
         imagePullPolicy: {{ include "eric-data-document-database-pg.imagePullPolicy" . | quote }}
         command: 
           - bash
@@ -281,6 +291,8 @@ spec:
                 key: {{ .Values.credentials.keyForUserPw | quote }}
           - name: PGPASSFILE
             value: /nonroot/.pgpass
+          - name: CUSTOMER_DB
+            value: {{ default "" .Values.postgresDatabase | quote }}
           {{- end }}
           # common environment variable
           - name: CUSTOMER_DB
@@ -376,7 +388,6 @@ spec:
 {{- include "eric-data-document-database-pg.logshipper-storage-path" . | indent 10 }}
 {{- end }}
         securityContext:
-          {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "brm") | nindent 10 }}
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true

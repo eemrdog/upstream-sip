@@ -1,11 +1,11 @@
 {{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
-{{- $sipoauth2 := eq (include "eric-sec-access-mgmt.sipoauth2.enabled" .) "true" -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}
   annotations: {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
-  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  labels:
+{{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
 spec:
   selector:
     matchLabels:
@@ -13,33 +13,22 @@ spec:
   serviceName: {{ template "eric-sec-access-mgmt.name" . }}-headless
   replicas: {{ .Values.replicaCount }}
   updateStrategy:
-    type: {{ include "eric-sec-access-mgmt.updateStrategy.iam" . | quote }}
+    type: {{ .Values.updateStrategy.type | quote }}
   template:
     metadata:
       labels:
-        {{- $labels := include "eric-sec-access-mgmt.labels" . | fromYaml -}}
-        {{- $peerServiceAccess := include "eric-sec-access-mgmt.peerServiceAccess" . | fromYaml -}}
-        {{- include "eric-sec-access-mgmt.mergeLabels" (dict "location" (.Template.Name) "sources" (list $labels $peerServiceAccess)) | trim | nindent 8 }}
+        {{- include "eric-sec-access-mgmt.labels" . | indent 8 }}
       annotations:
-        {{- $annotations := dict -}}
-        {{- $_ := set $annotations "prometheus.io/scrape" (.Values.metrics.enabled | toString) -}}
-        {{- $_ := set $annotations "prometheus.io/path" "/auth/realms/master/metrics" -}}
-        {{- $_ := set $annotations "prometheus.io/path2" "/adp-iam-auth-proxy-internal/metrics" -}}
-        {{- $_ := set $annotations "prometheus.io/port2" "6443" -}}
-        {{- if $global.security.tls.enabled }}
-          {{- $_ := set $annotations "prometheus.io/port" (include "eric-sec-access-mgmt.httpsPort" .) -}}
-          {{- $_ := set $annotations "prometheus.io/scheme" "https" -}}
-          {{- $_ := set $annotations "prometheus.io/scheme2" "https" -}}
+        {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 8 }}
+        prometheus.io/scrape: {{ .Values.metrics.enabled | quote }}
+        prometheus.io/path: "/auth/realms/master/metrics"
+        {{- if not $global.security.tls.enabled }}
+        prometheus.io/port: "{{ template "eric-sec-access-mgmt.httpPort" . }}"
         {{- else }}
-          {{- $_ := set $annotations "prometheus.io/port" (include "eric-sec-access-mgmt.httpPort" .) -}}
-          {{- $_ := set $annotations "prometheus.io/scheme" "http" -}}
-          {{- $_ := set $annotations "prometheus.io/scheme2" "http" -}}
+        prometheus.io/port: "{{ template "eric-sec-access-mgmt.httpsPort" . }}"
         {{- end }}
-        {{- if .Values.bandwidth.maxEgressRate }}
-          {{- $_ := set $annotations "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate) -}}
-        {{- end }}
-        {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
-        {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $annotations $common)) | trim | nindent 8 }}
+        prometheus.io/path2: "/adp-iam-auth-proxy-internal/metrics"
+        prometheus.io/port2: "6443"
     spec:
 {{- if eq .Values.persistence.dbVendor "POSTGRES" }}
       initContainers:
@@ -56,15 +45,12 @@ spec:
 {{- end }}
             - name: SERVICE_NAME
               value: {{ template "eric-sec-access-mgmt.name" . }}
-            - name: RUNDIR_SAFE_PATH
-              value: {{ include "eric-sec-access-mgmt.initRunDirSafeMountPath" . | quote }}
 {{ include "eric-sec-access-mgmt.tlsInitConfig" . | indent 12 }}
 {{ include "eric-sec-access-mgmt.externalDbConfig" . | indent 12 }}
 {{ include "eric-sec-access-mgmt.timezone" . | indent 12 }}
+{{ include "eric-sec-access-mgmt.credentials" . | indent 12 }}
           securityContext: {{- include "eric-sec-iam-server.containerSecurityContext" . | nindent 12 }}
           volumeMounts:
-            - name: init-rundir-safe
-              mountPath: {{ template "eric-sec-access-mgmt.initRunDirSafeMountPath" }}
 {{- if .Values.logshipper.enabled }}
             {{- include "eric-sec-access-mgmt.logshipper-storage-path" . | nindent 12 }}
 {{- end }}
@@ -78,9 +64,6 @@ spec:
               mountPath: {{ .Values.tls.client.pg.mountPath | quote }}
               readOnly: true
 {{- end }}
-{{- end}}
-{{- if .Values.podPriority.iam.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.iam.priorityClassName | quote}}
 {{- end }}
       containers:
         # IAM container
@@ -94,10 +77,6 @@ spec:
               value: {{ template "eric-sec-access-mgmt.name" . }}-http
             - name: SERVICE_NAME
               value: {{ template "eric-sec-access-mgmt.name" . }}
-            - name: TLS_ENABLED
-              value: {{ $global.security.tls.enabled | quote }}
-            - name: RECORD_LOGIN_ENABLED
-              value: {{ .Values.application.recordLoginTimeEnabled | quote }}
 {{ include "eric-sec-access-mgmt.credentials" . | indent 12 }}
 {{- if .Values.ldap.enabled }}
             - name: LDAP_ENABLED
@@ -139,8 +118,7 @@ spec:
             - name: IAM_DOCKERV2_ENABLED
               value: "false"
 {{- end }}
-            - name: SIP_OAUTH2_CLIENT_SECRET_PATH
-              value: {{ include "eric-sec-access-mgmt.sipOauth2ClientSecretPath" . | quote }}
+
 {{- if .Values.authenticationProxy.enabled }}
             {{ if .Values.authenticationProxy.realm -}}
             - name: AUTH_PROXY_REALM
@@ -150,20 +128,10 @@ spec:
               value: "true"
             - name: LAST_LOGIN_TIME_ENABLED
               value: {{ .Values.authenticationProxy.lastlogintimeEnabled | quote }}
-            - name: AUTHN_PROXY_CLIENT_SECRET_PATH
-              value: {{ include "eric-sec-access-mgmt.authnProxyClientSecretPath" . | quote }}
 {{- else }}
             - name: AUTH_PROXY_ENABLED
               value: "false"
 {{- end }}
-            - name: RUNDIR_SAFE_PATH
-              value: {{ include "eric-sec-access-mgmt.runDirSafeMountPath" . | quote }}
-            - name: SIP_OAUTH2_ENABLED
-              {{ if $sipoauth2 }}
-              value: "ENABLED"
-              {{ else }}
-              value: "DISABLED"
-              {{ end }}
 {{ include "eric-sec-access-mgmt.timezone" . | indent 12 }}
 {{ include "eric-sec-access-mgmt.tlsIamConfig" . | indent 12 }}
 {{ include "eric-sec-access-mgmt.externalDbConfig" . | indent 12 }}
@@ -171,20 +139,6 @@ spec:
 {{ toYaml .Values.statefulset.additionalEnv | indent 12 }}
 {{- end }}
           volumeMounts:
-            - name: iam-rundir-safe
-              mountPath: {{ include "eric-sec-access-mgmt.runDirSafeMountPath" . | quote }}
-            - name: iam-tempdir-safe
-              mountPath: {{ include "eric-sec-access-mgmt.tempDirMountPath" . | quote }}
-          {{- if .Values.adminSecret }}
-            - name: iam-admin-user
-              mountPath: {{ include "eric-sec-access-mgmt.adminUserCredentialsMountPath" . | quote }}
-          {{- end }}
-            - name: iam-standalone
-              mountPath: "/opt/jboss/keycloak/standalone"
-            - name: iam-post-login-message
-              mountPath: "/opt/jboss/keycloak/themes/base/admin/resources/messages"
-            - name: iam-legal-notice
-              mountPath: "/opt/jboss/keycloak/themes/ericsson-base-modified-theme/login/resources/res"
 {{- if .Values.logshipper.enabled }}
             {{- include "eric-sec-access-mgmt.logshipper-storage-path" . | nindent 12 }}
 {{- end }}
@@ -242,15 +196,6 @@ spec:
             - name: aaproxy-ca-certs
               mountPath: {{ include "eric-sec-access-mgmt.aaproxyCAcertPath" . | quote }}
             {{- end }}
-{{ else }}
-            {{- if $sipoauth2 }}
-            - name: sip-oauth2-client-secret
-              mountPath: {{ include "eric-sec-access-mgmt.sipOauth2ClientSecretPath" . | quote }}
-            {{- end }}
-            {{- if .Values.authenticationProxy.enabled }}
-            - name: authn-proxy-client-secret
-              mountPath: {{ include "eric-sec-access-mgmt.authnProxyClientSecretPath" . | quote }}
-            {{- end }}
 {{- end }}
 {{- if or .Values.egress.ldap.certificates.trustedCertificateListSecret .Values.egress.ldap.certificates.trustedCertificateListName }}
             - name: egress-ldap-trusted-ca-certs
@@ -301,7 +246,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             privileged: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             runAsNonRoot: true
             capabilities:
               drop:
@@ -319,7 +264,7 @@ spec:
             {{ end }}
 {{ include "eric-sec-access-mgmt.tlsProxyConfig" . | indent 10 }}
 {{ include "eric-sec-access-mgmt.externalDbConfig" . | indent 10 }}
-{{ include "eric-sec-access-mgmt.timezone" . | indent 10 }}
+{{ include "eric-sec-access-mgmt.credentials" . | indent 10 }}
             {{ if .Values.authenticationProxy.realm }}
           - name: AUTH_PROXY_REALM
             value: {{ .Values.authenticationProxy.realm | quote }}
@@ -406,8 +351,6 @@ spec:
             {{- end }}
           - name: METRICS_ENABLED
             value: {{ .Values.metrics.enabled | quote | lower}}
-          - name: RUNDIR_SAFE_PATH
-            value: {{ include "eric-sec-access-mgmt.authProxyRunDirSafeMountPath" . | quote }}
           ports:
             - name: http-pxy
               containerPort: 6443
@@ -415,7 +358,7 @@ spec:
             - name: https-pxy-tls
               containerPort: 6443
               protocol: TCP
-          {{- $startupProbe := semverCompare ">=1.18-0" (printf "%s.%s" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) }}
+          {{- $startupProbe := semverCompare ">=1.18" .Capabilities.KubeVersion.GitVersion }}
           livenessProbe:
             exec:
               command:
@@ -461,8 +404,6 @@ spec:
             failureThreshold: {{ .Values.probes.authenticationproxy.readinessProbe.failureThreshold }}
             timeoutSeconds: {{ .Values.probes.authenticationproxy.readinessProbe.timeoutSeconds }}
           volumeMounts:
-          - name: auth-proxy-rundir-safe
-            mountPath: {{ include "eric-sec-access-mgmt.authProxyRunDirSafeMountPath" . | quote }}
           {{- if .Values.logshipper.enabled }}
             {{- include "eric-sec-access-mgmt.logshipper-storage-path" . | nindent 10 }}
           {{- end }}
@@ -481,8 +422,6 @@ spec:
             mountPath: "/run/secrets/aa-proxy-srv-cert"
           - name: aaproxy-client-cert
             mountPath: "/run/secrets/aa-proxy-cli-cert"
-          - name: authn-proxy-client-cert
-            mountPath: "/run/secrets/authn-proxy-cli-cert"
           - name: iam-client-ca-1
             mountPath: "/run/secrets/aa-proxy-ca-cert-path"
           - name: aaproxy-iccr-client-ca-certificate
@@ -495,8 +434,6 @@ spec:
           {{- else }}
           - name: aaproxy-client-secret
             mountPath: "/run/secrets/aa-proxy-client-secret"
-          - name: authn-client-secret
-            mountPath: "/run/secrets/authn-client-secret"
           {{- end }}
           - name: aaproxy-configuration
             mountPath: /aaproxy-conf
@@ -534,36 +471,12 @@ spec:
                   - {{ template "eric-sec-access-mgmt.name" . }}
               topologyKey: "kubernetes.io/hostname"
     {{- end }}
-      nodeSelector: {{- include "eric-sec-access-mgmt.nodeSelector.iam" . | trim | nindent 8 }}
-      tolerations: {{- toYaml .Values.tolerations.iam | nindent 8 }}
+      nodeSelector: {{ include "eric-sec-access-mgmt.nodeSelector" . | nindent 8 }}
+      tolerations: {{- include "eric-sec-access-mgmt.tolerations.iam" . | nindent 8 }}
       #this is the time kubernetes waits for the IAM pod before it removes it (when kubectl delete or helm del).
-      terminationGracePeriodSeconds: {{ template "eric-sec-access-mgmt.terminationGracePeriodSeconds.iam" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       topologySpreadConstraints: {{- toYaml .Values.topologySpreadConstraints | nindent 8 }}
       volumes:
-        - name: init-rundir-safe
-          emptyDir:
-            medium: Memory
-        - name: iam-rundir-safe
-          emptyDir:
-            medium: Memory
-        - name: iam-tempdir-safe
-          emptyDir:
-            sizeLimit: "15Mi"
-            medium: Memory
-      {{- if .Values.adminSecret }}
-        - name: iam-admin-user
-          secret:
-            secretName: {{ .Values.adminSecret | quote }}
-      {{- end }}
-        - name: iam-standalone
-          emptyDir: {}
-        - name: iam-post-login-message
-          emptyDir: {}
-        - name: iam-legal-notice
-          emptyDir: {}
-        - name: auth-proxy-rundir-safe
-          emptyDir:
-            medium: Memory
       {{- if .Values.logshipper.enabled }}
         {{- include "eric-sec-access-mgmt.logshipper-volume" . | nindent 8 }}
       {{- end }}
@@ -633,23 +546,6 @@ spec:
         - name: int-trusted-ca
           secret:
             secretName: {{ template "eric-sec-access-mgmt.name" . }}-iam-ha-clustering-client-ca
-      {{ else }}
-        {{- if $sipoauth2 }}
-        - name: sip-oauth2-client-secret
-          secret:
-            secretName: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-client-secret
-            items:
-              - key: "client-secret"
-                path: client-secret
-        {{- end }}
-        {{- if .Values.authenticationProxy.enabled }}
-        - name: authn-proxy-client-secret
-          secret:
-            secretName: {{ template "eric-sec-access-mgmt.name" . }}-authn-client-secret
-            items:
-              - key: "client-secret"
-                path: client-secret
-        {{- end }}
       {{- end }}
       {{- if .Values.egress.ldap.certificates.trustedCertificateListSecret }}
         - name: egress-ldap-trusted-ca-certs
@@ -669,8 +565,7 @@ spec:
             secretName: {{ template "eric-sec-access-mgmt.name" . }}-egress-idp-ca-cert
           {{- end }}
       {{- end }}
-      {{- if .Values.authenticationProxy.enabled}}
-        {{- if  $global.security.tls.enabled }}
+      {{- if and .Values.authenticationProxy.enabled $global.security.tls.enabled }}
         - name: aaproxy-ca-certs
           secret:
             secretName: {{ template "eric-sec-access-mgmt.name" . }}-aaproxy-ca-cert
@@ -684,18 +579,10 @@ spec:
         - name: aaproxy-client-cert
           secret:
             secretName: {{ template "eric-sec-access-mgmt.name" . }}-aa-proxy-client-cert
-        - name: authn-proxy-client-cert
-          secret:
-            secretName: {{ template "eric-sec-access-mgmt.name" . }}-authn-proxy-client-cert
-        {{ else }}
+      {{ else }}
         - name: aaproxy-client-secret
           secret:
             secretName: {{ .Values.authenticationProxy.clientCredentialSecret }}
-        - name: authn-client-secret
-          secret:
-            secretName: {{ template "eric-sec-access-mgmt.name" . }}-authn-client-secret
-            optional: true
-        {{- end }}
       {{- end }}
         - name: scripts
           configMap:

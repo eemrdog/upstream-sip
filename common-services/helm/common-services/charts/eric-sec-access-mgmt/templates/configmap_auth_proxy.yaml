@@ -4,8 +4,8 @@ kind: ConfigMap
 metadata:
   name: {{ template "eric-sec-access-mgmt.name" . }}-auth-proxy
   labels:
-    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
-  annotations:
+    {{- include "eric-sec-access-mgmt.labels" . | indent 4 }}
+  annotations: 
     {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
 data:
   auth_proxy_client.json: |-

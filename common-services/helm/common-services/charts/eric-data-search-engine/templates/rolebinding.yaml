@@ -3,28 +3,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
- {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+ {{- if or (eq .Values.autoSetRequiredWorkerNodeSysctl true) (eq .Values.customSecurityPolicy true) }}
   name: {{ include "eric-data-search-engine.fullname" . }}-privileged-security-policy
  {{- else }}
   name: {{ include "eric-data-search-engine.fullname" . }}-restricted-security-policy
  {{- end }}
   annotations:
-    {{- $rolebindingAnn := dict -}}
-    {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.capabilities" "" -}}
-    {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
-      {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.type" "privileged/custom" -}}
-    {{- else }}
-      {{- $_ := set $rolebindingAnn "ericsson.com/security-policy.type" "restricted/default" -}}
-    {{- end }}
-
-    {{- $commonAnn := include "eric-data-search-engine.annotations" . | fromYaml }}
-    {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $rolebindingAnn)) | trim | nindent 4 }}
-  labels: {{- include "eric-data-search-engine.labels" . | nindent 4 }}
+    {{- include "eric-data-search-engine.annotations" . | indent 4 }}
+    ericsson.com/security-policy.capabilities: ""
+  {{- if or (eq .Values.autoSetRequiredWorkerNodeSysctl true) (eq .Values.customSecurityPolicy true) }}
+    ericsson.com/security-policy.type: "privileged/custom"
+  {{- else }}
+    ericsson.com/security-policy.type: "restricted/default"
+  {{- end }}
+  labels:
+    {{- include "eric-data-search-engine.labels" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
  {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
   name: {{ index $g.security.policyReferenceMap "plc-9c20871f9bf62c7b09fd0c684ac651" | quote }}
+ {{- else if and (eq .Values.autoSetRequiredWorkerNodeSysctl false) (eq .Values.customSecurityPolicy true) }}
+  name: {{ index $g.security.policyReferenceMap "plc-f60f72ea252a60cb7a179b9553c0c9" | quote }}
  {{- else }}
   name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
  {{- end }}

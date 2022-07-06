@@ -5,31 +5,30 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
-  labels: {{- include "eric-data-document-database-pg.labels.extended-defaults" . | nindent 4 }}
+  labels:
+{{- include "eric-data-document-database-pg.labels" . | indent 4 }}
+    app: {{ template "eric-data-document-database-pg.name" . }}
+    chart: {{ template "eric-data-document-database-pg.chart" . }}
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service }}
+{{- include "eric-data-document-database-pg_app_kubernetes_io_info" .| nindent 4 }}
   annotations:
-    {{- $helmHooks := dict -}}
-    {{- $_ := set $helmHooks "helm.sh/hook" "pre-rollback" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-delete-policy" "hook-succeeded,before-hook-creation" -}}
-    {{- $_ := set $helmHooks "helm.sh/hook-weight" "-2" -}}
-    {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-    {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $helmHooks)) | trim | nindent 4 }}
+    ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+    ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+    ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
+    "helm.sh/hook": pre-rollback
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "-3"
 spec:
   backoffLimit: 0
   template:
     metadata:
       labels:
-        {{- $podTempLabels := dict -}}
-        {{- $_ := set $podTempLabels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "backup-pgdata") -}}
-        {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
-        {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $podTempLabels)) | trim | nindent 8 }}
+        app: {{ template "eric-data-document-database-pg.name" . }}-backup-pgdata
       annotations:
-        {{- include "eric-data-document-database-pg.appArmorProfile" (dict "root" . "Scope" "Hook" "containerList" (list "backup-pgdata")) | indent 8 }}
-        {{- $podTempAnn := dict -}}
-        {{- if .Values.bandwidth.cleanuphook.maxEgressRate }}
-          {{- $_ := set $podTempAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.cleanuphook.maxEgressRate | toString) -}}
-        {{- end }}
-        {{- $commonAnn := fromYaml (include "eric-data-document-database-pg.annotations" .) -}}
-        {{- include "eric-data-document-database-pg.mergeAnnotations" (dict "location" .Template.Name "sources" (list $podTempAnn $commonAnn)) | trim | nindent 8 }}
+        ericsson.com/product-name: {{ template "eric-data-document-database-pg.helm-annotations_product_name" . }}
+        ericsson.com/product-number: {{ template "eric-data-document-database-pg.helm-annotations_product_number" . }}
+        ericsson.com/product-revision: {{ template "eric-data-document-database-pg.helm-annotations_product_revision" . }}
     spec:
       restartPolicy: Never
       serviceAccountName: {{ template "eric-data-document-database-pg.name" . }}-pgdata-hook
@@ -39,7 +38,7 @@ spec:
       {{- end }}
       securityContext:
         fsGroup: {{ template "eric-data-document-database-pg.fsGroup.coordinated" . }}
-{{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "Pod") | nindent 8 }}
+      
       {{- if or (not (empty .Values.nodeSelector.cleanuphook)) (not (eq "{}" (include "eric-data-document-database-pg.global.nodeSelector" .))) }}
       nodeSelector:
 {{- include "eric-data-document-database-pg.nodeSelector.cleanuphook" . | nindent 8 }}
@@ -47,9 +46,6 @@ spec:
       tolerations:
       {{- if .Values.tolerations }}
 {{ include "eric-data-document-database-pg.tolerations.withoutHandleTS.cleanuphook" . | indent 8 }}
-      {{- end }}
-      {{- if .Values.podPriority.cleanuphook.priorityClassName }}
-      priorityClassName: {{ .Values.podPriority.cleanuphook.priorityClassName | quote }}
       {{- end }}
       containers:
         - name: backup-pgdata
@@ -62,18 +58,12 @@ spec:
             value: {{ .Values.highAvailability.replicaCount | quote }}
           - name: CLUSTER_NAME
             value: {{ template "eric-data-document-database-pg.name" . }}
-          - name: RELEASE_NAME
-            value: {{ .Release.Name | quote }}
           - name: KUBERNETES_NAMESPACE
             valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
           - name: TRANSIT_COMPONENT
             value: {{ template "eric-data-document-database-pg.name" . }}-transit-pvc
           - name: TARGET_PG_VERSION
-            value: "13"
-          - name: PHASE
-            value: "rollback"
-          - name: BR_LOG_LEVEL
-            value: {{ .Values.brAgent.logLevel }}
+            value: {{ default "10" .Values.targetPGversion | quote }}
           {{- if (eq (include "eric-data-document-database-pg.global-security-tls-enabled" .) "false") }}
           - name: PGPASSWORD
             valueFrom:
@@ -110,7 +100,7 @@ spec:
             - "
               /usr/bin/catatonit -- 
               {{ template "eric-data-document-database-pg.stdRedirectCMD" .  }}
-              {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/backuppgdata.sh; RES=$?; sleep 3; exit ${RES}"
+              {{ template "eric-data-document-database-pg.hook.scriptPath" . }}/backuppgdata.sh; sleep 3"
           {{- else }}
           command:
             - /bin/bash
@@ -122,7 +112,6 @@ spec:
             "
           {{- end }}
           securityContext:
-            {{- include "eric-data-document-database-pg.seccompProfile" (dict "Values" .Values "Scope" "backup-pgdata") | nindent 12 }}
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true

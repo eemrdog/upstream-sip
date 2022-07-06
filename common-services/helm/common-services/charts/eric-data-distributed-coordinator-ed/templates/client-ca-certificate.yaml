@@ -1,6 +1,14 @@
 {{- if eq ( include "eric-data-distributed-coordinator-ed.tls.enabled" . ) "true" }}
-apiVersion: siptls.sec.ericsson.com/v1
 
+{{- $intcert_v1       := .Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalUserCA" }}
+{{- $intcert_v1alpha1 := .Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1alpha1/InternalUserCA"}}
+
+{{- if or $intcert_v1 $intcert_v1alpha1 }}
+{{- if $intcert_v1 }}
+apiVersion: siptls.sec.ericsson.com/v1
+{{- else }}
+apiVersion: siptls.sec.ericsson.com/v1alpha1
+{{- end }}
 kind: InternalUserCA
 metadata:
   name: {{ template "eric-data-distributed-coordinator-ed.name" . }}-ca
@@ -16,4 +24,25 @@ spec:
   certificate:
     subject:
       cn: "{{ template "eric-data-distributed-coordinator-ed.name" . }} Internal Client CA"
+
+{{- else }}
+apiVersion: com.ericsson.sec.tls/v1alpha1
+kind: CertificateAuthority
+metadata:
+  name: {{ template "eric-data-distributed-coordinator-ed.name" . }}-ca
+  labels:
+{{- include "eric-data-distributed-coordinator-ed.labels" . | indent 2 }}
+  annotations:
+{{- include "eric-data-distributed-coordinator-ed.productinfo" . | indent 4 }}
+{{- include "eric-data-distributed-coordinator-ed.config-annotations" . | indent 4 }}
+spec:
+  ## Mandatory; string
+  ## The secret where the CA certificate is stored.
+  generated-secret-name: {{ template "eric-data-distributed-coordinator-ed.name" . }}-ca
+
+  ## Mandatory; string
+  ## CA certificate Issuer/Subject CN. E.g. "<service-name> Internal Client CA"
+  common-name: "{{ template "eric-data-distributed-coordinator-ed.name" . }} Internal Client CA"
+
+{{- end -}}
 {{- end -}}

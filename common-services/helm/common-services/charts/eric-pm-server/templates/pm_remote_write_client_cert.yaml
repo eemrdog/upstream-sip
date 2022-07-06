@@ -4,7 +4,7 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-pm-server.name" . }}-int-rw-client-cert
-  annotations: {{- include "eric-pm-server.annotations" . | nindent 4 }}
+  annotations: {{- include "eric-pm-server.annotations" . | nindent 2 }}
   labels: {{- include "eric-pm-server.labels" . | nindent 4 }}
 spec:
   kubernetes:

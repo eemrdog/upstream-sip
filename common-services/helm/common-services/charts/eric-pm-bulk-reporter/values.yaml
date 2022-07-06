@@ -6,7 +6,7 @@
 #  applicationId: ""
 #  pullSecret:
 #  registry:
-#    url: armdocker.rnd.ericsson.se
+#    url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
     ## Secret must be manually created in the namespace.
     # deprecated, it will be removed
 #    pullSecret:
@@ -53,26 +53,23 @@ service:
         verifyClientCertificate: required
   type: LoadBalancer
   servicePort: 9022
-  externalIPv4:
+  externalIPv4 :
     enabled:          # <empty>/true/false
     loadBalancerIP:
     externalTrafficPolicy: Cluster
     servicePort: 9022
     annotations:
-      cloudProviderLB: {}  # used in deployments other than ECFE
       sharedVIPLabel:
       addressPoolName:
-  externalIPv6:
+  externalIPv6 :
     enabled:         # <empty>/true/false
     loadBalancerIP:
     externalTrafficPolicy: Cluster
     servicePort: 9022
     annotations:
-      cloudProviderLB: {}  # used in deployments other than ECFE
       sharedVIPLabel:
       addressPoolName:
   annotations:
-    cloudProviderLB: {}  # used in deployments other than ECFE
     sharedVIPLabel: ""
     addressPoolName: ""
   loadBalancerIP: ""
@@ -135,15 +132,8 @@ yangModelSupport:
 
 labels: {}
 
-networkPolicy:
-  enabled: false
-
 podDisruptionBudget:
   minAvailable: 0
-
-podPriority:
-  eric-pm-bulk-reporter:
-    priorityClassName: ""
 
 persistentVolumeClaim:
   enabled: false
@@ -174,8 +164,6 @@ security:
     alarmHandler:
       enabled: true
       serviceName: eric-fh-alarm-handler
-    ldapServer:
-      enabled: true
   keyManagement:
     enabled: false
     serviceName: eric-sec-key-management
@@ -219,13 +207,6 @@ probes:
       initialDelaySeconds: 15
       periodSeconds: 20
       timeoutSeconds: 15
-      failureThreshold: 3
-      successThreshold: 1
-  logshipper:
-    livenessProbe:
-      initialDelaySeconds: 1
-      periodSeconds: 10
-      timeoutSeconds: 10
       failureThreshold: 3
       successThreshold: 1
 
@@ -316,9 +297,6 @@ objectStorage:
 
 annotations: {}
 
-bandwidth:
-  maxEgressRate: ""
-
 tolerations:
   eric-pm-bulk-reporter:
     - key: node.kubernetes.io/not-ready
@@ -330,25 +308,3 @@ tolerations:
       effect: NoExecute
       tolerationSeconds: 0
 topologySpreadConstraints: []
-
-appArmorProfile:
-  type:
-  localhostProfile:
-  eric-pm-br-initcontainer:
-    type:
-    localhostProfile:
-  eric-pm-bulk-reporter:
-    type:
-    localhostProfile:
-  eric-pm-alarm-reporter:
-    type:
-    localhostProfile:
-  eric-pm-sftp:
-    type:
-    localhostProfile:
-  logshipper:
-    type:
-    localhostProfile:
-
-seccompProfile:
-  type:

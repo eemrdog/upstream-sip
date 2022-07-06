@@ -9,7 +9,7 @@ kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-data-search-engine.logshipper-service-fullname" . }}-logshipper-cfg"
   annotations:
-    {{- include "eric-data-search-engine.logshipper-annotations" . | indent 4 }}
+    {{- include "eric-data-search-engine.annotations" . | indent 4 }}
   labels:
     {{- include "eric-data-search-engine.logshipper-labels" . | indent 4 }}
 data:
@@ -100,8 +100,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -149,8 +147,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -174,47 +170,12 @@ data:
               - "message"
             target: "json"
             overwrite_keys: true
-        {{- if has "metrics.log*" $value.subPaths }}
-        # SE metrics conf starts.
-        - rename:
-            fields:
-              - from: "json.level"
-                to: "json.severity"
-              - from: "json.ts"
-                to: "json.timestamp"
-              - from: "json.msg"
-                to: "json.message"
-              - from: "json.logger"
-                to: "json.extra_data.metrics.logger"
-              - from: "json.caller"
-                to: "json.extra_data.metrics.caller"
-              - from: "json.err"
-                to: "json.extra_data.metrics.err"
-              - from: "json.addr"
-                to: "json.extra_data.metrics.addr"
-            ignore_missing: true
-        - add_fields:
-            target: ""
-            fields:
-              json.service_id: {{ $serviceId }}
-              json.version: "1.1.0"
-              json.metadata.container_name: "metrics"
-              json.extra_data.filename: {{ $storagePath }}/metrics.log
-        - add_fields:
-            when:
-               equals:
-                 json.severity: "warn"
-            target: ""
-            fields:
-              json.severity: "warning"
-        # SE metrics conf ends.
-        {{- end }}
     {{- end }}
     processors:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:

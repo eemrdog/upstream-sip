@@ -9,9 +9,9 @@ kind: "InternalCertificate"
 metadata:
   name: "{{ include "eric-data-object-storage-mn.logshipper-service-fullname" . }}-lt-client-cert"
   labels:
-    {{- include "eric-data-object-storage-mn.logshipper-labels" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn.logshipper-labels" . | indent 4 }}
   annotations:
-    {{- include "eric-data-object-storage-mn.logshipper-annotations" . | nindent 4 }}
+    {{- include "eric-data-object-storage-mn.logshipper-product-info" . | indent 4 }}
 spec:
   kubernetes:
     generatedSecretName: "{{ include "eric-data-object-storage-mn.logshipper-service-fullname" . }}-lt-client-cert"

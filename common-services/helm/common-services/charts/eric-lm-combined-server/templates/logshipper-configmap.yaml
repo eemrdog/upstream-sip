@@ -12,7 +12,7 @@ kind: "ConfigMap"
 metadata:
   name: "{{ include "eric-lm-combined-server.logshipper-service-fullname" . }}-logshipper-cfg"
   annotations:
-    {{- include "eric-lm-combined-server.logshipper-annotations" . | nindent 4 }}
+    {{- include "eric-lm-combined-server.product-info" . | nindent 4 }}
   labels:
     {{- include "eric-lm-combined-server.logshipper-labels" . | nindent 4 }}
 data:
@@ -103,8 +103,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $default.logshipper.excludeFiles }}
           {{- toYaml $default.logshipper.excludeFiles | nindent 8 }}
         {{- end }}
@@ -152,8 +150,6 @@ data:
       exclude_files:
         - '\.pid$'
         - '^{{ $storagePath }}/data/'
-        - '^{{ $storagePath }}/filebeat.log*'
-        - '^{{ $storagePath }}/init.log.*'
         {{- if $value.excludeFiles }}
           {{- toYaml $value.excludeFiles | nindent 8 }}
         {{- end }}
@@ -182,7 +178,7 @@ data:
       - rename:
           fields:
             - from: "log.file.path"
-              to: "extra_data.filename"
+              to: "filename"
           ignore_missing: true
       - drop_fields:
           fields:

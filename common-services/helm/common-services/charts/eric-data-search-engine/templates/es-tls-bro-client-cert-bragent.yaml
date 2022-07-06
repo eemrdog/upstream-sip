@@ -1,0 +1,58 @@
+{{- if .Values.brAgent.enabled -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+{{- $ti := fromJson (include "eric-data-search-engine.testInternal" .) -}}
+{{- if and (.Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate") (not $ti.oldTls) -}}
+
+apiVersion: "siptls.sec.ericsson.com/v1"
+kind: "InternalCertificate"
+metadata:
+  name: "{{ include "eric-data-search-engine.fullname" . }}-bro-client-cert-bra"
+  annotations:
+    {{ include "eric-data-search-engine.annotations" . | indent 4 }}
+  labels:
+    {{ include "eric-data-search-engine.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: "{{ include "eric-data-search-engine.fullname" . }}-bro-client-cert-bra"
+    certificateName: "clientcert.pem"
+    privateKeyName: "clientprivkey.pem"
+  certificate:
+    issuer:
+      reference: "{{ .Values.brAgent.orchestrator.host }}-ca"
+    subject:
+      cn: "{{ include "eric-data-search-engine.fullname" . }}-bragent"
+    subjectAlternativeName:
+      dns:
+        - "*.{{ include "eric-data-search-engine.fullname" . }}-bragent.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- else -}}
+
+apiVersion: "com.ericsson.sec.tls/v1alpha1"
+kind: "ClientCertificate"
+metadata:
+  name: "{{ include "eric-data-search-engine.fullname" . }}-bro-client-cert-bra"
+  annotations:
+    {{ include "eric-data-search-engine.annotations" . | indent 4 }}
+  labels:
+    {{ include "eric-data-search-engine.labels" . | indent 4 }}
+spec:
+  generated-secret-name: "{{ include "eric-data-search-engine.fullname" . }}-bro-client-cert-bra"
+  common-name: "{{ include "eric-data-search-engine.fullname" . }}-bragent"
+  additional-sans:
+    - "DNS:*.{{ include "eric-data-search-engine.fullname" . }}-bragent.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+  issuer-ref: "{{ .Values.brAgent.orchestrator.host }}-ca"
+  {{- if $ti.tlsTtl }}
+  override-ttl: {{ $ti.tlsTtl }}
+  {{- end }}
+
+{{- end -}}
+{{- end -}}
+{{ end }}

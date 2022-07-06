@@ -4,14 +4,13 @@ kind: Deployment
 metadata:
   name: {{ template "eric-fh-snmp-alarm-provider.name" . }}
   labels:
-    {{- $static := dict -}}
-    {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-    {{- $_ := set $static "chart" (include "eric-fh-snmp-alarm-provider.chart" .) -}}
-    {{- $_ := set $static "heritage" (.Release.Service | toString) -}}
-    {{- $_ := set $static "release" (.Release.Name | toString) -}}
-    {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-    {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 4 }}
-  annotations: {{- include "eric-fh-snmp-alarm-provider.annotations" . | nindent 4 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 4 }}
+    app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+    chart: {{ template "eric-fh-snmp-alarm-provider.chart" . }}
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+  annotations:
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 4 }}
 spec:
   replicas: {{ .Values.service.replicas }}
   strategy:
@@ -24,18 +23,13 @@ spec:
   template:
     metadata:
       labels:
-        {{- $static := dict -}}
-        {{- $_ := set $static "app" (include "eric-fh-snmp-alarm-provider.name" .) -}}
-        {{- $_ := set $static "release" (.Release.Name | toString) -}}
-        {{- $defaultLabels := include "eric-fh-snmp-alarm-provider.labels" . | fromYaml -}}
-        {{- include "eric-fh-snmp-alarm-provider.mergeLabels" (dict "location" (.Template.Name) "sources" (list $static $defaultLabels)) | trim | nindent 8 }}
+{{- include "eric-fh-snmp-alarm-provider.helm-labels" . | indent 8 }}
+        app: {{ template "eric-fh-snmp-alarm-provider.name" . }}
+        release: {{ .Release.Name }}
       annotations:
-        {{- $service := include "eric-fh-snmp-alarm-provider.annotations" . | fromYaml -}}
-        {{- $snmpAppArmorAnn := include "eric-fh-snmp-alarm-provider.snmpAP.appArmorProfileAnnotations" . | fromYaml -}}
-        {{- include "eric-fh-snmp-alarm-provider.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $snmpAppArmorAnn)) | indent 8 }}
+{{- include "eric-fh-snmp-alarm-provider.annotations" . | indent 8 }}
     spec:
       serviceAccountName: {{ template "eric-fh-snmp-alarm-provider.name" . }}-service-account
-    {{- include "eric-fh-snmp-alarm-provider.podpriority" . }}
       containers:
 {{- if has "stream" .Values.log.outputs }}
 {{- include "eric-fh-snmp-alarm-provider.logshipper-container" . | indent 6 }}
@@ -85,13 +79,13 @@ spec:
         - name: MB_USER
           valueFrom:
             secretKeyRef:
-              name: {{ include "eric-fh-snmp-alarm-provider.messageBusRd.acl.secret" . | quote }}
-              key: {{ .Values.messageBusRd.acl.userKey | quote }}
+              name: {{ .Values.messageBusRd.acl.secret }}
+              key: username
         - name: MB_PASS
           valueFrom:
             secretKeyRef:
-              name: {{ include "eric-fh-snmp-alarm-provider.messageBusRd.acl.secret" . | quote }}
-              key: {{ .Values.messageBusRd.acl.passKey | quote }}
+              name: {{ .Values.messageBusRd.acl.secret }}
+              key: password
 {{- else }}
         - name: MB_ACL_ENABLED
           value: "false"
@@ -112,7 +106,6 @@ spec:
           capabilities:
             drop:
               - all
-{{- include "eric-fh-snmp-alarm-provider.snmpAP.seccompProfile" . | indent 10 }}
         command: [ "sh" ]
         args: [ "-c", "/usr/bin/watcher.sh -r {{ $logRedirect }}" ]
         volumeMounts:

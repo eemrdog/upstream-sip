@@ -4,9 +4,9 @@ kind: ConfigMap
 metadata:
   name: {{ include "eric-log-transformer.fullname" . }}-metrics-exporter-cfg
   labels:
-    {{- include "eric-log-transformer.labels" . | nindent 4 }}
+{{- include "eric-log-transformer.labels" . | indent 4 }}
   annotations:
-    {{- include "eric-log-transformer.annotations" . | nindent 4 }}
+    {{- include "eric-log-transformer.annotations" . | indent 4 }}
 data:
   application.properties: |
     logstash.port= 9600
@@ -19,7 +19,7 @@ data:
     appender.console.name=STDOUT
     appender.console.layout.type=PatternLayout
     appender.console.layout.pattern={"version":"1.0.0", \
-                                     "severity":"%level{WARN=warning,lowerCase=true}", \
+                                     "severity":"%level{lowerCase=true}", \
                                      "timestamp":"%d{YYYY-MM-dd'T'HH:mm:ss.sssXXX}", \
                                      "service_id":{{ include "eric-log-transformer.fullname" . | quote }}, \
                                      "message":"%m", \

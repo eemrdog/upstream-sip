@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ template "eric-pm-bulk-reporter.name" . }}-sftp-config
-  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
-  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
-data:
-  supervisord.conf: |
-{{ tpl (.Files.Get "files/supervisord_conf.yaml") . | indent 4 }}

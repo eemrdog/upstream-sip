@@ -1,6 +1,15 @@
 #global:
-  ## annotations, merged with service and application specific ones
-  #annotations:
+  ## pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
+  #pullSecret:
+  ## internalIPFamily, IP version can be chosen in dual stack cluster
+  #internalIPFamily:
+  #registry:
+    ## Docker registry url
+    #url: 451278531435.dkr.ecr.us-east-1.amazonaws.com
+    ## imagePullPolicy, desired policy under which condition the images are pulled from registry
+    #imagePullPolicy: IfNotPresent
+    ## global.registry.pullSecret, deprecated and removed in favor of global.pullSecret
+    #pullSecret:
   ## fsGroup for demo purposes, never in production environment
   #fsGroup:
     ## Define either 'manual' or 'namespace', or do not define fsGroup at all (fallback is 10000)
@@ -8,41 +17,26 @@
     #manual: 15000
     ## namespace, use the value defined for the namespace (that value is set by a cluster admin)
     #namespace: true
-  ## internalIPFamily, IP version can be chosen in dual stack cluster
-  #internalIPFamily:
-  ## labels, merged with service and application specific ones
-  #labels:
-  ## networkPolicy, global switch for the feature
-  #networkPolicy:
-    #enabled: false
-  ## pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
-  #pullSecret:
-  #registry:
-    ## Docker registry url
-    #url: armdocker.rnd.ericsson.se
-    ## imagePullPolicy, desired policy under which condition the images are pulled from registry
-    #imagePullPolicy: IfNotPresent
   #security:
     ## policyBinding, condition to create role binding to cluster role for security policy
     #policyBinding:
       #create:
     ## policyReferenceMap, PSP/SCC policies (key) references to cluster roles (value)
     #policyReferenceMap:
-  #featureGates:
-    ## bootstrap method, 'false' means bootstrap by SIP-TLS, 'true' means bootstrap by KMS
-    #caBootstrap_v2: false
-
-## Container image storage configurations
 
 imageCredentials:
   repoPath: proj-common-assets-cd-released/security
   ## pullSecret, the secret resource name used for authenticating towards docker registry where images are pulled
   ## overrides the global setting when set
   pullSecret: null
+  ## imageCredentials.pullPolicy, deprecated and removed in favor of imageCredentials.registry.imagePullPolicy
+  pullPolicy: null
   registry:
-    ## url, service specific docker registry url, overrides the global setting when set
+    ## url, service specific Docker registry url, overrides the global setting when set
     url: null
-    ## imagePullPolicy, service specific image pull policy, overrides the global setting when set
+    ## pullSecret, is deprecated and removed in favor of imageCredentials.pullSecret
+    pullSecret: null
+    ## imagePullPolicy, service specific policy, overrides the global setting when set
     imagePullPolicy: null
   ## Logshipper related configuration
   logshipper:
@@ -51,7 +45,19 @@ imageCredentials:
       url:
       imagePullPolicy:
 
-## Database backend configurations
+updateStrategy:
+  ## If the chosen pvc backend does not support ReadWriteOnce access, use 'Recreate'
+  type: RollingUpdate
+
+## replicas, number of KMS instances. Only one of them is active. Max value is 2.
+## If set to 2 requires persistence.type=etcd
+replicas: 1
+
+## podDisruptionBudget, enables workload to be able to properly deal with voluntary disruptions
+## applicable when replicas is 2, parameters are mutually exclusive, one of them is empty and other has value 1
+podDisruptionBudget:
+  minAvailable: 1
+  maxUnavailable:
 
 persistence:
   type: etcd
@@ -60,9 +66,6 @@ persistence:
     serviceName: eric-data-distributed-coordinator-ed
     ## servicePort, database service port to connect
     servicePort: 2379
-    ## requestTimeout, specifies timeout for requests to DCED
-    ## 5 seconds should be long enough for most cases, but can be adjusted if frequent timeouts are seen
-    requestTimeout: "5s"
     tls:
       ## Toggle TLS secured communication for DCED
       ## Requires Service Identity Provider TLS service
@@ -77,30 +80,53 @@ persistence:
     ## keep the pvc after helm deletion or not
     keep: true
 
-## Feature activations and configurations
+# Deprecated in favor of eric-product-info.yaml file
+images:
+  ## The container that runs the backed up KMS instance
+  vault:
+    name: eric-sec-key-management-main
+    tag: 2.24.0-10
+
+  ## The container that runs the non-backed up KMS instance
+  shelter:
+    name: eric-sec-key-management-main
+    tag: 2.24.0-10
+
+  ## Init container that intializes and configures KMS
+  unsealer:
+    name: eric-sec-key-management-configurator
+    tag: 2.24.0-10
+
+  ## Init container that configures access rights towards DCED
+  ca:
+    name: eric-sec-key-management-dced-configurator
+    tag: 2.24.0-10
+
+  ## Log Shipper container
+  logshipper:
+    name: eric-log-shipper
+    tag: 7.3.0-23
+
+## unsealAutomatically, whether KMS should be unsealed automatically when becoming sealed.
+## If this is set to false, then another mechanism to handle unseal
+## process must be implemented.
+unsealAutomatically: true
+
+## deployClusterRoleBinding, condition if the cluster role binding resource
+## is created during the deployment. This binding allows usage of the
+## Kubernetes Authentication method. If it is not created during deployment,
+## it must be created before deployment separately.
+deployClusterRoleBinding: true
 
 ## shelter, when set to true, enables consistent backups
 ## when DCED is used as database backend for KMS
 shelter:
   enabled: false
 
-## metrics, when set to false, the pm data will not be scraped
+## metrics will not be scraped if set to false
 ## metrics-exporter container will not be created
 metrics:
   enabled: false
-  serviceName: eric-pm-server
-
-## networkPolicy, local override for global switch
-## do not activate network policy usage if global denies it
-networkPolicy:
-  enabled: true
-
-## clusterDomain used in bootstrapping when bootstrap by KMS is in use
-bootstrap:
-  ## kubernetes cluster domain that gets populated to Subject Alternative Name
-  clusterDomain: cluster.local
-
-## Resource configurations
 
 resources:
   ca:
@@ -157,17 +183,6 @@ resources:
       memory: "50Mi"
       cpu: "50m"
       ephemeral-storage:
-  bootstrapJob:
-    requests:
-      memory: "400Mi"
-      cpu: "100m"
-      ephemeral-storage:
-    limits:
-      memory: "400Mi"
-      cpu: "100m"
-      ephemeral-storage:
-
-## Probe behavior configurations
 
 probes:
   shelter:
@@ -223,29 +238,14 @@ probes:
       periodSeconds: 10
       timeoutSeconds: 10
 
-## Pod behavior configurations
 
-updateStrategy:
-  ## If the chosen pvc backend does not support ReadWriteOnce access, use 'Recreate'
-  type: RollingUpdate
-
-## replicas, number of KMS instances. Only one of them is active. Max value is 2.
-## If set to 2 requires persistence.type=etcd
-replicas: 1
-
-## podDisruptionBudget, enables workload to be able to properly deal with voluntary disruptions
-## applicable when replicas is 2, parameters are mutually exclusive, one of them is empty and other has value 1
-podDisruptionBudget:
-  minAvailable: 1
-  maxUnavailable:
-
-## podPriority.priorityClassName, allows assigning priorities to POD's
-podPriority:
-  eric-sec-key-management-main:
-    priorityClassName: ""
-
-## nodeSelector, node labels for pod assignment
-nodeSelector: {}
+## DEPRECATED Liveness probe configuration, deprecation ends 30.11.2021
+livenessProbe:
+  logshipper:
+    initialDelaySeconds: 1
+    timeoutSeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
 
 ## tolerations, node tolerations for the pod(s)
 ## If KMS is deployed as a single replica, it is recommended to use the following tolerations
@@ -262,6 +262,12 @@ tolerations: []
 ## topologySpreadConstraints, specifies how to spread matching pods among the given topology
 topologySpreadConstraints: []
 
+## labels, application specific labels
+labels: {}
+
+## annotations, application specific annotations
+annotations: {}
+
 ## affinity, purpose is to spread pod replicas evenly among failure domains
 affinity:
   ## podAntiAffinity, possible values: soft, hard
@@ -271,20 +277,8 @@ affinity:
 ## they are forcibly killed
 terminationGracePeriodSeconds: 30
 
-## bandwidth.maxEgressRate, specifies amount of data that can leave the pod in megabits per seconds
-## Format: integers followed by the character M, e.g. 10M
-bandwidth:
-  maxEgressRate: ""
-
-## Application specific labels and annotations
-
-## labels, application specific labels
-labels: {}
-
-## annotations, application specific annotations
-annotations: {}
-
-## Service specific configurations
+## Possible values: debug, info, error
+logLevel: "info"
 
 service:
   ## The port where the KMS REST API is exposed
@@ -294,24 +288,8 @@ service:
     ## Toggle TLS secured communication for the REST API
     ## Requires Service Identity Provider TLS service
     enabled: true
-    serviceName: eric-sec-sip-tls
 
-## unsealAutomatically, whether KMS should be unsealed automatically when becoming sealed.
-## If this is set to false, then another mechanism to handle unseal
-## process must be implemented.
-unsealAutomatically: true
-
-## deployClusterRoleBinding, condition if the cluster role binding resource
-## is created during the deployment. This binding allows usage of the
-## Kubernetes Authentication method. If it is not created during deployment,
-## it must be created before deployment separately.
-deployClusterRoleBinding: true
-
-## Logging configurations
-
-## logLevel, possible values: debug, info, error
-logLevel: "info"
-
+## Log configuration
 log:
   ## Supported values ["stdout", "stream"]
   outputs: ["stdout"]
@@ -319,8 +297,7 @@ log:
     ## Possible values: debug, info, warning, error
     level: "info"
 
-## Logshipper configurations
-
+## Logshipper configuration
 ## Only in effect if log.outputs has 'stream'
 ## Requires Log Transformer service
 logshipper:
@@ -367,49 +344,3 @@ logshipper:
         match: "after"
   logtransformer:
     host: eric-log-transformer
-
-## The AppArmor profile for pod level annotations
-## Type values are 'unconfined', 'runtime/default', 'localhost', ''
-## Default value is '' for backward compatibility
-#appArmorProfile:
-#  kms-ca:
-#    type:
-#    localhostProfile:
-#  kms-mon:
-#    type:
-#    localhostProfile:
-#  kms:
-#    type:
-#    localhostProfile:
-#  shelter:
-#    type:
-#    localhostProfile:
-#  eric-sec-key-management-metrics:
-#    type:
-#    localhostProfile:
-#  logshipper:
-#    type:
-#    localhostProfile:
-
-## The Seccomp profile for container level security context
-## Type values are 'Unconfined', 'RuntimeDefault', 'Localhost', ''
-## Default value is '' for backward compatibility
-#seccompProfile:
-#  kms-ca:
-#    type:
-#    localhostProfile:
-#  kms-mon:
-#    type:
-#    localhostProfile:
-#  kms:
-#    type:
-#    localhostProfile:
-#  shelter:
-#    type:
-#    localhostProfile:
-#  eric-sec-key-management-metrics:
-#    type:
-#    localhostProfile:
-#  logshipper:
-#    type:
-#    localhostProfile:

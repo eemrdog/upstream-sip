@@ -3,7 +3,7 @@ apiVersion: siptls.sec.ericsson.com/v1
 kind: InternalCertificate
 metadata:
   name: {{ template "eric-cm-mediator.name" . }}-kvdb-rd-client-certificate
-  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  annotations: {{ include "eric-cm-mediator.annotations" . | nindent 4 }}
   labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
 spec:
   kubernetes:

@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -33,7 +33,7 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
 roleRef:
   kind: Role
   name: {{ template "eric-sec-key-management.name" . }}-conf-role
@@ -52,7 +52,7 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- include "eric-sec-key-management.annotations" . | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -73,9 +73,8 @@ metadata:
   labels:
     {{- include "eric-sec-key-management.labels" . | nindent 4 }}
   annotations:
-    {{- $securityPolicy := include "eric-sec-key-management.securityPolicy.annotations" . | fromYaml -}}
-    {{- $common := include "eric-sec-key-management.annotations" . | fromYaml -}}
-    {{- include "eric-sec-key-management.mergeAnnotations" (dict "location" .Template.Name "sources" (list $securityPolicy $common)) | trim | nindent 4 }}
+    {{- include "eric-sec-key-management.product-info" . | indent 4 }}
+    {{- include "eric-sec-key-management.securityPolicy.annotations" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
