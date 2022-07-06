@@ -1,0 +1,87 @@
+{{/*
+This client certificate is supposed to be used for cluster internal communication
+within the Alarm Handler pod, e.g. between core and rest container and between
+auth proxy side car and rest container. The authproxy needs the name of the cert
+and key to be exactly cert.pem and key.pem, therefore another secret is created.
+Preferable these would be merged and only the second one would be used,
+however, that require changes elsewhere as well.
+*/}}
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if $g.security.tls.enabled }}
+{{/* This a client cert used for testing for our Alarm REST API issued by our Alarm REST API client CA */}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-client-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.name" . }}-tls-client-secret
+    certificateName: clicert.pem
+    privateKeyName: cliprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}
+    issuer:
+      reference: {{ template "eric-fh-alarm-handler.name" . }}-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+---
+{{/* This a client cert used by APO2 for our Alarm REST API issued by our Alarm REST API client CA */}}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-client-certificate2
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.name" . }}-tls-client-secret2
+    certificateName: cert.pem
+    privateKeyName: key.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}
+    issuer:
+      reference: {{ template "eric-fh-alarm-handler.name" . }}-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- if eq (include "eric-fh-alarm-handler.fiAPI.httpsEnabled" .) "true" }}
+{{/* This a client cert used for testing for our FI REST API issued by our FI API client CA */}}
+---
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-client-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.fiAPI.client.secretname" . }}
+    certificateName: cert.pem
+    privateKeyName: key.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-client
+    issuer:
+      reference: {{ template "eric-fh-alarm-handler.name" . }}-fi-server-client-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end }}
+{{- end }}

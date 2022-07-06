@@ -1,0 +1,471 @@
+# Override the name of this helm chart (used for metadata, labels, pod names...)
+# nameOverride:
+
+#global:
+#  # global.timezone - Sets the timezone for all containers in the helm chart(s)
+#  timezone: UTC
+#  # global.pullSecret - Secret containing credentials an application's image registries
+#  pullSecret:
+#  registry:
+#    # global.registry.imagePullPolicy - The default image pull policy
+#    imagePullPolicy: IfNotPresent
+#    # global.registry.url - The default container image registry
+#    url: armdocker.rnd.ericsson.se
+#  # global.internalIPFamily - A list specifies which IP address families the Service belongs to,
+#  # possible IP address families: "IPv4", "IPv6", e.g.["IPv4", "IPv6"]
+#  # It is only supported from K8s 1.20
+#  internalIPFamily:
+#  ericsson:
+#    licensing:
+#      # Mandatory: global.ericsson.licensing.licenseDomains - The licensing domain information for
+#      # each product type used by ADP LM, formatted as entries in an array like so:
+#      #  - productType: <product type>
+#      #    swltId: <software license target ID>
+#      #    customerId: <customer Id>
+#      licenseDomains:
+#
+#  security:
+#    # global.security.policyBinding.create - If set to true, creates the roleBinding to the clusterRole
+#    # associated with the Security Policy assigned to the service.
+#    policyBinding:
+#      create: false
+#    # global.security.policyReferenceMap.default-restricted-security-policy - Set the Pod Security Policy
+#    policyReferenceMap:
+#      default-restricted-security-policy: "default-restricted-security-policy"
+#    # global.security.tls.enabled - service-specific TLS is enabled or not (true|false) in all services
+#    # If global.security.tls.enabled is not set, it is assumed to be true
+#    tls:
+#      enabled: true
+#
+#  # global.nodeSelector - Set the Kubernetes nodeSelector for all containers in the helm chart(s)
+#  nodeSelector:
+#  log:
+#    # global.log.outputs - Supported values ["k8sLevel", "applicationLevel"]
+#    outputs: ["k8sLevel"]
+
+#  # global.networkPolicy.enabled - Enable or disable the network policy globally
+#  networkPolicy:
+#    enabled: false
+
+# Additional annotations to be attached to all resource objects created by the License Manager service
+annotations: {}
+
+# Additional labels to be attached to all resource objects created by the License Manager service
+labels: {}
+
+# Enable or disable the network policy
+networkPolicy:
+  enabled: true
+
+imageCredentials:
+  # imageCredentials.pullSecret - Secret containing credentials for the registries containing eric-lm-combined-server's images; overrides global.pullSecret
+  pullSecret:
+  registry:
+    # imageCredentials.registry.imagePullPolicy - override the global image pull policy for the license manager images
+    imagePullPolicy:
+    # imageCredentials.registry.url - override the global registry url for the license manager images
+    url:
+  # imageCredentials.repoPath - path within the registry for the license manager images
+  repoPath:
+
+  eric-lm-database-migration:
+    registry:
+      # imageCredentials.eric-lm-database-migration.registry.imagePullPolicy - override the global image pull policy for the databaseMigration image
+      imagePullPolicy:
+      # imageCredentials.eric-lm-database-migration.registry.url - override the global registry url for the databaseMigration image
+      url:
+    # imageCredentials.eric-lm-database-migration.repoPath - path within the registry for the databaseMigration image
+    repoPath:
+
+  eric-lm-license-consumer-handler:
+    registry:
+      # imageCredentials.eric-lm-license-consumer-handler.registry.imagePullPolicy - override the global image pull policy for the licenseConsumerHandler image
+      imagePullPolicy:
+      # imageCredentials.eric-lm-license-consumer-handler.registry.url - override the global registry url for the licenseConsumerHandler image
+      url:
+    # imageCredentials.eric-lm-license-consumer-handler.repoPath - path within the registry for the licenseConsumerHandler image
+    repoPath:
+
+  eric-lm-license-server-client:
+    registry:
+      # imageCredentials.eric-lm-license-server-client.registry.imagePullPolicy - override the global image pull policy for the licenseServerClient image
+      imagePullPolicy:
+      # imageCredentials.eric-lm-license-server-client.registry.url - override the global registry url for the licenseServerClient image
+      url:
+    # imageCredentials.eric-lm-license-server-client.repoPath - path within the registry for the licenseServerClient image
+    repoPath:
+
+  logshipper:
+    registry:
+      # imageCredentials.logshipper.registry.imagePullPolicy - override the global image pull policy for the logshipper image
+      imagePullPolicy:
+      # imageCredentials.logshipper.registry.url - override the global registry url for the logshipper image
+      url:
+    # imageCredentials.logshipper.repoPath - path within the registry for the logshipper image
+    repoPath:
+
+# This exact section is required by the design rule checker, but it is only useful
+#  if there is one deployment in the helm chart. This is here to pass the design rule
+# tests, but is ignored in the templates.
+updateStrategy:
+    # ALL CONTENTS ARE IGNORED
+    type: RollingUpdate
+
+# This exact section is required by the design rule checker, but it is only useful
+# if there is one deployment in the helm chart. This is here to pass the design rule
+# tests, but is ignored in the templates.
+podDisruptionBudget:
+  # ALL CONTENTS ARE IGNORED
+  maxUnavailable: 0
+
+terminationGracePeriodSeconds:
+  # terminationGracePeriodSeconds.eric-lm-combined-server-license-consumer-handler - termination grace period for the Pod License Consumer Handler
+  eric-lm-combined-server-license-consumer-handler: 30
+  # terminationGracePeriodSeconds.eric-lm-combined-server-license-server-client - termination grace period for the Pod License Server Client
+  eric-lm-combined-server-license-server-client: 30
+
+affinity:
+  # affinity.podAntiAffinity - hard|soft inter-pod anti-affinity policy
+  podAntiAffinity: "hard"
+
+ingress:
+  # ingress.enabled - Enable the Ingress of ADP LM service, true or false
+  enabled: false
+  # ingress.hostname - DNS name of the service
+  hostname: eric-lm-combined-server
+  # ingress.ingressClass - Indicates which Ingress controller instance will consume the Ingress resource in case there are multiple controller instances
+  ingressClass: contour
+  # ingress.ingressController - Ingress controller implementation, "nginx" or "contour". "contour" is for the ICCR Ingress controller
+  ingressController: contour
+  tls:
+    # ingress.tls.enabled - Enable TLS on the external connection via Ingress, true or false
+    enabled: true
+    # ingress.tls.minimumTlsVersion - 1.2 or 1.3, currently this parameter takes effect only with ICCR Ingress
+    minimumTlsVersion: 1.2
+    # ingress.tls.passthrough - Terminate TLS traffic in the backend instead of in the Ingress contoller, true or false
+    passthrough: false
+
+tolerations:
+  # tolerations.licenseConsumerHandler - Kubernetes tolerations for the License Consumer Handler
+  licenseConsumerHandler: []
+  # tolerations.licenseServerClient - Kubernetes tolerations for the License Server Client
+  licenseServerClient:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+
+topologySpreadConstraints:
+  # licenseConsumerHandler.topologySpreadConstraints - Kubernetes topology spread constraints for the License Consumer Handler
+  licenseConsumerHandler: []
+
+licenseConsumerHandler:
+  # licenseConsumerHandler.replicaCount - number of License Consumer Handler pod replicas
+  replicaCount: 2
+
+  updateStrategy:
+    # licenseConsumerHandler.updateStrategy.type - the DaemonSet update strategy
+    type: RollingUpdate
+    rollingUpdate:
+      # licenseConsumerHandler.updateStrategy.rollingUpdate.maxUnavailable - maximum number of unavailable replicas in a rolling update
+      maxUnavailable: 0
+      # licenseConsumerHandler.updateStrategy.rollingUpdate.maxSurge - maximum number of extra replicas in a rolling update
+      maxSurge: 1
+
+  podDisruptionBudget:
+    # licenseConsumerHandler.podDisruptionBudget.minAvailable - minimum number of available instances allowed during voluntary disruptions
+    minAvailable: 1
+    # licenseConsumerHandler.podDisruptionBudget.maxUnavailable - maximum number of unavailable instances allowed during voluntary disruptions
+    maxUnavailable:
+
+  service:
+    # licenseConsumerHandler.service.type - Kubernetes service type for the LM service
+    type: ClusterIP
+    endpoints:
+      # licenseConsumerHandler.service.endpoints.externalHttps - name of the endpoint in the service eric-lm-combined-server
+      externalHttps:
+        tls:
+          # licenseConsumerHandler.service.endpoints.externalHttps.tls.enforced - Service-specific TLS is optional|required on local scope of provided interface
+          enforced: required
+          # licenseConsumerHandler.service.endpoints.externalHttps.tls.verifyClientCertificate - Client authentication is optional|required on local scope of provided interface
+          verifyClientCertificate: required
+
+  # licenseConsumerHandler.logLevel - Sets the log level for License Consumer Handler, refer to log4j documentation for the log level
+  logLevel: info
+
+  # licenseConsumerHandler.affinity - Kubernetes affinity for the License Consumer Handler
+  affinity: {}
+
+licenseServerClient:
+  # licenseServerClient.replicaCount - number of License Server Client pod replicas
+  replicaCount: 1
+
+  updateStrategy:
+    # licenseServerClient.updateStrategy.type - the DaemonSet update strategy
+    type: Recreate
+    # Only applicable if type RollingUpdate
+    rollingUpdate:
+      # licenseServerClient.updateStrategy.rollingUpdate.maxUnavailable - maximum number of unavailable replicas in a rolling update
+      # NOTE: this value shall not be changed since multiple replicas of License Server Client is not supported.
+      maxUnavailable: 1
+      # licenseServerClient.updateStrategy.rollingUpdate.maxSurge - maximum number of extra replicas in a rolling update
+      # NOTE: this value shall not be changed since multiple replicas of License Server Client is not supported.
+      maxSurge: 0
+
+  licenseServer:
+    # licenseServerClient.licenseServer.clientId - Application identifier which is sent to NELS during registration only
+    # when licenseServerClient.asih.host is not set
+    clientId:
+    thrift:
+      # Mandatory: licenseServerClient.licenseServer.thrift.host - The NELS thrift server address or service name
+      host:
+      # licenseServerClient.licenseServer.thrift.port - The NELS thrift server port
+      port: 9095
+      # licenseServerClient.licenseServer.thrift.connectionTimeout - The thrift connection timeout
+      # in milliseconds (Ericsson restricted)
+      connectionTimeout: 3000
+      # licenseServerClient.licenseServer.thrift.delayAfterFailedConnect - The NELS retry interval
+      # after connection failure in milliseconds (Ericsson restricted)
+      delayAfterFailedConnect: 30000
+      # licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDown - The NELS retry interval
+      # after license server down in milliseconds (Ericsson restricted)
+      delayAfterLicenseServerDown: 180000
+      # licenseServerClient.licenseServer.thrift.delayAfterLicenseServerDownMaxRandomValue - The NELS
+      # maximum random value after license server down in
+      # milliseconds (Ericsson restricted)
+      delayAfterLicenseServerDownMaxRandomValue: 120000
+
+  asih:
+    # licenseServerClient.asih.host - The host name of ASIH service
+    host:
+    # licenseServerClient.asih.port - The listener port of ASIH service, 8080 (http) or 5000 (https)
+    port: 8080
+    # licenseServerClient.asih.tls - TLS is enabled or not on ASIH connection, true or false
+    tls: false
+    # licenseServerClient.asih.certTtl - The duration (seconds) that the ASIH client certificate is valid, range 180 - 315576000
+    certTtl: 3600
+    # licenseServerClient.asih.certIssuerRef - The ASIH Client certificate CA issuer
+    certIssuerRef: eric-si-application-sys-info-handler-ca
+    # licenseServerClient.asih.failureRetryInterval - The ASIH Client retry interval after connection failure in milliseconds
+    failureRetryInterval: 3000
+
+  timer:
+    # licenseServerClient.timer.licenseRequestAggregationPeriod - period with which license requests are aggregated (in seconds)
+    licenseRequestAggregationPeriod: 3600
+    # licenseServerClient.timer.peakUsageReportAggregationPeriod - period with which usage reports for peak licenses are aggregated (in seconds)
+    peakUsageReportAggregationPeriod: 60
+    # licenseServerClient.timer.cumulativeUsageReportAggregationPeriod - period with which usage reports for cumulative licenses are aggregated (in seconds)
+    cumulativeUsageReportAggregationPeriod: 60
+    # licenseServerClient.timer.licenseRemovalGracePeriod - delay period with which licenses are removed (in seconds).
+    # NOTE: this value shall not be changed for a production system.
+    licenseRemovalGracePeriod: "1209600"
+
+  # licenseServerClient.logLevel - Sets the log level for License Server Client, refer to log4j documentation for the log level
+  logLevel: info
+
+  # licenseServerClient.affinity - Kubernetes affinity for the License Server Client
+  affinity: {}
+
+database:
+  credentials:
+    # Mandatory: database.credentials.secretName - name of the kubernetes secret containing db credentials
+    secretName:
+    # database.credentials.userKey - key for the db user username within the secret
+    userKey: custom-user
+    # database.credentials.passwordKey - key for the db user password within the secret
+    passwordKey: custom-pwd
+  # database.host - host name for the sql db
+  host: eric-data-document-database-pg
+  # database.port - listener port for the sql db
+  port: 5432
+  # database.name - name of the database within the sql server
+  name: licensemanager_db
+  # database.driverPath - filesystem path to a custom mounted jdbc driver
+  driverPath: ""
+  # database.userName - database user name which is used in mTLS connection
+  userName: lmuser
+  tls:
+    # database.tls.enforced - TLS is optional|required on database connection
+    enforced: required
+
+
+nodeSelector:
+  # nodeSelector.licenseConsumerHandler - Kubernetes nodeSelector for the License Consumer Handler
+  licenseConsumerHandler: {}
+  # nodeSelector.licenseServerClient - Kubernetes nodeSelector for the License Server Client
+  licenseServerClient: {}
+
+tls:
+  lch:
+    # tls.lch.externalAPIPort - the secured LCH external REST API port
+    externalAPIPort: 18326
+    # tls.lch.ingressAPIPort - the secured LCH external REST API port for Ingress connection
+    ingressAPIPort: 18327
+    # tls.lch.certTtl - The duration (seconds) that the certificate is valid, range 180 - 315576000
+    certTtl: 3600
+  db:
+    # tls.db.certTtl - the duration (seconds) that the certificate is valid, range 180 - 315576000
+    certTtl: 3600
+    # tls.db.sslMode - the database client TLS mode, verify-ca or verify-full
+    sslMode: verify-ca
+
+licenseServerIpAddresses:
+  # licenseServerIpAddresses.ip1 - the first IP address of a license server in the hosts file
+  ip1:
+  # licenseServerIpAddresses.ip2 - the second IP address of a license server in the hosts file for Geographical Redundency
+  ip2:
+
+log:
+  logshipper:
+    level: info
+
+logshipper:
+  storageAllocation: "500Mi"
+  logtransformer:
+    host: eric-log-transformer
+  storagePath: "/logs"
+  harvester:
+    logData:
+      - subPaths:
+          - "/license_consumer_handler.log*"
+        logplane: "adp-app-logs"
+        multiline:
+          pattern: '^[[:space:]]'
+          negate: false
+          match: after
+      - subPaths:
+          - "/license_server_client.log*"
+        logplane: "adp-app-logs"
+        multiline:
+          pattern: '^[[:space:]]'
+          negate: false
+          match: after
+      - subPaths:
+          - "/database_migration.log*"
+        logplane: "adp-app-logs"
+        multiline:
+          pattern: '^[[:space:]]'
+          negate: false
+          match: after
+
+resources:
+  eric-lm-license-consumer-handler:
+    limits:
+      cpu: 2000m
+      memory: 2048Mi
+      ephemeral-storage:
+    requests:
+      cpu: 1000m
+      memory: 512Mi
+      ephemeral-storage:
+  eric-lm-license-server-client:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+      ephemeral-storage:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+      ephemeral-storage:
+  eric-lm-database-migration:
+    limits:
+      cpu: "2000m"
+      memory: "2048Mi"
+      ephemeral-storage:
+    requests:
+      cpu: "500m"
+      memory: "128Mi"
+      ephemeral-storage:
+  logshipper:
+    limits:
+      cpu: "100m"
+      memory: "100Mi"
+      ephemeral-storage:
+    requests:
+      cpu: "50m"
+      memory: "50Mi"
+      ephemeral-storage:
+
+probes:
+  eric-lm-license-consumer-handler:
+    startupProbe:
+      # probes.eric-lm-license-consumer-handler.startupProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 300
+      # probes.eric-lm-license-consumer-handler.startupProbe.initialDelaySeconds - Kubernetes startup probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-consumer-handler.startupProbe.periodSeconds - Kubernetes startup probe check period
+      periodSeconds: 1
+      # probes.eric-lm-license-consumer-handler.startupProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 1
+    livenessProbe:
+      # probes.eric-lm-license-consumer-handler.livenessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 1
+      # probes.eric-lm-license-consumer-handler.livenessProbe.initialDelaySeconds - Kubernetes liveness probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-consumer-handler.livenessProbe.periodSeconds - Kubernetes liveness probe check period
+      periodSeconds: 10
+      # probes.eric-lm-license-consumer-handler.livenessProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 10
+    readinessProbe:
+      # probes.eric-lm-license-consumer-handler.readinessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 1
+      # probes.eric-lm-license-consumer-handler.readinessProbe.initialDelaySeconds - Kubernetes readiness probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-consumer-handler.readinessProbe.periodSeconds - Kubernetes readiness probe check period
+      periodSeconds: 10
+      # probes.eric-lm-license-consumer-handler.readinessProbe.successThreshold - minimum consecutive successes for the probe to be considered successful
+      successThreshold: 1
+      # probes.eric-lm-license-consumer-handler.readinessProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 10
+  eric-lm-license-server-client:
+    startupProbe:
+      # probes.eric-lm-license-server-client.startupProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 300
+      # probes.eric-lm-license-server-client.startupProbe.initialDelaySeconds - Kubernetes startup probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-server-client.startupProbe.periodSeconds - Kubernetes startup probe check period
+      periodSeconds: 1
+      # probes.eric-lm-license-server-client.startupProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 1
+    livenessProbe:
+      # probes.eric-lm-license-server-client.livenessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 1
+      # probes.eric-lm-license-server-client.livenessProbe.initialDelaySeconds - Kubernetes liveness probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-server-client.livenessProbe.periodSeconds - Kubernetes liveness probe check period
+      periodSeconds: 10
+      # probes.eric-lm-license-server-client.livenessProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 10
+    readinessProbe:
+      # probes.eric-lm-license-server-client.readinessProbe.failureThreshold - minimum consecutive failures for the probe to be considered failed
+      failureThreshold: 1
+      # probes.eric-lm-license-server-client.readinessProbe.initialDelaySeconds - Kubernetes readiness probe startup delay
+      initialDelaySeconds: 0
+      # probes.eric-lm-license-server-client.readinessProbe.periodSeconds - Kubernetes readiness probe check period
+      periodSeconds: 10
+      # probes.eric-lm-license-server-client.readinessProbe.successThreshold - minimum consecutive successes for the probe to be considered successful
+      successThreshold: 1
+      # probes.eric-lm-license-server-client.readinessProbe.timeoutSeconds - number of seconds after which the probe times out
+      timeoutSeconds: 10
+
+podPriority:
+  # Priority indicates the importance of a Pod relative to other Pods.
+  eric-lm-combined-server-license-consumer-handler:
+    # podPriority.eric-lm-combined-server-license-consumer-handler.priorityClassName - no priorityClass is specified. The POD will be assigned the default Pod priority class
+    priorityClassName: ""
+  eric-lm-combined-server-license-server-client:
+    # podPriority.eric-lm-combined-server-license-server-client.priorityClassName - no priorityClass is specified. The POD will be assigned the default Pod priority class
+    priorityClassName: ""
+
+# limit Pod Egress bandwidth, DR-D1125-040-AD
+bandwidth:
+  eric-lm-license-consumer-handler:
+    # bandwidth.eric-lm-license-consumer-handler.maxEgressRate - The maximum egress rate of LCH pod, the rate is in megabit-per-second at which traffic can leave the Pod interface
+    maxEgressRate: 30M
+  eric-lm-license-server-client:
+    # bandwidth.eric-lm-license-server-client.maxEgressRate - The maximum egress rate of LSC pod, the rate is in megabit-per-second at which traffic can leave the Pod interface
+    maxEgressRate: 10M

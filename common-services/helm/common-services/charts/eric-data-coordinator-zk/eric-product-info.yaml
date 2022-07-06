@@ -1,0 +1,31 @@
+productName: "Data Coordinator ZK"
+productNumber: "CXC 201 1474"
+images:
+  datacoordinatorzk:
+    productName: "Data Coordinator ZK"
+    productNumber: "CXC 201 1465"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-dc-zk-drop"
+    name: eric-data-coordinator-zk
+    tag: "1.28.0-12"
+  brAgent:
+    productName: "Data Coordinator ZK BrAgent"
+    productNumber: "CXC 174 2673"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-dc-zk-drop"
+    name: eric-data-coordinator-zk-bragent
+    tag: "1.28.0-12"
+  logshipper:
+    productName: "Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.1.0-33"
+  metricsexporter:
+    productName: "Data Coordinator ZK Metrics-Exporter"
+    productNumber: "CXU 101 0877"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-dc-zk-drop"
+    name: eric-data-coordinator-zk-metrics-exporter
+    tag: "1.28.0-12"

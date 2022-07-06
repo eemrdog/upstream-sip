@@ -1,0 +1,26 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-int-iam-client-cert
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-access-mgmt.name" . }}-iam-int-client-cert
+    certificateName: clicert.pem
+    privateKeyName: cliprivkey.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-sec-access-mgmt.name" . }}-int-iam-client
+    issuer:
+      reference: {{ template "eric-sec-access-mgmt.name" . }}-iam-internal-client-ca
+    subjectAlternativeName:
+      populateKubernetesDns: false
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+{{- end }}

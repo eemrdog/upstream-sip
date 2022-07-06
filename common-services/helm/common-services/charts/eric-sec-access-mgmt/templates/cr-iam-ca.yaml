@@ -1,0 +1,22 @@
+## Check if authorization proxy uses this CA to get certificates. If so,
+## ask them to use iam external client CA and delete this file.
+## Also included in deprecation ticket: ADPPRG-66120
+
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if and .Values.authenticationProxy.enabled $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-aaproxy-ca
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-sec-access-mgmt.name" . }}-aaproxy-ca-cert
+    certificateName: cacertbundle.pem
+  certificate:
+    subject:
+      cn: "{{ template "eric-sec-access-mgmt.name" . }}-AAPROXY-CA"
+{{- end }}

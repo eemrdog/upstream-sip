@@ -1,0 +1,21 @@
+{{- $g := fromJson (include "eric-data-coordinator-zk.globalMap" .) -}}
+{{- if $g.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "eric-data-coordinator-zk.fullname" . }}-rb
+  annotations:
+    {{- $securityPolicy := dict -}}
+    {{- $_ := set $securityPolicy "ericsson.com/security-policy.capabilities" "" -}}
+    {{- $_ := set $securityPolicy "ericsson.com/security-policy.type" "restricted/default" -}}
+    {{- $default := include "eric-data-coordinator-zk.annotations" . | fromYaml -}}
+    {{- include "eric-data-coordinator-zk.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $securityPolicy $default)) | trim | nindent 4 }}
+  labels: {{ include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index $g.security.policyReferenceMap "default-restricted-security-policy" | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "eric-data-coordinator-zk.fullname" . }}-sa
+{{- end -}}

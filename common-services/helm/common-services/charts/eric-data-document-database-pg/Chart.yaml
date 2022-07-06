@@ -1,0 +1,10 @@
+apiVersion: v2
+description: Chart for Document DB PG, which encapsulates PostgreSQL - an Object-relational
+  database management system (ORDBMS).
+keywords:
+- postgresql
+- postgres
+- database
+- sql
+name: eric-data-document-database-pg
+version: 7.4.0+44

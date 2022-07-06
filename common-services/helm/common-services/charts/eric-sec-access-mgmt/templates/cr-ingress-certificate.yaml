@@ -1,0 +1,17 @@
+{{- if and .Values.ingress.enabled -}}
+{{- if and (or (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "true") (eq (include "eric-sec-access-mgmt.ingressTlsEnabled" .) "optional")) (not .Values.ingress.tls.existingSecret) -}}
+apiVersion: com.ericsson.sec.certm/v1alpha2
+kind: ExternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-ingress-external-client-certificate
+  annotations:
+    {{- $secretAnnotations := (.Values.authenticationProxy.ingress.secretAnnotations) -}}
+    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $common $secretAnnotations)) | trim | nindent 4 }}
+  labels: {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+spec:
+  generated-secret-name: {{ template "eric-sec-access-mgmt.name" . }}-ingress-external-tls-secret
+  generated-secret-type: tls
+  asymmetric-key-certificate-name: {{ .Values.ingress.certificates.asymmetricKeyCertificateName | quote }}
+{{- end -}}
+{{- end -}}

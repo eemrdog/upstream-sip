@@ -1,0 +1,65 @@
+{{- $sipoauth2 := eq (include "eric-sec-access-mgmt.sipoauth2.enabled" .) "true" -}}
+{{- if $sipoauth2 }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-sa
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-role"
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+rules:
+  - apiGroups: ["iam.sec.ericsson.com"]
+    resources: ["internaloauth2identities"]
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "delete", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-rolebinding"
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-role"
+subjects:
+- kind: ServiceAccount
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-sa"
+---
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if $global.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-security-policy-rolebinding"
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- $securityAnnotations := include "eric-sec-access-mgmt.securityPolicy.annotations" . | fromYaml -}}
+    {{- $common := include "eric-sec-access-mgmt.common-annotations" . | fromYaml -}}
+    {{- include "eric-sec-access-mgmt.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $securityAnnotations $common)) | trim | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ index .Values.global.security "policyReferenceMap" "default-restricted-security-policy" }}
+subjects:
+- kind: ServiceAccount
+  name: "{{ template "eric-sec-access-mgmt.name" . }}-sip-oauth2-sa"
+{{- end -}}
+{{ end }}

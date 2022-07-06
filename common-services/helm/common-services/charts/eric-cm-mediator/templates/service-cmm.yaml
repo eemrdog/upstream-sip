@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-cm-mediator.name" . }}
+  annotations: {{ include "eric-cm-mediator.baseAnnotations" . | nindent 4 }}
+  labels: {{ include "eric-cm-mediator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+{{- if .Values.global }}
+    {{- if .Values.global.internalIPFamily }}
+  ipFamilies: [{{ .Values.global.internalIPFamily | quote }}]
+    {{- end }}
+{{- end }}
+  ports:
+{{- if or (not (eq (include "eric-cm-mediator.tls" .) "true")) (eq .Values.service.endpoints.restapi.tls.enforced "optional") }}
+    - name: http-rest
+      port: 5003
+      targetPort: http-rest
+{{- end }}
+{{- if eq (include "eric-cm-mediator.tls" .) "true" }}
+    - name: https-rest
+      port: 5004
+      targetPort: https-rest
+{{- end }}
+  selector:
+    app: {{ template "eric-cm-mediator.name" . }}
+    release: {{ .Release.Name }}

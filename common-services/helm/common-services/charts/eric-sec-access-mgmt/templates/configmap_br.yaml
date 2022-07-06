@@ -1,0 +1,15 @@
+{{- if .Values.persistence.dbbr.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-br-agent
+  annotations: {{ include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+  labels: {{ include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+data:
+  brm_backup.yaml: |
+    backupRestoreMetadataConfig:
+      - backupType: {{ .Values.persistence.dbbr.backupType }}
+        database: {{ .Values.persistence.dbName }}
+        inOutTables: none
+        tablesList:
+{{- end }}

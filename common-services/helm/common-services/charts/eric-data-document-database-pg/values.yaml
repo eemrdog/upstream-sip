@@ -1,0 +1,436 @@
+# global:
+#  pullSecret:
+#  registry:
+#    url: armdocker.rnd.ericsson.se
+#    pullSecret: # deprecated
+#    imagePullPolicy:
+#  adpBR:
+#    broServiceName: eric-ctrl-bro
+#    broGrpcServicePort: 3000
+#    brLabelKey: adpbrlabelkey
+#  timezone: UTC
+  ## add for DR113
+  #security:
+  #  tls:
+  #    enabled: true
+  ## added for DR-D1123-124
+  #  policyBinding:
+  #    create: true
+  #  policyReferenceMap:
+  #    default-restricted-security-policy: customer-z-restricted
+  #    erole-f003d240cca24da741: customer-z-network
+  #internalIPFamily: IPv6 or IPv4
+  #nodeSelector: {}
+  # networkPolicy:
+  #   enabled: false
+ 
+brAgent:
+  enabled: false
+  logLevel: "info"
+  RootLogLevel: "info"
+  PGAgentLogLevel: "info"
+  ## logicalDBBackupEnable control the behavior of backup and restore.
+  ## if true, PG will take single database backup and restore.
+  ## if false, PG will take whole service DB backup and restore.
+  ##
+  logicalDBBackupEnable: false
+  ## the value of backupTypelist is one list that used to define the scopes of service, and bra use them to register in the BRO.
+  ## current DDB PG only support one DDB instance. Then the backupTypelist only allow set one value or empty string as default scope.
+  ## for example.
+  ## backupTypeList:
+  ##  - "configuration-data"
+  backupTypeList: []
+
+  properties:
+    production_date: 2022-04-14
+  ## By default, brLabelValue is the Chart.Name which is unique
+  brLabelValue:
+  ## For backupTypeList only declares a single value, backup and restore action need more parameters which will
+  ## be defined in the configmap.
+  ## The parameter backupDataModelConfig specify the name of external configmap.
+  ## Notes: the configmap resource must create before BRA deployment.
+  ## For detail, refer the doc Document Database PG Service Deployment Guide.
+  ##
+  #backupDataModelConfig:
+
+## Name used to override the service name
+# nameOverride:
+
+## postgres image repository
+imageCredentials:
+  logshipper:
+    registry:
+      url:
+      pullPolicy:
+    repoPath: proj-adp-log-released
+  pullSecret:
+
+  repoPath: 
+  ## Specify a imagePullPolicy
+  ## 'Always' if imageTag is 'latest', else set to 'IfNotPresent'
+  ##
+  #  pullPolicy: IfNotPresent # deprecated
+
+  registry:
+  ## Specify imagePullSecrets
+  ##
+    url:
+    #pullSecret: # deprecated
+    imagePullPolicy:
+
+
+highAvailability:
+  synchronousModeEnabled: true
+  replicaCount: 2
+
+## Create a database
+## Default: the postgres user
+#postgresDatabase:
+
+
+## Postgres user credentials stored as Kubernetes Secrets
+credentials:
+  kubernetesSecretName:
+  keyForUserId: custom-user
+  keyForUserPw: custom-pwd
+  keyForSuperPw: super-pwd
+  keyForMetricsPw: metrics-pwd
+  keyForReplicaId: replica-user
+  keyForReplicaPw: replica-pwd
+
+## Specify initdb arguments, e.g. --data-checksums
+
+postgresInitdbArgs:
+  - auth-host: md5
+  - auth-local: trust
+  - encoding: UTF8
+  - locale: en_US.UTF-8
+  - data-checksums
+
+## Use an alternate scheduler, e.g. "stork".
+##
+# schedulerName:
+
+## Specify runtime config parameters as a dict, using camelCase, e.g.
+## shared_buffers: "500MB"
+## log_connections: "yes"
+## huge_pages: "off"
+#postgresConfig:
+#  shared_buffers: "500MB"
+#  log_connections: "yes"
+#  huge_pages: "off"
+
+postgresLogging:
+  ## Specify if enable postgres logging, true or false
+  enabled: false
+
+#User information for metrics
+#metricsDefPwd:
+
+## Using RollingUpdate, specify the update strategy for statefulset
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    partition: 0
+
+persistentVolumeClaim:
+  enabled: true
+
+  ## database data Persistent Volume Storage Class
+  ## If defined in helm installation, persistentVolumeClaim volume will use defined value as storageClassName to create pvc.
+  ## if not defined, it will use the default storage class on the kubernetes cluster.
+  #storageClassName:
+  size: 8Gi
+  housekeeping_threshold: 100
+
+
+restore:
+    # The path stores the backup data which will be restored
+    backupDataDir: ""
+
+patroni:
+  # default is INFO
+  logLevel: INFO
+  requests_logLevel: INFO
+
+
+
+metrics:
+  enabled: true
+  datasource:
+  autoDiscoverDatabases: false
+  logLevel: info
+  service:
+    port: 9187
+    #nodePort:
+  queryMetrics:
+    pg_postmaster:
+      master: true
+      #includeDatabases: ["postgres"]
+      query: "SELECT pg_postmaster_start_time as start_time_seconds from pg_postmaster_start_time()"
+      metrics:
+        - start_time_seconds:
+            usage: "GAUGE"
+            description: "Time at which postmaster started"
+
+    pg_database:
+      master: true
+      #includeDatabases: ["postgres"]
+      query: " SELECT pg_database.datname, pg_database_size(pg_database.datname) as size_bytes FROM pg_database"
+      metrics:
+        - datname:
+            usage: "LABEL"
+            description: "Name of the database"
+        - size_bytes:
+            usage: "GAUGE"
+            description: "Disk space used by the database"
+
+
+## Configure resource requests and limits
+##
+resources:
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  postgres:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+      hugepages-2Mi: # This value only work when hugepage is properly configured. As a requirement of Kubernetes, requests and limits must be the same.
+      hugepages-1Gi: # This value only work when hugepage is properly configured. As a requirement of Kubernetes, requests and limits must be the same.
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      cpu: "1"
+      memory: "2560Mi"
+      hugepages-2Mi: # This value only work when hugepage is properly configured. As a requirement of Kubernetes, requests and limits must be the same.
+      hugepages-1Gi: # This value only work when hugepage is properly configured. As a requirement of Kubernetes, requests and limits must be the same.
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  metrics:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  kube_client:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      cpu: "200m"
+      memory: "512Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  brm:
+    requests:
+      memory: "256Mi"
+      cpu: "300m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See User Guide for more details.
+  bra:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+      ephemeral-storage: "10Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+      ephemeral-storage: "12Gi"
+    jvm:
+      initialMemoryAllocationPercentage: 50%
+      smallMemoryAllocationMaxPercentage: 70%
+      largeMemoryAllocationMaxPercentage: 50%
+service:
+  port: 5432
+  # nodePort:
+## add for DR113
+  endpoints:
+    postgres:
+      tls:
+        enforced: required
+    postgresExporter:
+      tls:
+        enforced: required
+
+hooks:
+  pre_install:
+    activeDeadlineSeconds: 300
+
+nodeSelector:
+  postgres: {}
+  brAgent: {}
+  cleanuphook: {}
+
+terminationGracePeriodSeconds:
+  postgres: 30
+  brAgent: 30
+
+## Interface for setting Node labels and tolerations for pod assignment
+tolerations:
+  postgres: []
+  brAgent: 
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+  cleanuphook: 
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+
+
+# Note: According to design rule for adp, the following toleration will be added to brAgent and cleanuphook, and the configration for 
+# the these tolerations will be ignored.
+#tolerations: 
+#  postgres:
+#    - key: node.kubernetes.io/not-ready
+#      operator: Exists
+#      effect: NoExecute
+#      tolerationSeconds: 0
+#    - key: node.kubernetes.io/unreachable
+#      operator: Exists
+#      effect: NoExecute
+#      tolerationSeconds: 0
+
+  
+## affinity.podAntiAffinity , valid value are "soft" or "hard". 
+affinity: 
+  podAntiAffinity: soft
+
+##productinfo
+productinfo:
+  rstate: R5A
+
+## Kubernetes cluster info
+## Note: VERY IMPORTANT, DO NOT CHANGE THE FOLLOWING CONFIGRATION, THEY ARE VERY SENSETIVE INFORMATION ABOUT KUBERNETES CLUSTER
+## IF YOU REALLY WANT TO CHANGE , PLEASE ASK YOUR KUBERNETES ADMINISTRATOR.
+k8sClusterInfo:
+  clusterDomain: cluster.local
+
+#liveness probe and readiness probe
+probes:
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      timeoutSeconds: 10
+      periodSeconds: 10
+      failureThreshold: 3
+  postgres:
+    livenessProbe:
+      initialDelaySeconds: 300
+      periodSeconds: 15
+      failureThreshold: 6
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 20
+      periodSeconds: 5
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  metrics:
+    livenessProbe:
+      initialDelaySeconds: 300
+      periodSeconds: 10
+      failureThreshold: 6
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 20
+      periodSeconds: 5
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  brm:
+    livenessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      failureThreshold: 6
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  bra:
+    livenessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 6
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+
+
+
+log:
+  # Supported values ["stdout", "stream"]
+  outputs:
+    - stdout
+  logshipper:
+    level: info
+
+logshipper:
+  logplane: "adp-app-logs"
+  logtransformer:
+    host: eric-log-transformer
+
+podDisruptionBudget:
+  minAvailable:
+
+securityContext:
+  allowPrivilegeEscalation: true
+
+
+# Note: According to design rule DR-D1120-090-AD for adp,
+#       the follow topologySpreadConstraints will be added to postgres POD.
+topologySpreadConstraints:
+  postgres: []
+
+# Pod priority configuration aligned to DR-D1120-110-AD
+podPriority:
+    postgres:
+        priorityClassName: "" # No priority set
+    brAgent:
+        priorityClassName: ""
+    cleanuphook:
+        priorityClassName: ""
+
+# Pod bandwidth limit comply with DR-D1125-040-AD
+bandwidth:
+  postgres:
+    maxEgressRate:
+  brAgent:
+    maxEgressRate:
+  cleanuphook:
+    maxEgressRate:
+
+labels: {}
+annotations: {}
+
+networkPolicy:
+  enabled: true
+  matchLabels: []

@@ -1,0 +1,89 @@
+{{- $g := fromJson (include "eric-log-transformer.global" .) -}}
+{{- $d := fromJson (include "eric-log-transformer.deprecated" .) -}}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ include "eric-log-transformer.fullname" . | quote }}
+  labels:
+    {{- $labels := dict -}}
+    {{- $_ := set $labels "chart" (include "eric-log-transformer.chart" .) -}}
+    {{- $_ := set $labels "release" .Release.Name -}}
+    {{- $_ := set $labels "heritage" .Release.Service -}}
+    {{- $defaultLabels := fromYaml (include "eric-log-transformer.labels" .) -}}
+    {{- include "eric-log-transformer.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $defaultLabels)) | trim | nindent 4 }}
+  annotations:
+    {{- $metricsTLS := dict -}}
+    {{- if and (.Values.metrics.enabled) $g.security.tls.enabled }}
+    {{- $_ := set $metricsTLS "prometheus.io/scrape" (.Values.metrics.enabled | toString) }}
+    {{- $_ := set $metricsTLS "prometheus.io/port" "9115" }}
+    {{- $_ := set $metricsTLS "prometheus.io/scheme" "https" }}
+    {{- end }}
+    {{- $defaultAnn := fromYaml (include "eric-log-transformer.annotations" .) -}}
+    {{- include "eric-log-transformer.mergeAnnotations" (dict "location" .Template.Name "sources" (list $metricsTLS $defaultAnn)) | trim | nindent 4 }}
+spec:
+  {{- if $g.internalIPFamily }}
+  ipFamilies: [{{ $g.internalIPFamily | quote }}]
+  {{- end }}
+  selector:
+    app: {{ include "eric-log-transformer.fullname" . | quote }}
+    component: log
+    role: indexer
+  type: ClusterIP
+  ports:
+  {{- if $g.security.tls.enabled }}
+  - name: "syslog-tls"
+    port: 5015
+    protocol: TCP
+  - name: "beats-tls"
+    port: 5044
+    protocol: TCP
+  - name: "json-tls"
+    port: 5024
+    protocol: "TCP"
+  - name: "http-tls"
+    port: 9443
+    protocol: TCP
+  {{- end }}
+  {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.syslogIn.tls.enforced "optional") }}
+  - name: syslog
+    port: 5014
+    protocol: TCP
+  - name: syslog-udp
+    port: 5014
+    protocol: UDP
+  {{- end }}
+  {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.jsonIn.tls.enforced "optional") }}
+  - name: json
+    port: 5025
+    protocol: "TCP"
+  {{- end }}
+  {{- if or (or (not $g.security.tls.enabled) (eq .Values.service.endpoints.filebeat.tls.enforced "optional")) (or $d.security.tls.logshipper.enabled $d.security.tls.eda) }}
+  - name: beats
+    port: 5045
+    protocol: TCP
+  {{- end }}
+  {{- if .Values.input }}
+  {{- if .Values.input.tcp }}
+  {{- if .Values.input.tcp.enable }}
+  - name: "eda-json"
+    port: 5018
+    protocol: TCP
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if or (not $g.security.tls.enabled) (eq .Values.service.endpoints.httpIn.tls.enforced "optional") }}
+  - name: http
+    port: 9080
+    protocol: TCP
+  {{- end }}
+{{- if .Values.metrics.enabled }}
+  {{- if $g.security.tls.enabled }}
+  - name: "metrics-tls"
+    port: 9115
+    protocol: "TCP"
+  {{- else }}
+  - name: "metrics"
+    port: 9114
+    protocol: "TCP"
+  {{- end }}
+{{- end }}

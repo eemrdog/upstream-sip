@@ -1,0 +1,51 @@
+{{- $enabled := index .Values "eric-log-shipper" "enabled" }}
+{{- if eq $enabled true }}
+
+{{- $createClusterRole := index .Values "eric-log-shipper" "rbac" "createClusterRole" }}
+{{- if eq $createClusterRole false }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-log-shipper-role"
+  labels:
+  {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    {{- include "eric-bss-ecmeoc-common.product-info" . | nindent 4 }}
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-23"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "delete", "list"]
+{{- end }}
+
+---
+
+{{- $createClusterRoleBinding := index .Values "eric-log-shipper" "rbac" "createClusterRoleBinding" }}
+{{- if eq $createClusterRoleBinding false }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-log-shipper-rolebinding"
+  labels:
+  {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ template "eric-bss-ecmeoc-common.name" . }}-log-shipper-role"
+subjects:
+  - kind: Group
+    name: "{{ template "eric-bss-ecmeoc-common.name" . }}-log-shipper-group"
+  - kind: ServiceAccount
+    name: eric-log-shipper
+{{- end }}
+
+{{- end }}

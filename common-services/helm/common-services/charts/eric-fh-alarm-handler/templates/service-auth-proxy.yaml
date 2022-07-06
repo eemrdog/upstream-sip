@@ -1,0 +1,28 @@
+
+{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
+{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-fh-alarm-handler.authz-proxy-service-name" . }}
+  annotations:
+    {{- $service := include "eric-fh-alarm-handler.annotations" . | fromYaml -}}
+    {{- $authzProxyAnnotations := include "eric-fh-alarm-handler.authz-proxy-service-annotations" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeAnnotations" (dict "location" .Template.Name "sources" (list $service $authzProxyAnnotations)) | indent 4}}
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels)) | indent 4}}
+spec:
+{{- if .Values.global }}
+{{- if .Values.global.internalIPFamily }}
+  ipFamilies: [{{ .Values.global.internalIPFamily | quote }}]
+{{- end }}
+{{- end }}
+  type: ClusterIP
+  ports:
+{{ include "eric-fh-alarm-handler.authz-proxy-service-port" . | indent 4 }}
+  selector:
+    app.kubernetes.io/name: {{ template "eric-fh-alarm-handler.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+{{- end -}}

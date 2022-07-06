@@ -1,0 +1,23 @@
+{{- $tls := (include "eric-fh-alarm-handler.tls.enabled" .) -}}
+{{- $tlsOnly := (include "eric-fh-alarm-handler.probes.server.tlsOnly" .) -}}
+
+{{- if and (eq $tls "true") (eq $tlsOnly "true") }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-probes-server-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-fh-alarm-handler.probes.server.certSecret" . }}
+
+  certificate:
+    subject:
+      cn: {{ template "eric-fh-alarm-handler.name" . }}
+    extendedKeyUsage:
+      tlsClientAuth: False
+      tlsServerAuth: True
+{{- end }}

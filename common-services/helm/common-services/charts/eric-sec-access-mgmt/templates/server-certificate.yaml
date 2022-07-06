@@ -1,0 +1,40 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+{{- if $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-server-cert
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    # Mandatory
+    # The name of the secret where the CA certificate is stored.
+    # Note: the same secret must not be used for multiple purposes.
+    generatedSecretName: {{ template "eric-sec-access-mgmt.name" . }}-certs
+    certificateName: srvcert.pem
+    privateKeyName: srvprivkey.pem
+  certificate:
+    subject:
+      # Mandatory
+      # The Subject Common Name (CN) of the CA certificate.
+      cn: {{ template "eric-sec-access-mgmt.name" . }}
+    subjectAlternativeName:
+      # Optional
+      # List of additional DNS to populate into Subject Alt Name field.
+      # The DNS are given as is, without the DNS:-prefix. For example: localhost
+      dns:
+      - certified-scrape-target
+      - {{ template "eric-sec-access-mgmt.name" . }}-http
+      - {{ template "eric-sec-access-mgmt.name" . }}-http.{{ .Release.Namespace }}
+      - {{ template "eric-sec-access-mgmt.name" . }}-http.{{ .Release.Namespace }}.svc
+      - {{ template "eric-sec-access-mgmt.name" . }}-http.{{ .Release.Namespace }}.svc.cluster
+      - {{ template "eric-sec-access-mgmt.name" . }}-http.{{ .Release.Namespace }}.svc.cluster.local
+    extendedKeyUsage:
+      # Whether Extended Key Usage flag TLS Web Client Authentication is set or not.
+      tlsClientAuth: false
+      # Whether Extended Key Usage flag TLS Web Server Authentication is set or not.
+      tlsServerAuth: true
+{{- end }}

@@ -1,0 +1,67 @@
+[
+
+	{
+		"faultName": "ServiceUnavailable",
+		"vendor": 193,
+		"code": 10629156,
+		"defaultSeverity": "Critical",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to access Service/Resource"
+	},
+	{
+		"faultName": "ValidationError",
+		"vendor": 193,
+		"code": 10629157,
+		"defaultSeverity": "Minor",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Invalid Request Received from Client"
+	},
+	{
+		"faultName": "ConfigurationError",
+		"vendor": 193,
+		"code": 10629158,
+		"defaultSeverity": "Major",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Configuration Missing in CM Mediator/Properties"
+	},
+
+	{
+		"faultName": "InitializationError",
+		"vendor": 193,
+		"code": 10629159,
+		"defaultSeverity": "Critical",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Unable to initialize resource"
+	},
+	{
+		"faultName": "ServiceError",
+		"vendor": 193,
+		"code": 10629160,
+		"defaultSeverity": "Major",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Failure response from Service"
+	},
+	{
+		"faultName": "DefaultIsUsed",
+		"vendor": 193,
+		"code": 10629161,
+		"defaultSeverity": "Warning",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Default data used to handle Exception"
+	},
+	{
+		"faultName": "AuthorizationError",
+		"vendor": 193,
+		"code": 10629162,
+		"defaultSeverity": "Major",
+		"probableCause": 158,
+		"defaultExpiration": 3600,
+		"defaultDescription": "Authorization Error while Accessing Service"
+	}
+]

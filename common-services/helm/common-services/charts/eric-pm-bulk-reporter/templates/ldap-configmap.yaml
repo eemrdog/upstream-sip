@@ -1,0 +1,17 @@
+{{- if .Values.userConfig.ldap.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-config
+  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+data:
+  sssd.conf: |
+{{ tpl (.Files.Get "files/sssd_conf.yaml") . | indent 4 }}
+  la-sm.ini: |
+{{ tpl (.Files.Get "files/la-sm_ini.yaml") . | indent 4 }}
+  ldap-sm-config.ini: |
+{{ tpl (.Files.Get "files/ldap-sm-config_ini.yaml") . | indent 4 }}
+  la-login-time.ini: |
+{{ tpl (.Files.Get "files/la-login-time_ini.yaml") . | indent 4 }}
+{{- end -}}

@@ -1,0 +1,31 @@
+productName: "Distributed Coordinator ED"
+productNumber: "CXC 201 2039"
+images:
+  dced:
+    productName: "Distributed Coordinator ED"
+    productNumber: "CXC 201 2038"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-distributed-coordinator-ed-drop"
+    name: eric-data-distributed-coordinator-ed
+    tag: "3.3.0-13"
+  brAgent:
+    productName: "Distributed Coordinator ED BrAgent"
+    productNumber: "CXC 174 2753"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-distributed-coordinator-ed-drop"
+    name: eric-data-distributed-coordinator-ed-bragent
+    tag: "3.3.0-13"
+  logshipper:
+    productName: "Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.0.0-25"
+  metricsexporter:
+    productName: "Distributed Coordinator ED Metrics-Exporter"
+    productNumber: "CXU 101 0988"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-eric-data-distributed-coordinator-ed-drop"
+    name: eric-data-distributed-coordinator-ed-metrics-exporter
+    tag: "3.3.0-13"

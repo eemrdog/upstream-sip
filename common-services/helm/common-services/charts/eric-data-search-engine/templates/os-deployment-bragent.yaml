@@ -1,0 +1,202 @@
+{{- if .Values.brAgent.enabled -}}
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-bragent
+  labels: {{- include "eric-data-search-engine.helm-labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-search-engine.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-data-search-engine.agentname" . }}
+      app.kubernetes.io/instance: {{.Release.Name | quote }}
+  {{- if hasKey .Values.brAgent "customAgent" }}
+  replicas: 0
+  {{- else }}
+  replicas: 1
+  {{- end }}
+  strategy:
+    type: {{ .Values.updateStrategy.bragent.type | quote }}
+  template:
+    metadata:
+      labels:
+        {{- $brAgentLabels := dict }}
+        {{- $_ := set $brAgentLabels "adpbrlabelkey" (include "eric-data-search-engine.fullname" . | toString) -}}
+        {{- $_ := set $brAgentLabels "app.kubernetes.io/name" (include "eric-data-search-engine.agentname" . | toString) }}
+
+        {{- $commonLabels := include "eric-data-search-engine.labels" . | fromYaml -}}
+        {{- $_ := unset $commonLabels "app.kubernetes.io/name" }}
+
+        {{- include "eric-data-search-engine.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $brAgentLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- $brAgentAnn := dict -}}
+        {{- $_ := set $brAgentAnn "checksum/config" (include (print $.Template.BasePath "/os-configmap-bragent.yaml") . | sha256sum | toString) -}}
+
+        {{- if .Values.brAgent.backupTypeList }}
+          {{- $_ := set $brAgentAnn "backupType" (join ";" .Values.brAgent.backupTypeList) -}}
+        {{- end }}
+
+        {{- $commonAnn := include "eric-data-search-engine.annotations" . | fromYaml -}}
+        {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $commonAnn $brAgentAnn)) | trim | nindent 8 }}
+        {{- if .Values.bandwidth.bragent.maxEgressRate }}
+        kubernetes.io/egress-bandwidth: {{ .Values.bandwidth.bragent.maxEgressRate | quote }}
+        {{- end }}
+    spec:
+    {{- if .Capabilities.APIVersions.Has "v1/ServiceAccount" }}
+      serviceAccount: ""
+    {{- end }}
+      serviceAccountName: {{ include "eric-data-search-engine.fullname" . }}-sa
+      securityContext:
+        fsGroup: {{ include "eric-data-search-engine.fsGroup.coordinated" . }}
+        supplementalGroups:
+          - 143743
+    {{- if .Values.tolerations }}
+    {{- if .Values.tolerations.bragent }}
+      tolerations: {{- toYaml .Values.tolerations.bragent | nindent 6 }}
+    {{- end }}
+    {{- end }}
+{{- include "eric-data-search-engine.pullSecrets" . | indent 6 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.bragent }}
+      {{- if .Values.podPriority.bragent.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.bragent.priorityClassName | quote }}
+      {{- end }}
+      containers:
+      - name: "bragent"
+        imagePullPolicy: {{ .Values.imageCredentials.registry.imagePullPolicy | default $g.registry.imagePullPolicy | quote }}
+        image: {{ include "eric-data-search-engine.bragent.image-registry-url" . | quote }}
+        args:
+          - /opt/redirect/stdout-redirect
+          - -redirect
+          - {{ include "eric-data-search-engine.log-redirect" . }}
+          - -run
+          - bragent.sh
+          {{- if has "stream" .Values.log.outputs }}
+          - -logfile
+          - {{ .Values.logshipper.storagePath }}/bragent.log
+          - -size
+          - "5"
+          {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - "all"
+        resources: {{- include "eric-data-search-engine.resources" .Values.resources.bragent | nindent 10 }}
+        env:
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+          - name: REPOTYPE
+            value: {{ .Values.brAgent.backupRepository.type }}
+          - name: TZ
+            value: {{ $g.timezone | quote }}
+        readinessProbe:
+          exec:
+            command:
+              - "pgrep"
+              - "-fl"
+              - "java"
+          initialDelaySeconds: {{ .Values.probes.bragent.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.probes.bragent.readinessProbe.timeoutSeconds }}
+        livenessProbe:
+          exec:
+            command:
+              - "pgrep"
+              - "-fl"
+              - "java"
+          initialDelaySeconds: {{ .Values.probes.bragent.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.probes.bragent.livenessProbe.timeoutSeconds }}
+        volumeMounts:
+        {{- if  eq .Values.brAgent.backupRepository.type "s3" }}
+        - name: s3secrets
+          mountPath: "/run/secrets/s3"
+          readOnly: true
+        {{- end }}
+        - name: {{ include "eric-data-search-engine.fullname" . }}-bragentproperties
+          mountPath: /opt/bragent/bin/application.properties
+          subPath: application.properties
+        {{- if eq .Values.brAgent.backupRepository.type "fs" }}
+        - name: repository
+          mountPath: /opt/bragent/data
+        {{- end }}
+        {{- if eq .Values.brAgent.backupRepository.type "s3" }}
+        - name: s3-tmp
+          mountPath: /opt/bragent/data
+        {{- end }}
+        {{- if $g.security.tls.enabled }}
+        - name: {{ template "eric-data-search-engine.fullname" . }}-bragent-siptls-ca
+          mountPath: "/run/secrets/certificates/ca-bro/"
+          readOnly: true
+        - name: "http-client-cert-bra"
+          mountPath: "/run/secrets/http-client-certificates-bra"
+          readOnly: true
+        - name: "sip-tls-trusted-root-cert"
+          mountPath: "/run/secrets/sip-tls-trusted-root-cert"
+          readOnly: true
+        - name: "bro-client-cert-bra"
+          mountPath:  "/run/secrets/bro-client-certificates-bra"
+          readOnly: true
+        {{- end }}
+        {{- if .Values.brAgent.backupDataModelConfigMap }}
+        - name: "custom-backup-config"
+          mountPath: "/opt/bragent/bin/backupconfig.yaml"
+          subPath: "backupconfig.yaml"
+          readOnly: true
+        {{- end }}
+        {{- if has "stream" .Values.log.outputs }}
+          {{- include "eric-data-search-engine.logshipper-storage-path" . | indent 8 }}
+        {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+        {{- include "eric-data-search-engine.logshipper-container" . | indent 6 }}
+      {{- end }}
+    {{- if (or .Values.nodeSelector.bragent $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-data-search-engine.nodeSelector" (dict "context" "bragent" "root" .) | nindent 8 }}
+    {{- end }}
+      volumes:
+      {{- if $g.security.tls.enabled }}
+      - name: {{ template "eric-data-search-engine.fullname" . }}-bragent-siptls-ca
+        secret:
+          secretName: "eric-sec-sip-tls-trusted-root-cert"
+      - name: "http-client-cert-bra"
+        secret:
+          secretName: {{ include "eric-data-search-engine.fullname" . }}-http-client-cert-bra
+      - name: "sip-tls-trusted-root-cert"
+        secret:
+          secretName: "eric-sec-sip-tls-trusted-root-cert"
+      - name: "bro-client-cert-bra"
+        secret:
+          secretName: "{{ include "eric-data-search-engine.fullname" . }}-bro-client-cert-bra"
+      {{- end }}
+      {{- if eq .Values.brAgent.backupRepository.type "s3" }}
+      - name: s3secrets
+        secret:
+          secretName: {{ required "brAgent.backupRepository.s3.secretName is required when brAgent.backupRepository.type=s3" .Values.brAgent.backupRepository.s3.secretName | quote }}
+          items:
+          - key: {{ required "brAgent.backupRepository.s3.userKey is required when brAgent.backupRepository.type=s3" .Values.brAgent.backupRepository.s3.userKey | quote }}
+            path: s3username.txt
+          - key: {{ required "brAgent.backupRepository.s3.passKey is required when brAgent.backupRepository.type=s3" .Values.brAgent.backupRepository.s3.passKey | quote }}
+            path: s3password.txt
+      - name: s3-tmp
+      {{- end }}
+      {{- if eq .Values.brAgent.backupRepository.type "fs" }}
+      - name: repository
+        persistentVolumeClaim:
+          claimName: {{ include "eric-data-search-engine.fullname" . }}-repository
+      {{- end }}
+      - name: {{ include "eric-data-search-engine.fullname" . }}-bragentproperties
+        configMap:
+          defaultMode: 0444
+          name: {{ include "eric-data-search-engine.fullname" . }}-bragentproperties
+      {{- if .Values.brAgent.backupDataModelConfigMap }}
+      - name: "custom-backup-config"
+        configMap:
+          defaultMode: 0444
+          name: {{ .Values.brAgent.backupDataModelConfigMap | quote }}
+      {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+        {{- include "eric-data-search-engine.logshipper-volume" . | indent 6 }}
+      {{- end }}
+{{ end }}

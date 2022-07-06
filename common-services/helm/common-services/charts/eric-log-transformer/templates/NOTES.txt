@@ -1,0 +1,14 @@
+{{- $d := fromJson (include "eric-log-transformer.deprecated" .) -}}
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ template "eric-log-transformer.fullname" . }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Visit http://127.0.0.1:8888/ to use your application"
+  kubectl port-forward $POD_NAME --namespace {{ .Release.Namespace }} 8888:{{ .Values.service.portRest }}
+
+{{- if ne (include "eric-log-transformer.deprecation-notices" .) "" }}
+
+DEPRECATION NOTICE: The following parameters have been specified but are deprecated.
+{{ include "eric-log-transformer.deprecation-notices" . }}
+
+See deployment guide for more information.
+
+{{- end }}

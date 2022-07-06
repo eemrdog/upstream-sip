@@ -1,0 +1,22 @@
+{{/*
+This client certificate is supposed to be used for cluster internal
+communication between the Auth Proxy sidecar/sap and IAM.
+*/}}
+{{- $authorizationProxy := fromJson (include "eric-fh-alarm-handler.authz-proxy-values" .) -}}
+{{- if and $authorizationProxy.enabled .Values.ingress.enabled }}
+{{- $global             := fromJson (include "eric-fh-alarm-handler.authz-proxy-global" .) -}}
+{{- if $global.security.tls.enabled }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-iam-client-cert
+  annotations:
+    {{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+    {{- $service := include "eric-fh-alarm-handler.labels" . | fromYaml -}}
+    {{- $authzProxyLabels := include "eric-fh-alarm-handler.authz-proxy-labels" . | fromYaml -}}
+    {{- include "eric-fh-alarm-handler.mergeLabels" (dict "location" .Template.Name "sources" (list $service $authzProxyLabels )) | indent 4}}
+spec:
+{{ include "eric-fh-alarm-handler.authz-proxy-client-cert-spec" . | indent 2 }}
+{{- end }}
+{{- end }}

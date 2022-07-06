@@ -1,0 +1,354 @@
+# Default values for eric-pm-bulk-reporter.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#global:
+#  applicationId: ""
+#  pullSecret:
+#  registry:
+#    url: armdocker.rnd.ericsson.se
+    ## Secret must be manually created in the namespace.
+    # deprecated, it will be removed
+#    pullSecret:
+#  security:
+#    tls:
+#      enabled: true
+#    policyBinding:
+#      create: true
+#    policyReferenceMap: {}
+#  timezone: UTC
+#  nodeSelector: {}
+
+imageCredentials:
+  logshipper:
+    registry:
+      url:
+      imagePullPolicy:
+    repoPath:
+  repoPath:
+  pullPolicy: IfNotPresent
+# pullSecret:
+  registry: # Overrides global registry
+    url:
+    ## Secret must be manually created in the namespace.
+    # deprecated, it will be removed
+    #pullSecret:
+
+log:
+  # Supported values ["stdout", "stream"]
+  outputs: ["stdout"]
+  logshipper:
+    level: info
+
+# AUM service is part of the cluster.
+aumSupport:
+  enabled: false
+
+terminationGracePeriodSeconds: 30
+service:
+  endpoints:
+    pmScrapeTarget:
+      tls:
+        enforced: required
+        verifyClientCertificate: required
+  type: LoadBalancer
+  servicePort: 9022
+  externalIPv4:
+    enabled:          # <empty>/true/false
+    loadBalancerIP:
+    externalTrafficPolicy: Cluster
+    servicePort: 9022
+    annotations:
+      cloudProviderLB: {}  # used in deployments other than ECFE
+      sharedVIPLabel:
+      addressPoolName:
+  externalIPv6:
+    enabled:         # <empty>/true/false
+    loadBalancerIP:
+    externalTrafficPolicy: Cluster
+    servicePort: 9022
+    annotations:
+      cloudProviderLB: {}  # used in deployments other than ECFE
+      sharedVIPLabel:
+      addressPoolName:
+  annotations:
+    cloudProviderLB: {}  # used in deployments other than ECFE
+    sharedVIPLabel: ""
+    addressPoolName: ""
+  loadBalancerIP: ""
+  externalTrafficPolicy: Cluster
+
+pmServer:
+  pmServiceName: eric-pm-server
+
+env:
+  maxHttpSession: 7
+  httpTimeout: 10
+  fileLocation: /PerformanceManagementReportFiles
+  maxNoOfPmFiles: 1000
+  cmhost: eric-cm-mediator:5003
+  cmhost_https: eric-cm-mediator:5004
+  pmhost: eric-pm-server:9090
+  pmhost_https: eric-pm-server:9089
+  kmshost: eric-sec-key-management:8200
+  swVersion: ""
+  iscompressed: false
+  logLevel: info
+  nodeName: ""
+  dnPrefix: ""
+  userLabel: ""
+  nodeType: ""
+  supportedGps: "one-min five-min fifteen-min thirty-min one-hour twelve-hour one-day"
+  timeDelay: 0
+  objectStorageHost: eric-data-object-storage-mn:9000
+
+
+thresholdReporter:
+  enabled: false
+  kafkaHostname: "eric-data-message-bus-kf-client"
+  kafkaPort: 9092
+  kafkaTlsPort: 9093
+  restAPI: false
+  alarmHandlerHostname: "eric-fh-alarm-handler"
+  alarmHandlerPort: 6005
+  alarmHandlerTlsPort: 6006
+  thresholdGps: "ten-seconds thirty-seconds one-min five-min fifteen-min thirty-min one-hour twelve-hour one-day"
+
+trace:
+  enabled: false
+  sampler:
+    type: probabilistic
+    param: 0.01
+    managerHostPort:
+    maxOperations: 0
+    refreshInterval: 0
+  reporter:
+    maxQueueSize: 0
+    flushInterval: 0
+    logSpans: false
+  agent:
+    host: eric-dst-jg-agent
+    port: 6831
+
+yangModelSupport:
+  enabled: true
+
+labels: {}
+
+networkPolicy:
+  enabled: false
+
+podDisruptionBudget:
+  minAvailable: 0
+
+podPriority:
+  eric-pm-bulk-reporter:
+    priorityClassName: ""
+
+persistentVolumeClaim:
+  enabled: false
+  storageClassName: ""
+  storageConnectivity: networked
+  existingClaim: ""
+  accessMode: ReadWriteOnce
+  size: 500Mi
+  subPath: ""
+  annotations:
+    "helm.sh/resource-policy": keep
+
+security:
+  tls:
+    cmMediator:
+      enabled: true
+      serviceName: eric-cm-mediator
+    pmServer:
+      enabled: true
+      serviceName: eric-pm-server
+      certificateAuthorityBackwardCompatibility: false
+    messageBusKF:
+      enabled: true
+      servicename: eric-data-message-bus-kf
+    objectStorage:
+      enabled: true
+      serviceName: eric-data-object-storage-mn
+    alarmHandler:
+      enabled: true
+      serviceName: eric-fh-alarm-handler
+    ldapServer:
+      enabled: true
+  keyManagement:
+    enabled: false
+    serviceName: eric-sec-key-management
+
+## Probes
+probes:
+  bulkreporter:
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 15
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  alarmreporter:
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 15
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  pmsftp:
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 15
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 15
+      failureThreshold: 3
+      successThreshold: 1
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 3
+      successThreshold: 1
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  initcontainer:
+    requests:
+      cpu: "50m"
+      memory: "50Mi"
+      ephemeral-storage:
+    limits:
+      cpu: "1"
+      memory: "200Mi"
+      ephemeral-storage:
+  bulkreporter:
+    requests:
+      cpu: "100m"
+      memory: "50Mi"
+      ephemeral-storage:
+    limits:
+      cpu: "1"
+      memory: "200Mi"
+      ephemeral-storage:
+  alarmreporter:
+    requests:
+      cpu: "100m"
+      memory: "50Mi"
+      ephemeral-storage:
+    limits:
+      cpu: "1"
+      memory: "200Mi"
+      ephemeral-storage:
+  pmsftp:
+    requests:
+      cpu: "50m"
+      memory: "50Mi"
+      ephemeral-storage:
+    limits:
+      cpu: "1"
+      memory: "200Mi"
+      ephemeral-storage:
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage:
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage:
+
+logshipper:
+  storageAllocation: "1Gi"
+  logplane: "adp-app-logs"
+  harvester:
+    closeTimeout: "5m"
+  logtransformer:
+    host: eric-log-transformer
+
+## Authentication/Users Information
+# userConfig (mandatory), the user information for the yang-provider service
+# The two authentication type can be used independently.
+userConfig:
+  # Kubernetes Secret based user configuration
+  secretName: ""
+  secretKey: ""
+  # LDAP server configuration
+  ldap:
+    enabled: false
+    useIPv6DNSFirst: false
+    uri: "ldap://eric-sec-ldap-server:389"
+    ssluri: "ldaps://eric-sec-ldap-server:636"
+    searchBase: "ou=people,dc=la,dc=adp,dc=ericsson"
+    rolesConfig:
+      readOnlyGroup: "SystemReadOnly,ApplicationOperator"
+      readWriteGroup: "SystemAdministrator,ApplicationAdministrator"
+
+updateStrategy:
+  type: RollingUpdate
+
+## ROP File Storage Backend (Alpha Feature)
+objectStorage:
+  enabled: false
+  secretName: eric-data-object-storage-mn
+
+annotations: {}
+
+bandwidth:
+  maxEgressRate: ""
+
+tolerations:
+  eric-pm-bulk-reporter:
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 0
+topologySpreadConstraints: []
+
+appArmorProfile:
+  type:
+  localhostProfile:
+  eric-pm-br-initcontainer:
+    type:
+    localhostProfile:
+  eric-pm-bulk-reporter:
+    type:
+    localhostProfile:
+  eric-pm-alarm-reporter:
+    type:
+    localhostProfile:
+  eric-pm-sftp:
+    type:
+    localhostProfile:
+  logshipper:
+    type:
+    localhostProfile:
+
+seccompProfile:
+  type:

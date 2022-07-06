@@ -1,0 +1,56 @@
+{{- $g := fromJson (include "eric-data-search-engine-curator.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+{{- $ti := fromJson (include "eric-data-search-engine-curator.testInternal" .) -}}
+{{- if and (.Capabilities.APIVersions.Has "siptls.sec.ericsson.com/v1/InternalCertificate") (not $ti.oldTls) -}}
+
+apiVersion: "siptls.sec.ericsson.com/v1"
+kind: "InternalCertificate"
+metadata:
+  name: "{{ include "eric-data-search-engine-curator.fullname" . }}-se-http-client-cert"
+  annotations:
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: "{{ include "eric-data-search-engine-curator.fullname" . }}-se-http-client-cert"
+    certificateName: "clicert.pem"
+    privateKeyName: "cliprivkey.pem"
+  certificate:
+    subject:
+      cn: {{ include "eric-data-search-engine-curator.fullname" . | quote }}
+    subjectAlternativeName:
+      dns:
+        - "*.{{ include "eric-data-search-engine-curator.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+    issuer:
+      reference: "{{ .Values.searchengine.host }}-http-ca-cert"
+    {{- if $ti.tlsTtl }}
+    validity:
+      overrideTtl: {{ $ti.tlsTtl }}
+    {{- end }}
+    extendedKeyUsage:
+      tlsClientAuth: true
+      tlsServerAuth: false
+
+{{- else -}}
+
+apiVersion: "com.ericsson.sec.tls/v1alpha1"
+kind: "ClientCertificate"
+metadata:
+  name: "{{ include "eric-data-search-engine-curator.fullname" . }}-se-http-client-cert"
+  annotations:
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+spec:
+  generated-secret-name: "{{ include "eric-data-search-engine-curator.fullname" . }}-se-http-client-cert"
+  common-name: {{ include "eric-data-search-engine-curator.fullname" . | quote }}
+  additional-sans:
+    - DNS:*.{{ include "eric-data-search-engine-curator.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+  issuer-ref: "{{ .Values.searchengine.host }}-http-ca-cert"
+  {{- if $ti.tlsTtl }}
+  override-ttl: {{ $ti.tlsTtl }}
+  {{- end }}
+
+{{- end -}}
+{{- end -}}

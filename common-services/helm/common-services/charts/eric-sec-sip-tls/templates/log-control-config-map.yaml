@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ template "eric-sec-sip-tls.name" . }}-log-control-config"
+  labels:
+    {{- include "eric-sec-sip-tls.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-sip-tls.annotations" . | nindent 4 }}
+data:
+  # Keys in the json should follow same syntactical rules as with Python variables
+  logcontrol.json: |-
+    [
+        {
+          "container": "eric-sec-sip-tls",
+          "severity": {{ .Values.logLevel | quote }}
+        },
+        {
+          "container": "eric-sec-sip-tls-supervisor",
+          "severity": {{ .Values.logLevel | quote }}
+        }
+    ]

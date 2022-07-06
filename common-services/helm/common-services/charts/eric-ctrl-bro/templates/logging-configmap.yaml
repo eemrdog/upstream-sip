@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-ctrl-bro.name" . }}-logging
+  labels: {{- include "eric-ctrl-bro.labels" . | nindent 4 }}
+  annotations: {{- include "eric-ctrl-bro.annotations" . | nindent 4 }}
+data:
+  {{ .Values.bro.logging.log4j2File }}: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <Configuration name="BROLog4j" status="off" monitorInterval="5">
+      <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+          {{- if eq .Values.bro.logging.consoleFormat "json" }}
+          <JsonTemplateLayout eventTemplateUri="file://{{ .Values.bro.logging.logDirectory }}/JsonLogTemplate.json" locationInfoEnabled="true"/>
+          {{- else }}
+          <PatternLayout pattern="%d{YYYY-MM-dd'T'HH:mm:ss.sssXXX} %p %c{1}: %m%n"/>
+          {{- end }}
+          <RegexFilter regex=".*(Error reading request, ignored|Error running socket processor|JSSE TLS 1.3|Encryptor config not found).*" onMatch="DENY" onMismatch="ACCEPT"/>
+        </Console>
+        {{- with . }}
+        {{- $logstreaming := include "eric-ctrl-bro.logstreaming" . | fromYaml }}
+        {{- if has "tcp" (get $logstreaming "logOutput") }}
+        <BufferedSocketAppender name="BufferedSocketAppender" host="{{ $logstreaming.logtransformer.host }}" port="{{ $logstreaming.logtransformer.port }}">
+          {{- if (eq (include "eric-ctrl-bro.globalSecurity" .) "true") }}
+          <StreamSslConfiguration privatekey="/run/sec/certs/logtransformer/ltclientkey.pem"
+                  certificate="/run/sec/certs/logtransformer/ltclientcert.pem"
+                  ca="/run/sec/cas/siptls/cacertbundle.pem"
+                  keystore="/temp/ltEndpointKeystore.12"
+                  caAlias="siptls"
+                  certAlias="LT"/>
+          {{- end }}
+          <!-- Really we should use the json layout defined below but that's an interface change-->
+          <RFC5424Layout appName="eric-ctrl-bro" newLine="true" newLineEscape="\n"/>
+          <RegexFilter regex=".*(Error reading request, ignored|Error running socket processor).*" onMatch="DENY" onMismatch="ACCEPT"/>
+        </BufferedSocketAppender>
+        {{- end }}
+        {{- end }}
+
+      </Appenders>
+      <Loggers>
+        <Logger name="com.ericsson.adp.mgmt.backupandrestore" level="{{ include "eric-ctrl-bro.log.level" . }}">
+        </Logger>
+        <Logger name="org.apache" level="{{ .Values.bro.logging.log4j2Level }}" additivity="false">
+          <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="{{ include "eric-ctrl-bro.log.rootLevel" . }}">
+          {{- with . }}
+          {{- $logstreaming := include "eric-ctrl-bro.logstreaming" . | fromYaml }}
+          {{- if has "console" (get $logstreaming "logOutput") }}
+          <AppenderRef ref="Console"/>
+          {{- end }}
+          {{- if has "tcp" (get $logstreaming "logOutput") }}
+          <AppenderRef ref="BufferedSocketAppender"/>
+          {{- end }}
+          {{- end }}
+        </Root>
+      </Loggers>
+    </Configuration>
+  "JsonLogTemplate.json": |
+    {
+      "version" : "1.1.0",
+      "timestamp" : {
+        "$resolver": "timestamp",
+        "pattern": {
+          "format": "YYYY-MM-dd'T'HH:mm:ss.SSSXXX"
+        }
+      },
+      "severity" : {
+        "$resolver": "pattern",
+        "pattern": "%level{WARN=warning,DEBUG=debug,ERROR=error,INFO=info,lowerCase=true}%throwable{none}"
+      },
+      "service_id": "{{ template "eric-ctrl-bro.name" . }}",
+      "message": {
+        "$resolver": "message",
+        "stringified": true
+      },
+      "extra_data" : {
+        "exception": {
+          "$resolver": "exception",
+          "field": "stackTrace",
+          "stackTrace": {
+            "stringified": true
+          }
+        },
+        "location" : {
+          "class" : {
+            "$resolver": "source",
+            "field" : "className"
+          }
+        }
+      }
+    }

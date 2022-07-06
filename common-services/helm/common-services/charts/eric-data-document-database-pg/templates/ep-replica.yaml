@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-replica
+  labels:
+    {{- $labels := dict -}}
+    {{- $_ := set $labels "app" (include "eric-data-document-database-pg.name" .) -}}
+    {{- $_ := set $labels "cluster-name" (include "eric-data-document-database-pg.name" .) -}}
+    {{- $_ := set $labels "role" "replica" -}}
+    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
+    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $commonLabels)) | trim | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+subsets: []

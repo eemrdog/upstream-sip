@@ -1,0 +1,24 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+
+{{- if $global.security.tls.enabled }}
+## These commands put the admin console back to the common port
+
+/subsystem=undertow/server=default-server/https-listener=https-admin:remove()
+## The following will delete a listener for the admin console port
+/socket-binding-group=standard-sockets/socket-binding=https-admin/:remove()
+{{- end }}
+
+{{- if or (eq .Values.service.endpoints.iam.tls.enforced "optional") (not $global.security.tls.enabled)  }}
+
+## These commands put the admin console back to the common port
+/subsystem=undertow/server=default-server/http-listener=http-admin:remove()
+
+## The following will delete a listener for the admin console port
+/socket-binding-group=standard-sockets/socket-binding=http-admin/:remove()
+
+{{- end }}
+
+
+## The following will unlock the access to admin console
+/subsystem=undertow/configuration=filter/expression-filter=portAccess:remove()
+/subsystem=undertow/server=default-server/host=default-host/filter-ref=portAccess:remove()

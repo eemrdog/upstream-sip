@@ -1,0 +1,48 @@
+{{/*
+This external ca certificate is supposed to be used for cluster external
+communication between an external part and an ingress/HTTPProxy, when used.
+*/}}
+{{ if .Values.ingress.enabled }}
+{{- $g := fromJson (include "eric-fh-alarm-handler.global" .) -}}
+{{- if and $g.security.tls.enabled .Values.ingress.tls.verifyClientCertificate .Values.ingress.certificates.trustedCertificateListName (not .Values.ingress.certificates.caSecret) -}}
+apiVersion: certm.sec.ericsson.com/v1beta1
+kind: ExternalCertificate
+metadata:
+  name: {{ template "eric-fh-alarm-handler.name" . }}-external-ca-certificate
+  annotations:
+{{- include "eric-fh-alarm-handler.annotations" . | indent 4 }}
+  labels:
+{{- include "eric-fh-alarm-handler.labels" . | indent 4 }}
+spec:
+  {{- /*
+  Mandatory; string
+  The Kubernetes Secret where the client certificate and key are stored.
+  Must be unique.
+  */}}
+  generated-secret-name: {{ template "eric-fh-alarm-handler.name" . }}-external-ca-certificate-secret
+
+  {{- /*
+  Mandatory; string (tls or opaque)
+  The type of secret to be created. The tls type is required for
+  Ingress Controllers. Note that the tls type secret contains one
+  private key and one certificate which means it is only applicable
+  for asymmetric-key-certificate consumers.
+  */}}
+  generated-secret-type: opaque
+
+  {{- /*
+  Optional; string
+  All trusted certificates are merged into one file, overriding the
+  default behavior where each trusted certificate is stored in its
+  own file named cert1.pem, cert2.pem, etc.
+  */}}
+  trusted-certificates-file-name: ca.crt
+
+  {{- /*
+  Name of the certificates list instance according to
+  ietf-truststore configuration. Use when certificates list is
+  referenced by name.
+  */}}
+  trusted-certificate-list-name: {{ .Values.ingress.certificates.trustedCertificateListName }}
+{{- end }}
+{{- end }}

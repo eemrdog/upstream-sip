@@ -1,0 +1,15 @@
+{{- if and (eq (include "eric-data-coordinator-zk.tls" .) "true") ( eq .Values.service.endpoints.datacoordinatorzk.tls.provider "sip-tls" ) }}
+apiVersion: siptls.sec.ericsson.com/v1
+kind: InternalUserCA
+metadata:
+  name: {{ template "eric-data-coordinator-zk.fullname" . }}-client-ca
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+spec:
+  kubernetes:
+    generatedSecretName: {{ template "eric-data-coordinator-zk.client.ca.secret" . }}
+    certificateName: clientcacertbundle.pem
+  certificate:
+    subject:
+      cn: {{ template "eric-data-coordinator-zk.fullname" . }}-client-ca
+{{- end -}}

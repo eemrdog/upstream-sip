@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eric-log-shipper.fullname" . }}-cfg
+  labels:
+    {{- include "eric-log-shipper.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-log-shipper.annotations" . | nindent 4 }}
+data:
+  filebeat.yml: |
+  {{- include "eric-log-shipper.filebeat.default-inputs" . | indent 4 }}
+  {{- if .Values.logshipper.autodiscover.enabled }}
+    {{- include "eric-log-shipper.filebeat.autodiscover" . | indent 4 }}
+  {{- end -}}
+  {{- include "eric-log-shipper.filebeat.output" . | indent 4 }}
+  {{- include "eric-log-shipper.filebeat.settings" . | indent 4 }}

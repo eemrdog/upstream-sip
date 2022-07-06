@@ -1,0 +1,572 @@
+# Global parameters shall be defined in the top level values.yaml
+# They are kept here for indicating which are supported and their default values.
+# global:
+#  registry:
+#    url: armdocker.rnd.ericsson.se
+#    imagePullPolicy: IfNotPresent
+#  pullSecret:
+#  timezone:
+#  security:
+#    tls:
+#      enabled: true
+#    policyBinding:
+#      create: false
+#    policyReferenceMap:
+#      default-restricted-security-policy: default-restricted-security-policy
+#  nodeSelector: {}
+
+imageCredentials:
+  iam:
+    repoPath: # overrides repoPath from eric-product-info.yaml
+    registry:
+      url: # overrides global registry url
+  iaminit:
+    repoPath: # overrides repoPath from eric-product-info.yaml
+    registry:
+      url: # overrides global registry url
+  authenticationproxy:
+    repoPath: # overrides repoPath from eric-product-info.yaml
+    registry:
+      url: # overrides global registry url
+  sipoauth2:
+    repoPath: # overrides repoPath from eric-product-info.yaml
+    registry:
+      url: # overrides global registry url
+  logshipper:
+    registry:
+      url: # overrides global registry url
+      pullPolicy:
+    #repoPath: # overrides repoPath from eric-product-info.yaml
+
+  repoPath: # overrides repoPath from eric-product-info.yaml for all images
+
+  registry:
+    url: # overrides global registry url
+    imagePullPolicy: # overrides global.registry.imagePullPolicy
+
+  # Pull Secret. Set this to override global.pullSecret
+  pullSecret:
+
+updateStrategy:
+  iam:
+    type: RollingUpdate
+  sipoauth2:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+
+# DR-D1120-012 - Liveness probe
+# DR-D1120-014 - Readiness probe
+# DR-D1120-016 - Startup probe
+probes:
+  iam:
+    livenessProbe:
+      initialDelaySeconds: 120
+      periodSeconds: 10
+      failureThreshold: 3
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      successThreshold: 2
+      failureThreshold: 10
+      timeoutSeconds: 15
+  authenticationproxy:
+    livenessProbe:
+      initialDelaySeconds: 90
+      periodSeconds: 10
+      failureThreshold: 5
+      timeoutSeconds: 15
+    startupProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 25
+      timeoutSeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 10
+      timeoutSeconds: 15
+  sipoauth2:
+    livenessProbe:
+      initialDelaySeconds: 90
+      periodSeconds: 10
+      failureThreshold: 5
+      timeoutSeconds: 15
+    startupProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 25
+      timeoutSeconds: 15
+  logshipper:
+    livenessProbe:
+      initialDelaySeconds: 1
+      periodSeconds: 10
+      failureThreshold: 3
+      timeoutSeconds: 10
+
+resources:
+  preupgrade:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: "500Mi"
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: "1Gi"
+  iam:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+      ephemeral-storage: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "3000m"
+      ephemeral-storage: "4Gi"
+  iam-init:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+      ephemeral-storage: "1Gi"
+    limits:
+      memory: "2036Mi"
+      cpu: "3000m"
+      ephemeral-storage: "2Gi"
+  authenticationProxy:
+    requests:
+      memory: "130Mi"
+      cpu: "50m"
+      ephemeral-storage: "1Gi"
+    limits:
+      memory: "256Mi"
+      cpu: "150m"
+      ephemeral-storage: "2Gi"
+  sipoauth2:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: 300Mi
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: 500Mi
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage:
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage:
+
+terminationGracePeriodSeconds:
+  iam: 30
+  sipoauth2: 30
+
+# DR-D1120-067. Node tolerations for pods.
+tolerations:
+  iam: []
+  preupgrade: []
+  sipoauth2:
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 0
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 0
+
+# DR-D1120-090. Topology spread constraints for pods.
+topologySpreadConstraints: []
+
+# DR-D1120-110 podPriority indicates the importance of a Pod relative to other Pods.
+podPriority:
+  iam:
+    priorityClassName: ""
+  preupgrade:
+    priorityClassName: ""
+  sipoauth2:
+    priorityClassName: ""
+
+# DR-D1125-040-AD # Maximum bandwidth rate at which traffic can leave the POD interface. Values should be set "[0-9]+M".
+bandwidth:
+  maxEgressRate: "30M"
+
+# Extra annotations to be added to all resources
+annotations: {}
+
+# Additional labels added to all resources
+labels: {}
+
+statefulset:
+# Deprecated: use global.security.tls.enabled
+# tls:
+#   enabled: true
+  ## The name of the secret containing Keycloak admin user credentials
+  adminSecret: eric-sec-access-mgmt-creds
+  ## The key within the secret containing Keycloak admin username
+  userkey: kcadminid
+  ## The key within the secret containing Keycloak admin plaintext password
+  passwdkey: kcpasswd
+
+  ## Allows the specification of additional environment variables for Keycloak, e.g.
+  ## KEYCLOAK_LOGLEVEL: DEBUG
+  ## ROOT_LOGLEVEL: DEBUG
+  ## --set statefulset.additionalEnv[0].name=PROXY_ADDRESS_FORWARDING --set-string statefulset.additionalEnv[0].value=true
+  additionalEnv: []
+
+  #resources: {}
+
+# Number of IAM replicas. Value must be must be 2 or more for resiliency
+replicaCount: 1
+
+affinity:
+
+  ## Pod Anti Affinity - "hard" or "soft"
+  podAntiAffinity: "hard"
+
+service:
+  endpoints:
+    iam:
+      tls:
+        enforced: required
+        verifyClientCertificate: optional
+    authenticationproxy:
+      tls:
+        verifyClientCertificate: optional
+  #labels: {}
+
+  ipv6:
+    ## Toggle to enable IPV6. Enabling IPV6 will disable IPV4
+    enabled: false
+
+application:
+  dockerv2:
+    ## Toggle to enable dockerv2 protocol in IAM
+    enabled: false
+  ## configures a custom authenticator on IAM provided default realms
+  ## (master and ldap federated realm) if enabled. We cannot safe delete if disabled because
+  ## we cannot know if this was configured by user or us. So, user has to remove it if it was enabled
+  ## during installation and later doesn't need it. In addition to removing the user has to set this to false
+  ## so that IAM doesn't add it again in the next upgrade/installation.
+  recordLoginTimeEnabled: false
+
+tls:
+  ## Cluster-internal client TLS details for database connection (LDAP and PG)
+  ## Keycloak when acts as a client towards LDAP and PG needs client certificate
+  client:
+    ldap:
+      issuer: eric-sec-ldap-server-ca
+      mountPath: "/run/secrets/ldap-client-certificate"
+
+    pg:
+      ## The issuer must match the issuer named by PG chart. The general format
+      ## [chart-name]-client-ca. Change the value when PG chart is installed with
+      ## a different alias, accordingly.
+      issuer: eric-data-document-database-pg-client-ca
+      ## The PG database user name must be the subject of client certificate
+      ## if the user does not exist it will be created automatically
+      ## do not put a value with underscores
+      subject: "iamuser"
+      mountPath: "/run/secrets/pg-client-certificate"
+
+    ## Consumer needs trusted server root CA
+    caMountPath: "/run/secrets/tls-int-ca-cert"
+
+    rootCaSecret: eric-sec-sip-tls-trusted-root-cert
+
+# HTTP specific parameters
+http:
+  hostValidation:
+    ## Host Validation is always enabled by default. Following hosts are
+    ## considered valid by default:
+    ## * IAM service DNS
+    ## * Ingress hostname
+    ## Additinally a comma-separated list of values to be considered valid
+    ## for the HTTP `Host` header in requests passed to IAM (during Host
+    ## header validation) can be specified below.
+    allowedHosts:
+  server:
+    ## The amount of time in milliseconds a connection can sit idle without processing
+    ## a request, before it is closed by the server. Must be quoted otherwise helm will
+    ## convert to scientific notation which Keycloak cannot understand and will lead to install or upgrade failure.
+    noRequestTimeout: "60000"
+    ## The maximum number of concurrent connections that the listener can handle. Must be quoted otherwise helm will
+    ## convert to scientific notation which Keycloak cannot understand and will lead to install or upgrade failure.
+    maxConnections: "100000"
+
+## Ingress configuration to expose REST API outside of the cluster
+ingress:
+  ## Toggle Ingress creation
+  enabled: false
+  iccrServiceName: eric-tm-ingress-controller-cr
+
+  # Response timeout from backend connection to IAM
+  # increase this timeout if ICCR is timing out connection to IAM (this may happen
+  # if the number of users handled by IAM is quite large, e.g. > 300)
+  responseTimeout: "60s"
+
+  # Idle timeout for backend connection to IAM
+  idleTimeout: "300s"
+
+  #annotations: {}
+
+  ## DNS name of the service towards which the request is sent. Ingress host FQDN.
+  # The value for "hostname" must be appropriate for the ingress controller to work.
+  # For example, the hostname could be based on the cluster in which the service is deployed.
+  # Example value : "iam.todd009.rnd.gic.ericsson.se"
+  hostname: ""
+
+  ## The path to match from the external request
+  path: /
+
+  ## TLS configuration for external traffic
+  tls:
+    ## Toggle TLS secured communication for the Ingress
+    enabled: true
+
+    ## The secret name containing external certificates
+    existingSecret: ""
+
+    #secretAnnotations: {}
+
+  certificates:
+    #<keyname>/<certificate name>
+    asymmetricKeyCertificateName: "oauth2-server/oauth2-server"
+
+  # CA Certificate of Ingress that will be trusted by IAM
+  caCertificateSecret: "eric-tm-ingress-controller-cr-client-ca"
+
+  # Ingress class name indicating which ingress controller instance is
+  # consuming the ingress resource
+  ingressClass: ""
+
+persistence:
+  ## The database vendor
+  ## Currently only "POSTGRES" is supported
+  dbVendor: POSTGRES
+
+  ## The name of the database in the backend
+  dbName: idam
+
+  ## The connection details to access database
+  dbHost: eric-data-document-database-pg
+  dbPort: 5432
+
+  ## The name of the secret containing Document Database PG credentials
+  ## the dbsecret, dbUserkey, dbPasswdKey parameters are only considered
+  ## when global.security.tls.enabled is false (i.e. cleartext communication with PG)
+  dbsecret: eric-sec-access-mgmt-creds
+  ## The key within the secret containing DB username
+  dbUserkey: pguserid
+  ## The key within the secret containing DB password
+  dbPasswdkey: pgpasswd
+
+  # The below parameter controls rendering of a Config map (configmap_br.yaml)
+  # needed by PG to support logical DB backup and restore.
+  dbbr:
+    enabled: true
+    backupType: "configuration-data"
+
+ldap:
+  enabled: false
+
+  ## The name of the secret containing LDAP credentials
+  adminSecret: eric-sec-ldap-server-fed
+  ## The key within the secret containing LDAP password
+  passwdkey: passwd
+
+  configmap: eric-sec-ldap-server-fed-conf
+
+  realm: "local-ldap3"
+
+  server: eric-sec-ldap-server
+
+keyManagement:
+  server: eric-sec-key-management
+  port: 8200
+
+egress:
+  ldap:
+    certificates:
+      trustedCertificateListSecret: ""
+      trustedCertificateListName: ""
+  identityProvider:
+    certificates:
+      trustedCertificateListSecret: ""
+      trustedCertificateListName: ""
+
+# This value sets text showing after logging into admin console.
+postLoginMessage:
+  messageString: ""
+
+# This value sets text in the dialog opened after click on "legal notice" on IAM login page.
+preLoginMessage:
+  messageString: ""
+
+sipoauth2:
+  # Optional, whether Service Identity Provider for Oauth2 is enabled or not
+  # Please install the eric-sec-access-mgmt-crd chart for SIP OAuth2 functionality
+  enabled: true
+
+# ---------------------------------------------------------------------
+# IAM Authentication proxy obeys the following deployment parameters
+# All sub-attributes inside authenticationProxy are optional if
+# authorizationProxy.enabled = false or is not specified.
+# The Mandatory/Optional/Conditional statements are valid if
+# authorizationProxy.enabled = true
+# ---------------------------------------------------------------------
+authenticationProxy:
+  # Optional, whether Authentication Proxy is enabled or not
+  # enabled: false # Default value
+  enabled: false
+
+  # Optional, how many seconds until the users login process timeouts
+  # loginExpire: 180 # Default value
+  loginExpire:  180
+
+  # Optional, whether after logout Ericsson branded logout page is shown or not
+  # If false logout returns simple json REST response
+  # logoutpageEnabled: false # Default value
+  logoutpageEnabled: false
+
+  # Optional, The name of the IAM server realm used by authentication proxy.
+  # Realm name is automatically resolved based on Ldap Server and Administrative
+  # User Management Service (AUM) settings if they are enabled in the
+  # namespace. If Ldap Server or AUM are not enabled, then the default
+  # realm name is set to "oam".
+  # This parameter can be used to override the above.
+  # Empty value "" means that the parameter does not affect the above explained
+  # automatic realm name resolving.
+  # Specifying non-empty value means that authentication proxy will use that value
+  # as realm name.
+  # realm: "" # Default value
+  realm: ""
+
+  ingress:
+    # Optional, Toggle Ingress creation
+    # enabled: true # default value
+    enabled: true
+
+    # Optional, Toggle Ingress creation
+    # enabled: true # default value
+    tls:
+      enabled: true
+
+    # Optional, DNS name of the AuthN service towards which the request is sent. Ingress host FQDN.
+    # hostname: "authproxy.todd009.rnd.gic.ericsson.se" # example value
+    # hostname: "" # default value
+    hostname: ""
+
+    # Optional, The secret name containing external certificates
+    # Used only if global.security.tls.enabled == true
+    # existingTlsSecret: "" # default value
+    existingTlsSecret: ""
+
+    # Conditional, <if authenticationProxy.ingress.existingTlsSecret != "">
+    # <keyname>/<certificate name> of external certificate obtained from CertM
+    # Used only if global.security.tls.enabled == true
+    certificates:
+      asymmetricKeyCertificateName: "oauth2-proxy/oauth2-proxy"
+
+    # Optional, annotations added to ingress annotations
+    # annotations: {}
+
+    # Optional, To be used only in test environments.
+    # The port number is needed for design time tests, as ICCR can be used in Ericsson development
+    # KE clusters only with contour service port number appended in hostname.
+    # This should not be needed in production.
+    # Note: port number changes every time ICCR is installed.
+    # port: "" # default value
+    port: ""
+
+    # Ingress class name indicating which ingress controller instance is
+    # consuming the HTTPProxy k8s resource created by authentication proxy.
+    ingressClass: ""
+
+    # The name of the k8s secret which contains the ingress' client certificate CA
+    # Used only if .Values.global.security.tls.enabled == true
+    # If the ingress sends its client certificate then Authentication Proxy
+    # uses CA from this secret to validate the client certificate.
+    # The k8s secret is optional: it does not need to exist if the ingress
+    # does not send client certificates.
+    caCertificateSecret: "eric-tm-ingress-controller-cr-client-ca"
+
+  # Optional, If enabled lastlogintime will be included in token and cookie "eric.adp.authn.lastlogintime" containing same information will be created.
+  # if authenticationProxy.lastlogintimeEnabled = false or not specified lastlogintime will not be included in token and cookie is not created
+  # lastlogintimeEnabled: false # default value
+  lastlogintimeEnabled: false
+
+  # Conditional, Optional. The name of the secret that stores the client credential secret
+  # value for the Authentication Proxy client in IAM. This is used when creating the client
+  # adp-iam-aa-client in IAM.
+  # Note that this only applies when global.security.tls.enabled=false.
+  clientCredentialSecret: "eric-sec-access-mgmt-aapxy-creds"
+
+  # Mandatory, The domain for which the token cookie is set for. Authentication Proxy
+  # and all the service providers which use Authorization Proxy for access control should
+  # belong into this domain. It is the longest possible (domain) part that they share.
+  # No default value can be provided since this depends completely on the deployment.
+  # NOTE: the example value works *only* in certain ericsson test environments.
+  # cookieDomain: "rnd.gic.ericsson.se" # example value
+  # cookieDomain: "" # default value
+  cookieDomain: ""
+
+# Enable or disable network policy
+networkPolicy:
+  enabled: true
+
+# this parameter is deprecated. use nodeSelector.iam and nodeSelector.sipoauth2 (ADPPRG-81960)
+nodeSelector: {}
+# iam: {}
+# sipoauth2: {}
+
+log:
+  logshipper:
+    level: "info"
+
+# Logshipper specific parameters. Refer to the logshipper sidecar
+# user guide for a detailed explanation and a full list of parameters
+logshipper:
+  enabled: false
+
+  # Redirect Target can be file, all. Setting this to "all" will redirect
+  # logs to both stdout and file (not recommended)
+  redirectTarget: file
+
+  # runAndExit: false
+  # shutdownDelay: 10
+  storagePath: "/logs"
+  storageAllocation: "500Mi"
+  # storageMedium:
+  harvester:
+    closeTimeout: "5m"
+    logData:
+    - subPaths:
+      - "/init-pg.log*"
+      - "/auth-proxy.log*"
+      - "/iam.log*"
+      - "/sip-oauth2.log*"
+      logplane: "adp-iam-logs"
+      additionalFields:
+        project : "sidecar-iam-log"
+      multiline:
+        pattern: '^[[:space:]]'
+        negate: false
+        match: after
+  logtransformer:
+    host: eric-log-transformer
+
+podDisruptionBudget:
+  minAvailable: 50%
+
+metrics:
+  enabled: true
+  pmServiceName: "eric-pm-server"
+
+logLevel: info

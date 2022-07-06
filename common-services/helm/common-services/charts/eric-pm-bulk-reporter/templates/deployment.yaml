@@ -1,0 +1,693 @@
+{{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-pm-bulk-reporter.name" . }}
+  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.annotations" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+    {{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "eric-pm-bulk-reporter.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- $peerLabels := include "eric-pm-bulk-reporter.peer.labels" . | fromYaml -}}
+        {{- $defaultLabels := include "eric-pm-bulk-reporter.meta-labels" . | fromYaml -}}
+        {{- include "eric-pm-bulk-reporter.mergeLabels" (dict "location" (.Template.Name) "sources" (list $peerLabels $defaultLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- $appArmorAnn := include "eric-pm-bulk-reporter.appArmorProfileAnnotation" . | fromYaml -}}
+        {{- $metricsAnn := dict -}}
+        {{- $_ := set $metricsAnn "prometheus.io/scrape" "true" -}}
+        {{- $_ := set $metricsAnn "prometheus.io/port" (include "eric-pm-bulk-reporter.metrics-port" . ) -}}
+        {{- $_ := set $metricsAnn "prometheus.io/scheme" (include "eric-pm-bulk-reporter.protmetheus-io-scheme" . ) -}}
+        {{- $egressAnn := dict -}}
+        {{- if .Values.bandwidth.maxEgressRate }}
+          {{- $_ := set $egressAnn "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
+        {{- end }}
+        {{- $defaultAnn := include "eric-pm-bulk-reporter.annotations" . | fromYaml -}}
+        {{- include "eric-pm-bulk-reporter.mergeAnnotations" (dict "location" (.Template.Name) "sources" (list $appArmorAnn $metricsAnn $egressAnn $defaultAnn)) | trim | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: {{ template "eric-pm-bulk-reporter.fsGroup.coordinated" . }}
+        {{- include "eric-pm-bulk-reporter.podSeccompProfile" . | indent 8 }}
+{{- if not .Values.objectStorage.enabled }}
+      initContainers:
+        - name: eric-pm-br-initcontainer
+          image: {{ template "eric-pm-bulk-reporter.imagePath" (merge (dict "imageName" "eric-pm-br-initcontainer") .) }}
+          imagePullPolicy: {{ required "A valid .Values.imageCredentials.imagePullPolicy entry is required!" .Values.imageCredentials.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: true
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+              add:
+                - CHOWN
+            {{- with (index .Values "seccompProfile" "eric-pm-br-initcontainer") }}
+            seccompProfile:
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+          args:
+            - /bin/bash
+            - -c
+          {{- if has "stream" .Values.log.outputs }}
+            - /stdout-redirect
+              -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
+              -logfile=/logs/pm-initenv.log
+              -container=eric-pm-br-initcontainer
+              -service-id=eric-pm-bulk-reporter
+              -run="/initenv"
+          {{- else }}
+            - /initenv
+          {{- end }}
+          env:
+           - name: FILE_LOCATION
+             value: {{ .Values.env.fileLocation | quote }}
+           - name: TZ
+             value: {{ $g.timezone | default "UTC" | quote }}
+          resources: {{- include "eric-pm-bulk-reporter.resources" (index .Values "resources" "initcontainer") | indent 10 }}
+          volumeMounts:
+          - name: data
+            mountPath: {{ .Values.env.fileLocation | quote }}
+      {{- if .Values.persistentVolumeClaim.enabled }}
+            subPath: {{ .Values.persistentVolumeClaim.subPath | quote }}
+      {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-storage-path" . | indent 10 }}
+      {{- end }}
+{{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: eric-pm-bulk-reporter
+          ports:
+          {{- if not $g.security.tls.enabled }}
+            - name: http-pm-br
+              containerPort: {{ template "eric-pm-bulk-reporter.metrics-port" . }}
+              protocol: TCP
+          {{- else }}
+            - name: https-pm-br-tls
+              containerPort: {{ template "eric-pm-bulk-reporter.metrics-port" . }}
+              protocol: TCP
+          {{- end }}
+          image: {{ template "eric-pm-bulk-reporter.imagePath" (merge (dict "imageName" "eric-pm-bulk-reporter") .) }}
+          imagePullPolicy: {{ required "A valid .Values.imageCredentials.imagePullPolicy entry is required!" .Values.imageCredentials.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+            {{- with (index .Values "seccompProfile" "eric-pm-bulk-reporter") }}
+            seccompProfile:
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+          args:
+            - /bin/bash
+            - -c
+          {{- if has "stream" .Values.log.outputs }}
+            - /stdout-redirect
+              -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
+              -logfile=/logs/pm-bulkreporter.log
+              -container=eric-pm-bulk-reporter
+              -service-id=eric-pm-bulk-reporter
+              -run="/bulkreporter"
+          {{- else }}
+            - /bulkreporter
+          {{- end }}
+          env:
+            - name: CM_HOST
+          {{- if and .Values.security.tls.cmMediator.enabled $g.security.tls.enabled }}
+              value: {{ .Values.env.cmhost_https | quote }}
+          {{- else }}
+              value: {{ .Values.env.cmhost | quote }}
+          {{- end }}
+            - name: FILE_LOCATION
+              value: {{ .Values.env.fileLocation | quote }}
+            - name: HTTP_TIMEOUT
+              value: {{ .Values.env.httpTimeout | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.logLevel | quote }}
+            - name: MAX_HTTP_SESSION
+              value: {{ .Values.env.maxHttpSession | quote }}
+            - name: MAX_NO_OF_PM_FILES
+              value: {{ .Values.env.maxNoOfPmFiles | quote }}
+            - name: NODE_NAME
+          {{- if .Values.env.nodeName }}
+              value: {{ .Values.env.nodeName | quote }}
+          {{- else if $g.applicationId }}
+              value: {{ $g.applicationId | quote }}
+          {{- else }}
+              value: ""
+          {{- end }}
+            - name: DN_PREFIX
+              value: {{ .Values.env.dnPrefix | quote }}
+            - name: USER_LABEL
+              value: {{ .Values.env.userLabel | quote }}
+            - name: NODE_TYPE
+              value: {{ .Values.env.nodeType | quote }}
+            - name: PM_HOST
+          {{- if and .Values.security.tls.pmServer.enabled  $g.security.tls.enabled}}
+              value: {{ .Values.env.pmhost_https | quote }}
+          {{- else }}
+              value: {{ .Values.env.pmhost | quote }}
+          {{- end }}
+            - name: PVCNAME
+              {{ if .Values.persistentVolumeClaim.existingClaim }}
+              value: {{ .Values.persistentVolumeClaim.existingClaim  | quote }}
+              {{ else }}
+              value: {{ template "eric-pm-bulk-reporter.name" . }}
+              {{ end }}
+            - name: SW_VERSION
+              value: {{ .Values.env.swVersion | quote }}
+            - name: TZ
+              value: {{ $g.timezone | default "UTC" | quote }}
+            - name: IS_COMPRESSED
+              value: {{ .Values.env.iscompressed | quote }}
+            - name: SUPPORTED_GPS
+              value: {{ .Values.env.supportedGps | quote }}
+            - name: IS_THRESHOLD_ENABLED
+              value: {{ .Values.thresholdReporter.enabled | quote }}
+            - name: THRESHOLD_GPS
+              value: {{ .Values.thresholdReporter.thresholdGps | quote }}
+            - name: REPORT_TIME_DELAY
+              value: {{ .Values.env.timeDelay | quote }}
+            - name: YANG_MODEL_SUPPORT
+              value: {{ .Values.yangModelSupport.enabled | quote }}
+          {{- if .Values.trace.enabled }}
+            - name: JAEGER_SAMPLER_TYPE
+              value: {{ .Values.trace.sampler.type | quote }}
+            - name: JAEGER_SAMPLER_PARAM
+              value: {{ .Values.trace.sampler.param | quote }}
+            - name: JAEGER_SAMPLER_MANAGER_HOST_PORT
+              value: {{ .Values.trace.sampler.managerHostPort | quote }}
+            - name: JAEGER_SAMPLER_MAX_OPERATIONS
+              value: {{ .Values.trace.sampler.maxOperations | quote }}
+            - name: JAEGER_SAMPLER_REFRESH_INTERVAL
+              value: {{ .Values.trace.sampler.refreshInterval | quote }}
+            - name: JAEGER_REPORTER_MAX_QUEUE_SIZE
+              value: {{ .Values.trace.reporter.maxQueueSize | quote }}
+            - name: JAEGER_REPORTER_FLUSH_INTERVAL
+              value: {{ .Values.trace.reporter.flushInterval | quote }}
+            - name: JAEGER_REPORTER_LOG_SPANS
+              value: {{ .Values.trace.reporter.logSpans | quote }}
+            - name: JAEGER_AGENT_HOST
+              value: {{ .Values.trace.agent.host | quote }}
+            - name: JAEGER_AGENT_PORT
+              value: {{ .Values.trace.agent.port | quote }}
+          {{- else }}
+            - name: JAEGER_DISABLED
+              value: "true"
+          {{- end }}
+            - name: ENABLE_TLS_SERVER
+              value: {{ $g.security.tls.enabled | default "false" | quote }}
+            - name: TLS_CM_ENABLED
+          {{- if and .Values.security.tls.cmMediator.enabled $g.security.tls.enabled }}
+              value: {{ true | quote }}
+          {{- else }}
+              value: {{ false | quote }}
+          {{- end }}
+            - name: CM_SERVICE_NAME
+              value: {{ .Values.security.tls.cmMediator.serviceName | quote }}
+            - name: TLS_PM_ENABLED
+          {{- if and .Values.security.tls.pmServer.enabled $g.security.tls.enabled }}
+              value: {{ true | quote }}
+          {{- else }}
+              value: {{ false | quote }}
+          {{- end }}
+          {{- if eq .Values.service.endpoints.pmScrapeTarget.tls.enforced "required" }}
+            - name: TLS_SCRAPE_REQUIRED
+              value: {{ true | quote }}
+          {{- else }}
+            - name: TLS_SCRAPE_REQUIRED
+              value: {{ false | quote }}
+          {{- end }}
+          {{- if eq .Values.service.endpoints.pmScrapeTarget.tls.verifyClientCertificate "required" }}
+            - name: TLS_SCRAPE_VERIFY_CLIENT_REQUIRED
+              value: {{ true | quote }}
+          {{- else }}
+            - name: TLS_SCRAPE_VERIFY_CLIENT_REQUIRED
+              value: {{ false | quote }}
+          {{- end }}
+            - name: PM_SERVICE_NAME
+              value: {{ .Values.security.tls.pmServer.serviceName | quote }}
+            - name: STORAGE_CONNECTIVITY
+              value: {{ .Values.persistentVolumeClaim.storageConnectivity | quote }}
+          {{- if .Values.objectStorage.enabled }}
+            - name: OBJECT_STORAGE_ENABLED
+              value: {{ .Values.objectStorage.enabled | quote }}
+            - name: TLS_OBJECT_STORAGE_ENABLED
+          {{- if and .Values.security.tls.objectStorage.enabled $g.security.tls.enabled }}
+              value: {{ true | quote }}
+          {{- else }}
+              value: {{ false | quote }}
+          {{- end }}
+            - name: OBJECT_STORAGE_SERVICE_NAME
+              value: {{ .Values.security.tls.objectStorage.serviceName | quote }}
+            - name: OBJECT_STORAGE_HOST
+              value: {{ .Values.env.objectStorageHost | quote }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.objectStorage.secretName | default "eric-data-object-storage-mn" | quote }}
+                  key: accesskey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.objectStorage.secretName | default "eric-data-object-storage-mn" | quote }}
+                  key: secretkey
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9093
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.probes.bulkreporter.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.bulkreporter.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.bulkreporter.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.bulkreporter.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.bulkreporter.readinessProbe.successThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9093
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.probes.bulkreporter.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.bulkreporter.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.bulkreporter.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.bulkreporter.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.bulkreporter.livenessProbe.successThreshold }}
+          resources: {{- include "eric-pm-bulk-reporter.resources" (index .Values "resources" "bulkreporter") | indent 10 }}
+          volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp
+      {{- if not .Values.objectStorage.enabled }}
+          - name: data
+            mountPath: {{ .Values.env.fileLocation | quote }}
+      {{- if .Values.persistentVolumeClaim.enabled }}
+            subPath: {{ .Values.persistentVolumeClaim.subPath | quote }}
+      {{- end }}
+      {{- end }}
+      {{- if and $g.security.tls.enabled (eq .Values.service.endpoints.pmScrapeTarget.tls.enforced "required") }}
+          - name: cert
+            mountPath: "/run/secrets/cert"
+            readOnly: true
+      {{- if eq .Values.service.endpoints.pmScrapeTarget.tls.verifyClientCertificate "required" }}
+          - name: pmca
+            mountPath: "/run/secrets/pmca"
+            readOnly: true
+      {{- end }}
+      {{- end }}
+      {{- if and $g.security.tls.enabled (or .Values.security.tls.cmMediator.enabled .Values.security.tls.pmServer.enabled .Values.security.tls.objectStorage.enabled) }}
+          - name: cacert
+            mountPath: "/run/secrets/cacert"
+      {{- end }}
+      {{- if and .Values.security.tls.cmMediator.enabled $g.security.tls.enabled }}
+          - name: cm-client-certificate
+            mountPath: "/run/secrets/cm"
+      {{- end }}
+      {{- if and .Values.security.tls.pmServer.enabled $g.security.tls.enabled }}
+          - name: pms-client-certificate
+            mountPath: "/run/secrets/pms"
+      {{- end }}
+      {{- if and .Values.security.tls.objectStorage.enabled $g.security.tls.enabled }}
+          - name: obs-client-certificate
+            mountPath: "/run/secrets/obs"
+      {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-storage-path" . | indent 10 }}
+      {{- end }}
+      {{- if not .Values.objectStorage.enabled }}
+        - name: eric-pm-sftp
+          image: {{ template "eric-pm-bulk-reporter.imagePath" (merge (dict "imageName" "eric-pm-sftp") .) }}
+          imagePullPolicy: {{ required "A valid .Values.imageCredentials.imagePullPolicy entry is required!" .Values.imageCredentials.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            capabilities:
+              drop:
+                - all
+              add:
+                - CHOWN
+                - SETGID
+                - SETUID
+                - SYS_CHROOT
+            {{- with (index .Values "seccompProfile" "eric-pm-sftp") }}
+            seccompProfile:
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+          args:
+            - /bin/bash
+            - -c
+          {{- if has "stream" .Values.log.outputs }}
+            - /stdout-redirect
+              -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
+              -logfile=/logs/pm-sftp.log
+              -container=eric-pm-sftp
+              -service-id=eric-pm-bulk-reporter
+              -run="/usr/bin/supervisord -c /etc/supervisord.conf"
+          {{- else }}
+            - /usr/bin/supervisord -c /etc/supervisord.conf
+          {{- end }}
+          env:
+            - name: TZ
+          {{- if .Values.env.timezone }}
+              value: {{ .Values.env.timezone | quote }}
+          {{- else }}
+              value: {{ $g.timezone | default "UTC" | quote }}
+          {{- end }}
+          {{- if .Values.userConfig.ldap.enabled }}
+            - name: AA_CLIENT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: eric-sec-ldap-server-aa-client
+                  key: passwd
+            - name: LDAP_URI
+              value: {{ .Values.userConfig.ldap.uri | quote }}
+            - name: LDAP_SEARCH_BASE
+              value: {{ .Values.userConfig.ldap.searchBase | quote }}
+            - name: READ_ONLY_ROLES
+              value: {{ .Values.userConfig.ldap.rolesConfig.readOnlyGroup | quote }}
+            - name: READ_WRITE_ROLES
+              value: {{ .Values.userConfig.ldap.rolesConfig.readWriteGroup | quote }}
+          {{- end }}
+          {{- if and .Values.userConfig.secretName ( .Values.userConfig.secretKey ) }}
+            - name: USERFILE
+              value: "true"
+          {{- end }}
+            - name: FILE_LOCATION
+              value: "/data{{ .Values.env.fileLocation }}"
+          {{- if .Values.security.keyManagement.enabled }}
+            - name: KMS_HOST
+              value: {{ .Values.env.kmshost | quote }}
+            - name: KMS_SERVICE_NAME
+              value: {{ .Values.security.keyManagement.serviceName | quote }}
+          {{- end }}
+          {{- if $g.applicationId }}
+            - name: APPLICATION_ID
+              value: {{ $g.applicationId | quote }}
+          {{- end }}
+          {{- if has "stdout" .Values.log.outputs }}
+            - name: LOGCTL
+              value: "true"
+          {{- end }}
+          ports:
+            - containerPort: 2222
+              name: sftp-pm-br
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - ss --tcp -an | grep 2222 | grep LISTEN
+            initialDelaySeconds: {{ .Values.probes.pmsftp.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.pmsftp.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.pmsftp.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.pmsftp.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.pmsftp.readinessProbe.successThreshold }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - ss --tcp -an | grep 2222 | grep LISTEN
+            initialDelaySeconds: {{ .Values.probes.pmsftp.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.pmsftp.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.pmsftp.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.pmsftp.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.pmsftp.livenessProbe.successThreshold }}
+          resources: {{- include "eric-pm-bulk-reporter.resources" (index .Values "resources" "pmsftp") | indent 10 }}
+          volumeMounts:
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-storage-path" . | indent 10 }}
+      {{- end }}
+          - name: data
+            mountPath: "/data{{ .Values.env.fileLocation }}"
+      {{- if .Values.persistentVolumeClaim.enabled }}
+            subPath: {{ .Values.persistentVolumeClaim.subPath | quote }}
+      {{- end }}
+          - name: sftp-config
+            mountPath: /opt/sftp-k8s
+      {{- if .Values.userConfig.ldap.enabled }}
+          - name: ldap-config
+            mountPath: /opt/ldap-k8s
+      {{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+          - name: ldap-client-certificate
+            mountPath: /run/secrets/ldap-client-cert
+      {{- else }}
+          - name: ldap-client-password
+            mountPath: /run/secrets/ldap-client-password
+      {{- end }}
+      {{- end }}
+      {{- if and .Values.userConfig.secretName ( .Values.userConfig.secretKey ) }}
+          - name: user-config-volume
+            mountPath: /etc/opt/
+            readOnly: true
+      {{- end }}
+      {{- if and $g.security.tls.enabled (or .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled) }}
+          - name: cacert
+            mountPath: "/run/secrets/cacert"
+      {{- end }}
+      {{- if and $g.security.tls.enabled .Values.security.keyManagement.enabled }}
+          - name: kms-client-certificate
+            mountPath: "/run/secrets/kms"
+      {{- end }}
+      {{- if .Values.aumSupport.enabled }}
+          - name: legal-notice
+            mountPath: "/var/mount/aum/banner"
+      {{- end }}
+      {{- end }}
+      {{- if .Values.thresholdReporter.enabled }}
+        - name: eric-pm-alarm-reporter
+          image: {{ template "eric-pm-bulk-reporter.imagePath" (merge (dict "imageName" "eric-pm-alarm-reporter") .) }}
+          imagePullPolicy: {{ required "A valid .Values.imageCredentials.imagePullPolicy entry is required!" .Values.imageCredentials.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - all
+            {{- with (index .Values "seccompProfile" "eric-pm-alarm-reporter") }}
+            seccompProfile:
+            {{- toYaml . | nindent 14 }}
+            {{- end }}
+          args:
+            - /bin/bash
+            - -c
+          {{- if has "stream" .Values.log.outputs }}
+            - /stdout-redirect
+              -redirect={{ template "eric-pm-bulk-reporter.log.outputs" . }}
+              -logfile=/logs/pm-alarmreporter.log
+              -container=eric-pm-alarm-reporter
+              -service-id=eric-pm-bulk-reporter
+              -run="/alarmreporter"
+          {{- else }}
+            - /alarmreporter
+          {{- end }}
+          env:
+            - name: KAFKA_HOSTNAME
+              value: {{ template "eric-pm-bulk-reporter-service.msgbus" . }}
+          {{- if and .Values.security.tls.messageBusKF.enabled $g.security.tls.enabled (not .Values.thresholdReporter.restAPI) }}
+            - name: TLS_ENABLED
+              value: {{ $g.security.tls.enabled | quote }}
+          {{- end}}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.logLevel | quote }}
+            - name: TZ
+          {{- if .Values.env.timezone }}
+              value: {{ .Values.env.timezone | quote }}
+          {{- else }}
+              value: {{ $g.timezone | default "UTC" | quote }}
+          {{- end }}
+          {{- if .Values.thresholdReporter.restAPI }}
+            - name: USE_AH_REST_API
+              value: {{ true | quote }}
+            - name: AH_SERVICE_NAME
+              value: {{ .Values.security.tls.alarmHandler.serviceName | quote }}
+            - name: TLS_AH_ENABLED
+          {{- if and .Values.security.tls.alarmHandler.enabled $g.security.tls.enabled }}
+              value: {{ true | quote }}
+            - name: AH_HOST
+              value: {{ .Values.thresholdReporter.alarmHandlerHostname }}:{{ .Values.thresholdReporter.alarmHandlerTlsPort }}
+          {{- else }}
+              value: {{ false | quote }}
+            - name: AH_HOST
+              value: {{ .Values.thresholdReporter.alarmHandlerHostname }}:{{ .Values.thresholdReporter.alarmHandlerPort }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: 9091
+              name: http-alarm-pmbr
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9091
+            initialDelaySeconds: {{ .Values.probes.alarmreporter.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.alarmreporter.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.alarmreporter.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.alarmreporter.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.alarmreporter.readinessProbe.successThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9091
+            initialDelaySeconds: {{ .Values.probes.alarmreporter.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.alarmreporter.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.alarmreporter.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.alarmreporter.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.alarmreporter.livenessProbe.successThreshold }}
+          resources: {{- include "eric-pm-bulk-reporter.resources" (index .Values "resources" "alarmreporter") | indent 10 }}
+          volumeMounts:
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-storage-path" . | indent 10 }}
+      {{- end }}
+      {{- if and $g.security.tls.enabled (or .Values.security.tls.messageBusKF.enabled .Values.security.tls.alarmHandler.enabled) }}
+          - name: cacert
+            mountPath: "/run/secrets/cacert"
+      {{- end }}
+      {{- if and .Values.security.tls.messageBusKF.enabled $g.security.tls.enabled (not .Values.thresholdReporter.restAPI) }}
+          - name: message-bus-client-certificate
+            mountPath: /run/secrets/message-bus-client-cert
+      {{- end }}
+      {{- if and .Values.thresholdReporter.restAPI .Values.security.tls.alarmHandler.enabled $g.security.tls.enabled }}
+          - name: ah-client-certificate
+            mountPath: "/run/secrets/ah"
+      {{- end }}
+      {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-container" . | indent 8 }}
+      {{- end }}
+      {{- include "eric-pm-bulk-reporter.podpriority" . }}
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          medium: Memory
+      {{- if not .Values.objectStorage.enabled }}
+      - name: data
+      {{- if .Values.persistentVolumeClaim.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistentVolumeClaim.existingClaim | default (include "eric-pm-bulk-reporter.name" .) }}
+      {{- else }}
+        emptyDir: {}
+      {{- end }}
+      {{- end }}
+      {{- if and .Values.security.tls.cmMediator.enabled $g.security.tls.enabled }}
+      - name: cm-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-cm-client-cert
+      {{- end }}
+      {{- if and .Values.security.tls.pmServer.enabled $g.security.tls.enabled }}
+      - name: pms-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-pms-client-cert
+      {{- end }}
+      {{- if and $g.security.tls.enabled .Values.security.keyManagement.enabled }}
+      - name: kms-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-kms-client-cert
+      {{- end }}
+      {{- if and .Values.security.tls.alarmHandler.enabled $g.security.tls.enabled }}
+      - name: ah-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-ah-client-cert
+      {{- end }}
+      - name: sftp-config
+        configMap:
+          name: {{ template "eric-pm-bulk-reporter.name" . }}-sftp-config
+          defaultMode: 0640
+      {{- if .Values.userConfig.ldap.enabled }}
+      - name: ldap-config
+        configMap:
+          name: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-config
+          defaultMode: 0640
+      {{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+      - name: ldap-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-ldap-client-cert
+      {{- else }}
+      - name: ldap-client-password
+        secret:
+          secretName: eric-sec-ldap-server-aa-client
+      {{- end }}
+      {{- end }}
+      {{- if and .Values.security.tls.messageBusKF.enabled $g.security.tls.enabled }}
+      - name: message-bus-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-message-bus-client-cert
+      {{- end }}
+      {{- if and .Values.security.tls.objectStorage.enabled $g.security.tls.enabled }}
+      - name: obs-client-certificate
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}-obs-client-cert
+      {{- end }}
+      {{- if and .Values.userConfig.secretName ( .Values.userConfig.secretKey ) }}
+      - name: user-config-volume
+        secret:
+          secretName: {{ .Values.userConfig.secretName | quote }}
+          items:
+          - key: {{ .Values.userConfig.secretKey | quote }}
+            path: pm_sftp_users.yaml
+      {{- end }}
+      {{- if and ($g.security.tls.enabled) (or .Values.security.tls.cmMediator.enabled .Values.security.tls.pmServer.enabled .Values.userConfig.ldap.enabled .Values.security.keyManagement.enabled) }}
+      - name: cacert
+        secret:
+          secretName: eric-sec-sip-tls-trusted-root-cert
+      {{- end }}
+      {{- if and $g.security.tls.enabled (eq .Values.service.endpoints.pmScrapeTarget.tls.enforced "required") }}
+      - name: cert
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.name" . }}
+      {{- if and $g.security.tls.enabled (eq .Values.service.endpoints.pmScrapeTarget.tls.verifyClientCertificate "required") }}
+      - name: pmca
+        secret:
+          secretName: {{ template "eric-pm-bulk-reporter.pmSecretName" . }}-ca
+      {{- end }}
+      {{- end }}
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-pm-bulk-reporter.logshipper-volume" . | indent 6 }}
+      {{- end }}
+      {{- if .Values.aumSupport.enabled }}
+      - name: legal-notice
+        configMap:
+          name: eric-sec-admin-user-management-legal-notices
+          items:
+            - key: legal-privacy
+              path: banner.file
+    {{- end }}
+    {{- if include "eric-pm-bulk-reporter.pullSecrets" . }}
+      imagePullSecrets:
+        - name: {{ template "eric-pm-bulk-reporter.pullSecrets" . }}
+    {{- end }}
+    {{- if (or .Values.nodeSelector $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-pm-bulk-reporter.nodeSelector" . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity: {{ toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ template "eric-pm-bulk-reporter.name" . }}
+{{- if (index .Values "tolerations" "eric-pm-bulk-reporter") }}
+      tolerations:
+{{ toYaml (index .Values "tolerations" "eric-pm-bulk-reporter") | nindent 8 }}
+{{- end }}
+{{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- toYaml .Values.topologySpreadConstraints | nindent 8}}
+{{- end }}

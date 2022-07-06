@@ -1,0 +1,12 @@
+{{- $currentPGVersion := (lookup "apps/v1" "StatefulSet" .Release.Namespace (include "eric-data-document-database-pg.name"  .) ).metadata -}}
+{{- if $currentPGVersion -}}
+  {{- if $currentPGVersion.annotations -}}
+    {{- if $currentPGVersion.annotations.currentPGVersion -}}
+      {{- if (not (eq ("13" | toString) $currentPGVersion.annotations.currentPGVersion)) -}}
+        {{- include "eric-data-document-database-pg.cleanPGDataJob" .}}
+      {{- end -}}
+    {{- else -}}
+      {{- include "eric-data-document-database-pg.cleanPGDataJob" .}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

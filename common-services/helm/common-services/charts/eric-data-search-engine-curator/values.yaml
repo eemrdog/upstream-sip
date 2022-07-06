@@ -1,0 +1,120 @@
+# Default values for log.
+# This is a YAML-formatted file.
+
+#global:
+#  registry:
+#    imagePullPolicy: "IfNotPresent"
+#    url: "IMAGE_URL" # overrides registry url from eric-product-info.yaml
+#  pullSecret:
+#  timezone: "UTC"
+#  security:
+#    tls:
+#      enabled: true
+#  nodeSelector: {}
+#  security:
+#    policyBinding:
+#      create: false
+#    policyReferenceMap:
+#      default-restricted-security-policy: "default-restricted-security-policy"
+
+# Add {} as value or comment repoPath & registry.url if not used.
+# mergeOverwrite helm function is used which may pick nil value if not used.
+imageCredentials:
+  repoPath: {} # overrides repoPath from global & eric-product-info.yaml
+  registry:
+    imagePullPolicy: # overrides global image pull policy
+    url: {} # overrides registry url from global & eric-product-info.yaml
+  pullSecret: # overrides global pull secret
+  logshipper:
+    registry:
+      url: {} # overrides registry url from global, imageCredentials.registry.url & eric-product-info.yaml
+      imagePullPolicy:
+    repoPath: {} # overrides repoPath from global, imageCredentials.repoPath & eric-product-info.yaml
+
+cronjob:
+  curator:
+    enabled: true
+    schedule: "* * * * *"
+    successfulJobHistoryLimit: 3
+    failedJobHistoryLimit: 5
+
+resources:
+  curator:
+    requests:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See Experimental Configuration section in User Guide for more details.
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See Experimental Configuration section in User Guide for more details.
+  logshipper:
+    requests:
+      memory: "50Mi"
+      cpu: "50m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See Experimental Configuration section in User Guide for more details.
+    limits:
+      memory: "100Mi"
+      cpu: "100m"
+      ephemeral-storage: # Experimental feature. Specifying incorrect ephemeral-storage may cause unexpected pod evictions. See Experimental Configuration section in User Guide for more details.
+
+dryRun: false
+
+logLevel: "info"
+
+log:
+  outputs:
+    - "stdout"
+  logshipper:
+    level: "info"
+
+terminationGracePeriodSeconds: 30
+
+podPriority:
+  priorityClassName: "" # No priority set
+
+livenessProbe:
+  logshipper:
+    initialDelaySeconds: 1
+    timeoutSeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+
+logshipper:
+  logplane: "adp-app-logs"
+  storageAllocation: "50Mi"
+  runAndExit: true
+  harvester:
+    logData:
+      - subPaths:
+        - "/curator.log*"
+        logplane:
+  logtransformer:
+    host: eric-log-transformer
+
+searchengine:
+  host: "eric-data-search-engine"
+  port: 9200
+
+actions: |
+  1:
+    action: delete_indices
+    description: Remove logs older than 1 week
+    options:
+      disable_action: true
+      ignore_empty_list: true
+    filters:
+    - filtertype: age
+      source: name
+      direction: older
+      timestring: '%Y.%m.%d'
+      unit: days
+      unit_count: 7
+
+labels: {}
+annotations: {}
+
+clusterDomain: "cluster.local"
+
+tolerations: []

@@ -1,0 +1,30 @@
+{{- $g := fromJson (include "eric-pm-bulk-reporter.global" .) -}}
+## This file contains configuration information
+## for the LA management and LDAP libraries.
+## This file should be in the LA install directory
+## /opt/eric/sec-la-cxp9026994/etc/la.ini
+## Reserved words PSO_CONFIG, PSO_CLEAR and LA_METHOD_PATH are
+## dynamically resolved to real storage directories.
+
+
+{{- if and .Values.security.tls.ldapServer.enabled $g.security.tls.enabled }}
+[LDAPT]
+ldaptHost = {{ .Values.userConfig.ldap.uri }}
+tlsCert   = /run/secrets/ldap-client-cert/clicert.pem
+tlsKey    = /run/secrets/ldap-client-cert/cliprivkey.pem
+tlsCaCert = /run/secrets/cacert/cacertbundle.pem
+networkTimeout = 3
+
+{{- else }}
+[LDAP]
+ldapHost        = {{ .Values.userConfig.ldap.uri }}
+managerDn       = cn=eric-aa-client,dc=la,dc=adp,dc=ericsson
+managerPassword = @@AA_CLIENT_PASSWORD@@
+networkTimeout  = 5
+
+{{- end }}
+[USER_MANAGEMENT]
+userDnPrefix = uid
+userDnPostfix = {{ .Values.userConfig.ldap.searchBase }}
+laRootDn = ou=la,dc=la,dc=adp,dc=ericsson
+gracePeriodMultiplierFromMaxAge = 1

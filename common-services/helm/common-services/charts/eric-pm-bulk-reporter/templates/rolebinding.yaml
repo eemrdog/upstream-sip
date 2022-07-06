@@ -1,0 +1,21 @@
+{{- if .Values.global -}}
+  {{- if .Values.global.security -}}
+    {{- if .Values.global.security.policyBinding -}}
+       {{- if .Values.global.security.policyBinding.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "eric-pm-bulk-reporter.name" . }}-security-policy
+  labels: {{- include "eric-pm-bulk-reporter.labels" . | nindent 4 }}
+  annotations: {{- include "eric-pm-bulk-reporter.roleBinding.annotations" . | nindent 4 }}
+roleRef:
+ apiGroup: rbac.authorization.k8s.io
+ kind: ClusterRole
+ name: {{ include "eric-pm-bulk-reporter.roleBinding.reference" . }}
+subjects:
+ - kind: ServiceAccount
+   name: {{ template "eric-pm-bulk-reporter.name" . }}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

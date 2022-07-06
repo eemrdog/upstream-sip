@@ -1,0 +1,25 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}-headless
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: {{ template "eric-sec-access-mgmt.serviceHttpPort" . }}
+{{- if $global.security.tls.enabled }}
+      targetPort: https-tls
+{{- else}}
+      targetPort: http
+{{- end}}
+      protocol: TCP
+  selector:
+    app: {{ template "eric-sec-access-mgmt.name" . }}
+    release: {{ .Release.Name | quote }}

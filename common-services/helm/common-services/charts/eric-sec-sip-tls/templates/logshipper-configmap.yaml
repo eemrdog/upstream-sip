@@ -1,0 +1,3 @@
+{{- if has "stream" .Values.log.outputs }}
+{{- tpl (.Files.Get "files/logshipper-configmap.yaml") . }}
+{{- end }}

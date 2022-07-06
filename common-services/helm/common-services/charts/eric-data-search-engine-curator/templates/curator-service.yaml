@@ -1,0 +1,17 @@
+{{- $g := fromJson (include "eric-data-search-engine-curator.global" .) -}}
+{{- if $g.security.tls.enabled -}}
+kind: "Service"
+apiVersion: "v1"
+metadata:
+  name: "{{ include "eric-data-search-engine-curator.fullname" . }}"
+  labels:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+  annotations:
+    {{- include "eric-data-search-engine-curator.annotations" . | indent 4 }}
+spec:
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "eric-data-search-engine-curator.labels" . | indent 4 }}
+  clusterIP: "None"
+  type: "ClusterIP"
+{{- end -}}

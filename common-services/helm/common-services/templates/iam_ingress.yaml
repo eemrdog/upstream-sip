@@ -1,0 +1,45 @@
+{{- $enabled := index .Values "eric-sec-access-mgmt" "enabled" -}}
+{{- if eq $enabled true -}}
+{{- if index .Values "eric-sec-access-mgmt" "ingress" "inghostname" -}}
+{{- $ingServiceName:= index .Values "eric-sec-access-mgmt" "ingress" "hostname" -}}
+{{- $appContext:= "auth" -}}
+{{- $pathMatcher:= "/.*" -}}
+{{- $port := 8443 -}}
+{{- if index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
+{{- $port:= index .Values "eric-sec-access-mgmt" "service" "tls" "port" -}}
+{{- end }}
+{{- $controllerAnnotations := printf "%s" "annotations" -}}
+{{- if ne .Values.global.ingress.controllerType "nginx" -}}
+  {{- $controllerAnnotations = printf "%s%s" .Values.global.ingress.controllerType "_annotations" -}}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $ingServiceName }}
+  labels:
+    {{- include "eric-bss-ecmeoc-common.labels" . | indent 4 }}
+  annotations:
+  {{- with index .Values.global.ingress $controllerAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with index .Values "eric-sec-access-mgmt" "ingress" $controllerAnnotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+    {{- include "eric-bss-ecmeoc-common.product-info" . | indent 4 }}
+spec:
+{{- if .Values.global.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.global.ingress.ingressClassName }}
+{{- end }}
+  rules:
+    - host: {{ index .Values "eric-sec-access-mgmt" "ingress" "inghostname" | quote }}
+      http:
+        paths:
+          - path: /{{(printf "%s" ($appContext)) }}{{(printf "%s" ($pathMatcher)) }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $ingServiceName }}-http
+                port:
+                  number: {{ $port }}
+{{- end }}
+{{- end }}

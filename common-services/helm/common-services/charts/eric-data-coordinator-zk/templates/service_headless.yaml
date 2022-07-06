@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name:  {{ template "eric-data-coordinator-zk.ensembleService.fullname" . }}
+  labels: {{- include "eric-data-coordinator-zk.labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-coordinator-zk.annotations" . | nindent 4 }}
+spec:
+  # ipFamilies was introduced in K8s v1.20
+{{- if (include "eric-data-coordinator-zk.internalIPFamily.global" .) }}
+  ipFamilies: [{{- include "eric-data-coordinator-zk.internalIPFamily.global" . | quote }}]
+{{- end }}
+  publishNotReadyAddresses: true
+  ports:
+  - port: {{ .Values.serverPort }}
+    name: zab-server
+    protocol: TCP
+  - port: {{ .Values.leaderElectionPort }}
+    name: zab-leader
+    protocol: TCP
+  clusterIP: None
+  selector:
+{{- include "eric-data-coordinator-zk.selectorLabels" . | indent 4 }}

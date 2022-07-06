@@ -1,0 +1,83 @@
+{{- $global := fromJson (include "eric-sec-access-mgmt.global" .) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "eric-sec-access-mgmt.name" . }}
+  labels:
+    {{- include "eric-sec-access-mgmt.labels" . | nindent 4 }}
+  annotations:
+    {{- include "eric-sec-access-mgmt.common-annotations" . | nindent 4 }}
+data:
+  config.json: |-
+    {
+      "kms": {
+        "server": {{ .Values.keyManagement.server | quote }},
+        "port":   {{ .Values.keyManagement.port }},
+        "role":   "service-credentials",
+        "service_account": "{{ template "eric-sec-access-mgmt.name" . }}-sa",
+        "kv_secret_path": "secret-v2"
+      }
+    }
+  keycloak.cli: |-
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+
+    batch
+{{ tpl (.Files.Get "files/ha.cli") $ | indent 4 }}
+
+{{ tpl (.Files.Get "files/node-identifier.cli") $ | indent 4 }}
+{{ tpl (.Files.Get "files/logging.cli") $ | indent 4 }}
+{{ tpl (.Files.Get "files/datasource.cli") $ | indent 4 }}
+
+{{- if $global.security.tls.enabled }}
+{{ tpl (.Files.Get "files/tls.cli") $ | indent 4 }}
+{{- else }}
+{{ tpl (.Files.Get "files/reverse-proxy.cli") $ | indent 4 }}
+{{- end }}
+
+{{- if or (or (or $global.security.tls.enabled .Values.egress.ldap.certificates.trustedCertificateListSecret) .Values.egress.identityProvider.certificates.trustedCertificateListSecret) .Values.egress.identityProvider.certificates.trustedCertificateListName }}
+{{ tpl (.Files.Get "files/client-tls.cli") $ | indent 4 }}
+{{- end }}
+
+{{ tpl (.Files.Get "files/custom.cli") $ | indent 4 }}
+
+    run-batch
+    stop-embedded-server
+
+  host-validation.cli: |-
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+    {{- tpl (.Files.Get "files/host-validation.cli") . | nindent 4 }}
+    stop-embedded-server
+
+  https-admin.cli: |-
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+
+    batch
+{{ tpl (.Files.Get "files/https-admin.cli") . | indent 4 }}
+
+    run-batch
+    stop-embedded-server
+
+  https-admin-off.cli: |-
+    embed-server --server-config=standalone-ha.xml --std-out=echo
+
+    batch
+{{ tpl (.Files.Get "files/https-admin-off.cli") . | indent 4 }}
+
+    reload
+
+    run-batch
+    stop-embedded-server
+
+  post.txt: |-
+{{ .Values.postLoginMessage.messageString | indent 4 }}
+
+  legal_notice.txt: |
+{{- if .Values.preLoginMessage.messageString }}
+{{ .Values.preLoginMessage.messageString | indent 4 }}
+{{- else }}
+    Important legal notice
+
+    IF YOU ARE NOT AN AUTHORIZED USER STOP ANY ACTIVITY YOU ARE PERFORMING ON THIS SYSTEM AND EXIT IMMEDIATELY.
+
+    This system is provided for authorized and official use only. The usage of this system is monitored and audited. Unauthorized or improper usage may result in disciplinary action, civil or criminal penalties.
+{{- end }}

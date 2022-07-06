@@ -1,0 +1,10 @@
+productName: "Log Shipper"
+productNumber: "CXC 201 1464"
+images:
+  logshipper:
+    productName: "Log Shipper Image"
+    productNumber: "CXU 101 0642"
+    registry: "armdocker.rnd.ericsson.se"
+    repoPath: "proj-adp-log-released"
+    name: "eric-log-shipper"
+    tag: "9.3.0-24"

@@ -1,0 +1,30 @@
+{{- if eq (include "eric-data-message-bus-kf.networkPolicy" .) "true" -}}
+# This resource covers the potential MBKF clients connecting to tls, plain text and sasl plain text ports.
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ template "eric-data-message-bus-kf.name" . }}-default-access
+  labels:
+    chart: {{ template "eric-data-message-bus-kf.chart" . }}
+    release: {{ .Release.Name }}
+  annotations:
+    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "eric-data-message-bus-kf.name" . }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          {{ template "eric-data-message-bus-kf.name" . }}-access: "true"
+    ports:
+    - port: {{ .Values.security.tls.messagebuskf.port }}
+      protocol: TCP
+    - port: {{ .Values.security.plaintext.messagebuskf.port }}
+      protocol: TCP
+    - port: {{ .Values.security.saslplaintext.messagebuskf.port }}
+      protocol: TCP
+{{- end }}

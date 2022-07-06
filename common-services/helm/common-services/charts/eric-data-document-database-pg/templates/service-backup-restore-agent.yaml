@@ -1,0 +1,25 @@
+{{- if .Values.brAgent.enabled  }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "eric-data-document-database-pg.name" . }}-bragent
+  labels:
+    {{- $labels := dict -}}
+    {{- $_ := set $labels "app" (printf "%s-%s" (include "eric-data-document-database-pg.name" .) "bragent") -}}
+    {{- $commonLabels := fromYaml (include "eric-data-document-database-pg.labels" .) -}}
+    {{- include "eric-data-document-database-pg.mergeLabels" (dict "location" .Template.Name "sources" (list $labels $commonLabels)) | trim | nindent 4 }}
+  annotations: {{- include "eric-data-document-database-pg.annotations" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ template "eric-data-document-database-pg.name" . }}-bragent
+  type: {{ default "ClusterIP" .Values.service.type }}
+  ports:
+  - name: http
+    port: 8083 
+    targetPort: 8083
+  {{- if (eq (include "eric-data-document-database-pg.internalIPFamily" .) "IPv4") }}
+  ipFamilies: ["IPv4"]
+  {{- else if (eq (include "eric-data-document-database-pg.internalIPFamily" .) "IPv6") }}
+  ipFamilies: ["IPv6"]
+  {{- end }}
+{{- end }}

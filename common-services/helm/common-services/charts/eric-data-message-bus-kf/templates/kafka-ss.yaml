@@ -1,0 +1,540 @@
+{{- $configMapName := include "eric-data-message-bus-kf.fullname" . -}}
+{{- $logRedirect := (include "eric-data-message-bus-kf.logRedirect" .) -}}
+{{- $defaultLabels := include "eric-data-message-bus-kf.labels" . | fromYaml  -}}
+{{- $selectorLabelsMBKF := include "eric-data-message-bus-kf.selector-labels-mbkf" . | fromYaml  -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "eric-data-message-bus-kf.fullname" . }}
+  labels:
+    {{- include "eric-data-message-bus-kf.mergeLabels" (dict "location" .Template.Name "sources" (list $selectorLabelsMBKF $defaultLabels)) | trim | nindent 4 }}
+  annotations:
+    {{- include "eric-data-message-bus-kf.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "eric-data-message-bus-kf.selector-labels-mbkf" . | trim | nindent 6 }}
+  serviceName: {{ template "eric-data-message-bus-kf.fullname" . }}
+  podManagementPolicy: "Parallel"
+  replicas: {{ .Values.replicaCount | default 3 }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.type | quote }}
+  template:
+    metadata:
+      labels:
+        {{- include "eric-data-message-bus-kf.mergeLabels" (dict "location" .Template.Name "sources" (list $selectorLabelsMBKF $defaultLabels)) | trim | nindent 8 }}
+        {{ template "eric-data-message-bus-kf.name" . }}-access: "true"
+        {{ .Values.pmServer.pmServiceName }}-access: "true"
+        {{ .Values.dataCoordinator.clientServiceName }}-access: "true"
+        {{- if has "stream" .Values.log.outputs }}
+        {{ .Values.logshipper.logtransformer.host }}-access: "true"
+        {{- end }}
+      annotations:
+        {{- $appArmorAnn := include "eric-data-message-bus-kf.appArmorProfile" . | fromYaml -}}
+        {{- $podTemplateAnnotations := dict -}}
+        {{- if .Values.bandwidth.maxEgressRate }}
+          {{- $_ := set $podTemplateAnnotations "kubernetes.io/egress-bandwidth" (.Values.bandwidth.maxEgressRate | toString) -}}
+        {{- end }}
+        {{- if .Values.jmx.enabled -}}
+          {{- $_ := set $podTemplateAnnotations "prometheus.io/scrape" "true" -}}
+          {{- $_ := set $podTemplateAnnotations "prometheus.io/port" (.Values.jmx.servicePort | toString) -}}
+        {{- end -}}
+        {{- $_ := set $podTemplateAnnotations "checksum/config" (.Values.configurationOverrides | toString | replace ":" "_" | replace "map[" "" | replace "]" "" | splitList " " | sortAlpha | toString |  sha256sum) -}}
+        {{- $defaultAnnotations := include "eric-data-message-bus-kf.annotations" . | fromYaml  -}}
+        {{- include "eric-data-message-bus-kf.mergeAnnotations" (dict "location" .Template.Name "sources" (list $appArmorAnn $podTemplateAnnotations $defaultAnnotations)) | trim | nindent 8 }}
+    spec:
+      {{- include "eric-data-message-bus-kf.podPriority" . }}
+      serviceAccountName: {{ template "eric-data-message-bus-kf.fullname" . }}-sa
+      {{ template "eric-data-message-bus-kf.serviceAccount" . }}
+      securityContext:
+        fsGroup: {{ include "eric-data-message-bus-kf.fsGroup.coordinated" . }}
+        {{- include "eric-data-message-bus-kf.SeccompProfile" . | nindent 8 }}
+      {{- if include "eric-data-message-bus-kf.pullSecret" . }}
+      imagePullSecrets:
+        - name: {{ include "eric-data-message-bus-kf.pullSecret" . | quote}}
+      {{- end }}
+      {{ include "eric-data-message-bus-kf.nodeSelector" . | nindent 6 -}}
+      {{- if .Values.tolerations.messagebuskf }}
+      tolerations:
+        {{- toYaml .Values.tolerations.messagebuskf | nindent 6 }}
+      {{- end }}
+      {{- if eq .Values.affinity.podAntiAffinity "hard" }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ template "eric-data-message-bus-kf.name" . }}
+            topologyKey: "kubernetes.io/hostname"
+      {{- else if eq .Values.affinity.podAntiAffinity  "soft" }}
+      affinity:
+        podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                    - {{ template "eric-data-message-bus-kf.name" . }}
+                topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- if .Values.topologySpreadConstraints }}
+
+      topologySpreadConstraints:
+       {{- range $constraints := .Values.topologySpreadConstraints }}
+      - maxSkew: {{ $constraints.maxSkew }}
+        topologyKey: {{ $constraints.topologyKey }}
+        whenUnsatisfiable: {{ $constraints.whenUnsatisfiable }}
+        labelSelector:
+          matchLabels:
+            {{- include "eric-data-message-bus-kf.selector-labels-mbkf" $ | trim | nindent 12 }}
+      {{- end }}
+      {{- end }}
+
+      initContainers:
+      - name: checkzkready
+        resources:
+          requests:
+            cpu: {{ index .Values.resources.checkzkready.requests.cpu | quote }}
+            memory: {{ index .Values.resources.checkzkready.requests.memory | quote }}
+            {{- if index .Values.resources.checkzkready.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.checkzkready.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            cpu: {{ index .Values.resources.checkzkready.limits.cpu | quote }}
+            memory: {{ index .Values.resources.checkzkready.limits.memory | quote }}
+            {{- if index .Values.resources.checkzkready.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.checkzkready.limits "ephemeral-storage" | quote }}
+            {{- end }}
+        securityContext:
+          {{- with (index .Values "seccompProfile" "checkzkready") }}
+          seccompProfile:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+        env:
+{{ if eq (include "eric-data-message-bus-kf.zkclient.tls" .) "true" }}
+        - name: SSL_CERTS_PROVIDER
+          value: {{ .Values.security.tls.messagebuskf.provider }}
+        - name: DCZK_CLIENT_CERT
+          value: {{ template "eric-data-message-bus-kf.dczkclientcert" . }}
+        - name: SIPTLS_CA
+          value: {{ template "eric-data-message-bus-kf.siptlsca" . }}
+        - name: KAFKA_ZK_TLS
+          value: {{ include "eric-data-message-bus-kf.zkclient.tls" . | quote }}
+{{- end }}
+        - name: KAFKA_LOG4J_OPTS
+          value: "-Dlog4j.configurationFile=/etc/confluent/docker/tools-log4j.properties"
+        image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "messagebuskf") .) }}
+{{- if eq $logRedirect "stdout" }}
+        command: ['sh', '-c','/etc/confluent/docker/initcontainer.sh {{ .Values.dataCoordinator.clientServiceName }} {{ include "eric-data-message-bus-kf.dataCoordinator.clientPort" . }}']
+{{- else }}
+        command: [ "/bin/bash" ]
+        args:
+        - -c
+        - /usr/bin/stdout-redirect -redirect={{$logRedirect}} -logfile=/logs/check-zk-ready.log -run="sh /etc/confluent/docker/initcontainer.sh {{ .Values.dataCoordinator.clientServiceName }} {{ include "eric-data-message-bus-kf.dataCoordinator.clientPort" . }}"
+{{- end }}
+        volumeMounts:
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: /etc/kafka
+        - name: tmpdir
+          mountPath: /tmp
+{{ if eq (include "eric-data-message-bus-kf.zkclient.tls" .) "true" }}
+{{ include "eric-data-message-bus-kf.init.secretsMountPath" . | indent 6 }}
+{{- end -}}
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
+{{- end }}
+      containers:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-message-bus-kf.logshipper-container" . | indent 6 }}
+{{- end }}
+      - name: messagebuskf
+        image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "messagebuskf") .) }}
+        imagePullPolicy: {{ template "eric-data-message-bus-kf.mbkf.imagePullPolicy" . }}
+        securityContext:
+          {{- with (index .Values "seccompProfile" "messagebuskf") }}
+          seccompProfile:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+        env:
+        - name: TZ
+          value: {{ template "eric-data-message-bus-kf.timezone" . }}
+        - name: TINI_SUBREAPER
+          value: "true"
+        - name: TINI_KILL_PROCESS_GROUP
+          value: "true"
+        {{- if .Values.jmx.enabled }}
+        - name: KAFKA_JMX_PORT
+          value: {{ .Values.jmx.kafkaPort | quote }}
+        {{- end }}
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ $configMapName | quote }}
+              key: dataCoordinatorConnect
+        - name: KAFKA_LOG_DIRS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ $configMapName | quote }}
+              key: logDirs
+        - name: SSL_CERTS_PROVIDER
+          value: {{ .Values.security.tls.messagebuskf.provider }}
+       {{- if eq .Values.security.tls.messagebuskf.provider "sip-tls" }}
+        - name: DCZK_CLIENT_CERT
+          value: {{ template "eric-data-message-bus-kf.dczkclientcert" . }}
+        - name: SIPTLS_SERVER_CERT
+          value: {{ template "eric-data-message-bus-kf.servercert" . }}
+        - name: SIPTLS_CA
+          value: {{ template "eric-data-message-bus-kf.siptlsca" . }}
+        - name: CLIENT_CA
+          value: {{ template "eric-data-message-bus-kf.clientca" . }}
+        - name: CLIENT_CLIENT_CA
+          value: {{ template "eric-data-message-bus-kf.client.clientca" . }}
+        - name: KAFKA_ZK_TLS
+          value: {{ include "eric-data-message-bus-kf.zkclient.tls" . | quote }}
+        {{- end }}
+        - name: KAFKA_SSL_CLIENT_AUTH
+          value: {{ template "eric-data-message-bus-kf.clientAuth" . }}
+        - name: SSL_PORT
+          value: {{ .Values.security.tls.messagebuskf.port | quote }}
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: {{ if include "eric-data-message-bus-kf.plaintext.enabled" . -}}
+          PLAINTEXT://$(MY_POD_NAME).{{ template "eric-data-message-bus-kf.fullname" . }}.$(MY_NAMESPACE).svc.{{ .Values.clusterDomain }}:{{ template "eric-data-message-bus-kf.plaintextPort" . }},
+          {{- end -}}
+          {{- if eq (include "eric-data-message-bus-kf.tls" .) "true" -}}
+          SSL://$(MY_POD_NAME).{{ template "eric-data-message-bus-kf.fullname" . }}.$(MY_NAMESPACE).svc.{{ .Values.clusterDomain }}:{{ .Values.security.tls.messagebuskf.port }},
+          {{- end -}}
+          {{- if eq (include "eric-data-message-bus-kf.sasl" .) "true" -}}
+          SASL_PLAINTEXT://$(MY_POD_NAME).{{ template "eric-data-message-bus-kf.fullname" . }}.$(MY_NAMESPACE).svc.{{ .Values.clusterDomain }}:{{ template "eric-data-message-bus-kf.saslPlaintextPort" . }}
+          {{- end -}}
+        {{ range $configName := keys .Values.configurationOverrides | sortAlpha }}
+        - name: KAFKA_{{ $configName | replace "." "_" | upper }}
+          valueFrom:
+            configMapKeyRef:
+              name: {{ $configMapName | quote }}
+              key: {{ $configName }}
+        {{- end }}
+        - name: EXTRA_ARGS
+          value: "-Dlog4j.configurationFile=file:/etc/kafka/log4j.properties"
+        {{- if eq (include "eric-data-message-bus-kf.sasl" .) "true" }}
+        - name: KAFKA_SASL_SERVER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ index  .Values "security" "sasl" "credentials" "kubernetesSecretName" }}
+              key: admin-server-password
+        {{- if .Values.security.sasl.zookeeperclient.enabled }}
+        - name: KAFKA_SASL_ZOOKEEPER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ index  .Values "security" "sasl" "zookeeperclient" "credentials" "kubernetesSecretName" }}
+              key: admin-password
+        {{- end }}
+        - name: KAFKA_OPTS
+          value: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+        - name: KAFKA_SECURITY_INTER_BROKER_PROTOCOL
+          value: "SASL_PLAINTEXT"
+        - name: KAFKA_SECURITY_PROTOCOL
+          value: "SASL_PLAINTEXT"
+        - name: KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND
+          value: "true"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: KAFKA_SASL_ENABLED_MECHANISMS
+          value: "PLAIN"
+        - name: KAFKA_AUTHORIZER_CLASS_NAME
+          value: "kafka.security.authorizer.AclAuthorizer"
+        - name: KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL
+          value: "PLAIN"
+       {{- end }}
+        livenessProbe:
+          tcpSocket:
+            {{- if and ( eq (include "eric-data-message-bus-kf.tls" .) "true" ) ( eq .Values.service.endpoints.messagebuskf.tls.enforced "optional" ) }}
+            port: {{ template "eric-data-message-bus-kf.plaintextPort" . }}
+            {{- else if eq (include "eric-data-message-bus-kf.tls" .) "true" }}
+            port: {{ .Values.security.tls.messagebuskf.port }}
+            {{- else if eq (include "eric-data-message-bus-kf.sasl" .) "true" }}
+            port: {{ template "eric-data-message-bus-kf.saslPlaintextPort" . }}
+            {{- else }}
+            port: {{ template "eric-data-message-bus-kf.plaintextPort" . }}
+            {{- end }}
+{{- include "eric-data-message-bus-kf.messagebuskf.liveness" . }}
+        readinessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+{{- include "eric-data-message-bus-kf.messagebuskf.readinessProbe" . }}
+{{ include "eric-data-message-bus-kf.messagebuskf.readiness" . }}
+        ports:
+        - containerPort: {{ template "eric-data-message-bus-kf.plaintextPort" . }}
+          name: binary-kafka
+          protocol: TCP
+        - containerPort: {{ .Values.jmx.kafkaPort }}
+          name: http-jmx
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ index .Values.resources.messagebuskf.requests.cpu | quote }}
+            memory: {{ index .Values.resources.messagebuskf.requests.memory | quote }}
+            {{- if index .Values.resources.messagebuskf.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.messagebuskf.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            cpu: {{ index .Values.resources.messagebuskf.limits.cpu | quote }}
+            memory: {{ index .Values.resources.messagebuskf.limits.memory | quote }}
+            {{- if index .Values.resources.messagebuskf.limits "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.messagebuskf.limits "ephemeral-storage" | quote }}
+            {{- end }}
+        volumeMounts:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
+{{- end }}
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: /etc/kafka
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: /var/lib/kafka/data
+        - name: tmpdir
+          mountPath: /tmp
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: {{ .Values.dataDirectory | quote }}
+          {{- include "eric-data-message-bus-kf.secretsMountPath" . | nindent 6 }}
+{{- if eq $logRedirect "stdout" }}
+        command: ['sh', '-c','/etc/confluent/docker/entrypoint']
+{{- else }}
+        command: ["sh"]
+        args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/eric-data-message-bus-kf.log -redirect {{$logRedirect}} -run=/etc/confluent/docker/entrypoint"]
+{{- end }}
+      {{- if .Values.jmx.enabled }}
+      - name: jmxexporter
+        image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "jmxexporter") .) }}
+        imagePullPolicy: {{ template "eric-data-message-bus-kf.mbkf.imagePullPolicy" . }}
+        securityContext:
+          {{- with (index .Values "seccompProfile" "jmxexporter") }}
+          seccompProfile:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+        env:
+        - name: TZ
+          value: {{ template "eric-data-message-bus-kf.timezone" . }}
+        - name: SERVICE_PORT
+          value: {{ .Values.jmx.servicePort | quote }}
+        - name: DEST_PORT
+          value: {{ .Values.jmx.kafkaPort | quote }}
+        - name: RULES_MODULE
+          value: {{ .Values.jmx.rules | quote }}
+        {{- if include "eric-data-message-bus-kf.jmx-jvm" . }}
+        - name: JVM_LOCAL_OPTS
+          value: {{ template "eric-data-message-bus-kf.jmx-jvm" . }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.jmx.servicePort }}
+          name: http-jmx-srv
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.jmx.servicePort }}
+{{- include "eric-data-message-bus-kf.jmxexporter.liveness" . }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.jmx.servicePort }}
+{{- include "eric-data-message-bus-kf.jmxexporter.readiness" . }}
+        resources:
+          requests:
+            memory: {{ template "eric-data-message-bus-kf.jmx.requests.memory" . }}
+            cpu: {{ template "eric-data-message-bus-kf.jmx.requests.cpu" . }}
+            {{- if (include "eric-data-message-bus-kf.jmx.requests.ephemeral-storage.istrue" .) }}
+            ephemeral-storage: {{ template "eric-data-message-bus-kf.jmx.requests.ephemeral-storage" . }}
+            {{- end }}
+          limits:
+            memory: {{ template "eric-data-message-bus-kf.jmx.limits.memory" . }}
+            cpu: {{ template "eric-data-message-bus-kf.jmx.limits.cpu" . }}
+            {{- if (include "eric-data-message-bus-kf.jmx.limits.ephemeral-storage.istrue" .) }}
+            ephemeral-storage: {{ template "eric-data-message-bus-kf.jmx.limits.ephemeral-storage" . }}
+            {{- end }}
+{{- if eq $logRedirect "stdout" }}
+        command: ["sh", "-c","/opt/jmx_exporter/start.sh -service-id=eric-data-message-bus-kf -container-name=jmxsexporter"]
+{{- else }}
+        command: ["/bin/bash"]
+        args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/jmxexporter.log -redirect {{$logRedirect}} -run=\"/opt/jmx_exporter/start.sh -service-id=eric-data-message-bus-kf -container-name=jmxsexporter\""]
+{{- end }}
+        volumeMounts:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
+{{- end }}
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: /opt/jmx_exporter/config
+        - name: tmpdir
+          mountPath: /tmp
+      {{- end }}
+      {{- if .Values.metricsexporter.enabled }}
+      - name: metricsexporter
+        image: {{ template "eric-data-message-bus-kf.imagePath" (merge (dict "imageName" "metricsexporter") .) }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.metricsexporter.requests.memory | quote }}
+            cpu: {{ .Values.resources.metricsexporter.requests.cpu | quote }}
+            {{- if index .Values.resources.metricsexporter.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.metricsexporter.requests "ephemeral-storage" | quote }}
+            {{- end }}
+          limits:
+            memory: {{ .Values.resources.metricsexporter.limits.memory | quote }}
+            cpu: {{ .Values.resources.metricsexporter.limits.cpu | quote }}
+            {{- if index .Values.resources.metricsexporter.requests "ephemeral-storage" }}
+            ephemeral-storage: {{ index .Values.resources.metricsexporter.requests "ephemeral-storage" | quote }}
+            {{- end }}
+{{- if eq $logRedirect "stdout" }}
+        command: ["sh", "-c","/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter"]
+{{- else }}
+        command: ["/bin/bash"]
+        args: ["-c", "/usr/bin/stdout-redirect -logfile /logs/metricsexporter.log -redirect {{$logRedirect}} -run=\"/metrics-exporter -service-id=eric-data-message-bus-kf -container-name=metricsexporter\""]
+{{- end }}
+        securityContext:
+          {{- with (index .Values "seccompProfile" "metricsexporter") }}
+          seccompProfile:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+               - all
+        env:
+    {{- if (eq (include "eric-data-message-bus-kf.tls" .) "true") }}
+        - name: ENABLE_TLS_METRIC
+          value: "true"
+        - name: SERVER_CERT_DIR
+          value: "/run/kafka/secrets/servercert"
+        - name: SERVER_CERT_NAME
+          value: "srvcert.pem"
+        - name: SERVER_CERT_KEY
+          value: "srvprivkey.pem"
+        - name: SCRAPE_CA_CERT_DIR
+          value: "/run/kafka/secrets/pmca/"
+        - name: SCRAPE_CA_CERT_NAME
+          value: "client-cacertbundle.pem"
+    {{- else }}
+        - name: ENABLE_TLS_METRIC
+          value: "false"
+    {{- end }}
+        - name: TZ
+          value: {{ template "eric-data-message-bus-kf.timezone" . }}
+        - name: DATADIR
+          value: "/etc/kafka"
+        - name: METRIC_PREFIX
+          value: "mbkf"
+        - name: METRIC_PORT
+          value: {{.Values.metricsexporter.port | quote }}
+        - name: HEALTH_PORT
+          value: "9086"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: PVCNAME
+          value: "none"
+        ports:
+        {{- if (eq (include "eric-data-message-bus-kf.tls" .) "true") }}
+        - name: client-tls
+          containerPort: {{.Values.metricsexporter.port }}
+        {{- else }}
+        - name: client
+          containerPort: {{.Values.metricsexporter.port }}
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9086
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.probes.metricsexporter.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.metricsexporter.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.metricsexporter.readinessProbe.timeoutSeconds }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9086
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.probes.metricsexporter.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.metricsexporter.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.metricsexporter.livenessProbe.timeoutSeconds }}
+        volumeMounts:
+{{- if has "stream" .Values.log.outputs }}
+{{- include "eric-data-message-bus-kf.logshipper-storage-path" . | indent 8 }}
+{{- end }}
+        - name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+          mountPath: /etc/kafka
+    {{- if (eq (include "eric-data-message-bus-kf.tls" .) "true") }}
+      {{- include "eric-data-message-bus-kf.secretsMountPath" . | nindent 6 }}
+    {{- end }}
+      {{- end }}
+      volumes:
+      # tmpdir, meant to be mounted at /tmp to contain temporary files.
+      # It's an emptyDir because we don't care about /tmp contents between reboots.
+      - name: tmpdir
+        emptyDir: {}
+      {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-data-message-bus-kf.logshipper-volume" . | indent 6 }}
+      {{- end }}
+      {{- if or ( eq (include "eric-data-message-bus-kf.tls" .) "true" ) ( not .Values.persistence.persistentVolumeClaim.enabled ) }}
+      {{- include "eric-data-message-bus-kf.volumes" . | nindent 6 -}}
+      {{- end -}}
+  {{- if ( .Values.persistence.persistentVolumeClaim.enabled )}}
+  volumeClaimTemplates:
+  - metadata:
+      {{- $vctName := include "eric-data-message-bus-kf.persistence.volumeMount.name" . -}}
+      {{- $name := include "eric-data-message-bus-kf.fullname" . }}
+      {{- $copiedVCTLabels := include "eric-data-message-bus-kf.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) }}
+      {{- $copiedVCTAnn := include "eric-data-message-bus-kf.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) }}
+      {{- if $copiedVCTLabels }}
+      labels:
+        {{- $copiedVCTLabels | nindent 8 }}
+      {{- end }}
+      {{- if $copiedVCTAnn }}
+      annotations:
+        {{- $copiedVCTAnn | nindent 8 }}
+      {{- end }}
+      name: {{ template "eric-data-message-bus-kf.persistence.volumeMount.name" . }}
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.persistence.persistentVolumeClaim.size | quote }}
+      {{- if .Values.persistence.persistentVolumeClaim.storageClassName }}
+      storageClassName: {{ .Values.persistence.persistentVolumeClaim.storageClassName | quote }}
+      {{- end }}
+  {{- end }}

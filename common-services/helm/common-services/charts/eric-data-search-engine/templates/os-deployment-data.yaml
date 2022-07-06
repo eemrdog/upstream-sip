@@ -1,0 +1,181 @@
+{{- $g := fromJson (include "eric-data-search-engine.global" .) -}}
+{{- $startupProbe := semverCompare ">=1.18-0" (printf "%s.%s-0" .Capabilities.KubeVersion.Major (trimSuffix "+" .Capabilities.KubeVersion.Minor)) -}}
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ include "eric-data-search-engine.fullname" . }}-data
+  labels: {{- include "eric-data-search-engine.helm-labels" . | nindent 4 }}
+  annotations: {{- include "eric-data-search-engine.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.data }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy.data.type | quote }}
+    {{- if eq .Values.updateStrategy.data.type "RollingUpdate" }}
+    rollingUpdate:
+      partition: {{ .Values.updateStrategy.data.rollingUpdate.partition }}
+    {{- end }}
+  serviceName: {{ include "eric-data-search-engine.fullname" . }}-data
+  selector:
+    matchLabels:
+      {{- include "eric-data-search-engine.selectorLabels.data" . | indent 6 }}
+      role: data
+  template:
+    metadata:
+      labels:
+        {{- $dataLabels := dict -}}
+        {{- $_ := set $dataLabels "app" (include "eric-data-search-engine.fullname" . | toString) -}}
+        {{- $_ := set $dataLabels "component" "eric-data-search-engine" -}}
+        {{- $_ := set $dataLabels "role" "data" -}}
+        {{- $commonLabels := include "eric-data-search-engine.labels" . | fromYaml }}
+        {{- include "eric-data-search-engine.mergeLabels" (dict "location" .Template.Name "sources" (list $commonLabels $dataLabels)) | trim | nindent 8 }}
+      annotations:
+        {{- $checksumAnn := dict "checksum/config" (include (print $.Template.BasePath "/os-configmap.yaml") . | sha256sum | toString) -}}
+        {{- $metricsAnn := include "eric-data-search-engine.metrics-annotations" . | fromYaml }}
+        {{- $commonAnn := include "eric-data-search-engine.annotations" . | fromYaml -}}
+
+        {{- if and (.Values.metrics.enabled) (not $g.security.tls.enabled) }}
+          {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checksumAnn $commonAnn $metricsAnn)) | trim | nindent 8 }}
+        {{- else -}}
+          {{- include "eric-data-search-engine.mergeAnnotations" (dict "location" .Template.Name "sources" (list $checksumAnn $commonAnn)) | trim | nindent 8 }}
+        {{- end }}
+        {{- if .Values.bandwidth.data.maxEgressRate }}
+        kubernetes.io/egress-bandwidth: {{ .Values.bandwidth.data.maxEgressRate | quote }}
+        {{- end }}
+    spec:
+    {{- if .Capabilities.APIVersions.Has "v1/ServiceAccount" }}
+      serviceAccount: ""
+    {{- end }}
+      serviceAccountName: {{ include "eric-data-search-engine.fullname" . }}-sa
+      {{- include "eric-data-search-engine.pod-anti-affinity" (dict "context" "data" "root" .) | indent 6 }}
+      securityContext:
+        fsGroup: {{ include "eric-data-search-engine.fsGroup.coordinated" . }}
+        supplementalGroups:
+          - 232772
+    {{- if .Values.tolerations }}
+    {{- if .Values.tolerations.data }}
+      tolerations: {{- toYaml .Values.tolerations.data | nindent 6 }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.topologySpreadConstraints.data }}
+      topologySpreadConstraints:
+       {{- range $constraints := .Values.topologySpreadConstraints.data }}
+      - maxSkew: {{ $constraints.maxSkew }}
+        topologyKey: {{ $constraints.topologyKey }}
+        whenUnsatisfiable: {{ $constraints.whenUnsatisfiable }}
+        labelSelector:
+          matchLabels:
+            {{- include "eric-data-search-engine.selectorLabels.data" $ | indent 12 }}
+            role: "data"
+    {{- end }}
+    {{- end }}
+{{- include "eric-data-search-engine.pullSecrets" . | indent 6 }}
+      initContainers:
+      {{- if .Values.autoSetRequiredWorkerNodeSysctl }}
+        {{- include "eric-data-search-engine.deployment-init-containers" . | nindent 6 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds.data }}
+      {{- if .Values.podPriority.data.priorityClassName }}
+      priorityClassName: {{ .Values.podPriority.data.priorityClassName | quote }}
+      {{- end }}
+      containers:
+      - name: "data"
+        readinessProbe:
+          exec:
+            command:
+              - /readiness-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.readinessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.readinessProbe.failureThreshold }}
+        livenessProbe:
+          exec:
+            command:
+              - /liveness-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.livenessProbe.failureThreshold }}
+        {{- if $startupProbe }}
+        {{- if and (not .Values.fastButUnsafeUpgrade.enabled) (.Release.IsUpgrade) }}
+        startupProbe:
+          exec:
+            command:
+              - /startup-probe.sh
+          initialDelaySeconds: {{ .Values.probes.data.startupProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.data.startupProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.data.startupProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.probes.data.startupProbe.successThreshold }}
+          failureThreshold: {{ .Values.probes.data.startupProbe.failureThreshold }}
+        {{- end }}
+        {{- end }}
+        resources: {{- include "eric-data-search-engine.resources" .Values.resources.data| nindent 10 }}
+      {{- include "eric-data-search-engine.deployment-containers" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        env:
+        {{- include "eric-data-search-engine.deployment-env" (dict "context" "tls" "root" . ) | indent 8 }}
+        - name: OS_ENV_NI
+          value: node.ingest=false
+        - name: OS_ENV_NM
+          value: node.master=false
+        - name: OS_ENV_ND
+          value: node.data=true
+        ports:
+        - containerPort: 9300
+          name: transport
+          protocol: TCP
+    {{- if .Values.metrics.enabled }}
+      {{- include "eric-data-search-engine.metrics-container" (dict "context" "tls" "root" . ) | indent 6 }}
+     {{- if $g.security.tls.enabled }}
+      {{- include "eric-data-search-engine.tlsproxy-container" (dict "context" "tls" "root" . ) | indent 6 }}
+     {{- end }}
+    {{- end }}
+    {{- if has "stream" .Values.log.outputs }}
+      {{- include "eric-data-search-engine.logshipper-container" . | indent 6 }}
+    {{- end }}
+    {{- if (or .Values.nodeSelector.data $g.nodeSelector) }}
+      nodeSelector: {{- include "eric-data-search-engine.nodeSelector" (dict "context" "data" "root" .) | nindent 8 }}
+    {{- end }}
+      volumes:
+        {{- include "eric-data-search-engine.repository-volume" . | indent 8 }}
+        {{- include "eric-data-search-engine.os-volume" . | indent 8 }}
+        {{- include "eric-data-search-engine.configmap-volume" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        {{- include "eric-data-search-engine.data-configmap-volume" (dict "context" (dict "pod" "data" "tls" true) "root" .) | indent 8 }}
+        {{- if and .Values.brAgent.enabled (eq .Values.brAgent.backupRepository.type "s3") }}
+        {{- include "eric-data-search-engine.secret-volume" . | indent 8 }}
+        {{- end }}
+        {{- if $g.security.tls.enabled }}
+          {{- include "eric-data-search-engine.security-tls-secret-volumes-http-server" . | indent 8 }}
+          {{- include "eric-data-search-engine.security-tls-secret-volumes-transport" . | indent 8 }}
+          {{- if .Values.metrics.enabled }}
+            {{- include "eric-data-search-engine.security-tls-secret-volumes-metrics-client" . | indent 8 }}
+            {{- include "eric-data-search-engine.security-tls-secret-volumes-metrics-server" . | indent 8 }}
+          {{- end }}
+        {{- end }}
+        {{- if has "stream" .Values.log.outputs }}
+          {{- include "eric-data-search-engine.logshipper-volume" . | indent 8 }}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        {{- $vctName := "storage" -}}
+        {{- $name := printf "%s-data" (include "eric-data-search-engine.fullname" .) }}
+        {{- $mergedVCTLabels := include "eric-data-search-engine.copyVCTLabels" (dict "vctName" $vctName "release" .Release "name" $name) }}
+        {{- $mergedVCTAnn := include "eric-data-search-engine.copyVCTAnnotations" (dict "vctName" $vctName "release" .Release "name" $name) }}
+        {{- if $mergedVCTLabels }}
+        labels:
+          {{- $mergedVCTLabels | nindent 10 }}
+        {{- end }}
+        {{- if $mergedVCTAnn }}
+        annotations:
+          {{- $mergedVCTAnn | nindent 10 }}
+        {{- end }}
+        name: {{ $vctName }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.persistence.data.persistentVolumeClaim.storageClassName }}
+        storageClassName: {{ .Values.persistence.data.persistentVolumeClaim.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.data.persistentVolumeClaim.size }}
