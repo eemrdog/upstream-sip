@@ -1,0 +1,163 @@
+{{- if .Capabilities.APIVersions.Has "apiextensions.k8s.io/v1" }}
+apiVersion: apiextensions.k8s.io/v1
+{{- else }}
+apiVersion: apiextensions.k8s.io/v1beta1
+{{- end }}
+kind: CustomResourceDefinition
+metadata:
+  # name must match the spec fields below, and be in the form: <plural>.<group>
+  name: externalcertificates.certm.sec.ericsson.com
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+    "helm.sh/resource-policy": keep
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+spec:
+  # group name to use for REST API: /apis/<group>/<version>
+  group: certm.sec.ericsson.com
+  # list of versions supported by this CustomResourceDefinition
+  versions:
+    - name: v1beta1
+{{- if (semverCompare ">=1.19-0" (include "eric-sec-certm-crd.KubernetesVersion" .)) }}
+      # This indicates that the v1alpha1 version of the custom resource is deprecated.
+      # API requests to this version receive a warning header in the server response.
+      deprecated: true
+      # This overrides the default warning returned to API clients making v1alpha1 API requests.
+      deprecationWarning: "certm.sec.ericsson.com/v1beta1 will be removed from 25-05-2022; see the Certificate Management API Documentation (1/155 19-CAF 101 94/1 Uen) for instructions to migrate to the new apiVersion certm.sec.ericsson.com/v1"
+{{- end }}
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: false
+{{- if .Capabilities.APIVersions.Has "apiextensions.k8s.io/v1" }}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+              - generated-secret-name
+              - generated-secret-type
+              properties:
+                generated-secret-name:
+                  type: string
+                  description: Name of secret to be created and used when provisioning certificates and keys
+                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+                generated-secret-type:
+                  type: string
+                  description: The type of secret to be created. The tls type is required for Ingress Controllers. Note that the tls type secret contains one private key and one certificate which means it's only applicable for asymmetric-key-certificate consumers.
+                  enum:
+                  - tls
+                  - opaque
+                trusted-certificates-file-name:
+                  type: string
+                  description: Name of file to contain all trusted certificates. When set, all trusted certificates are stored in one PEM file with specified name. This overrides the default behavior where each trusted certificate is stored in its own PEM file. Only applicable for trusted certificates, that is, when trusted-certificate-list-name is used.
+                asymmetric-key-name:
+                  type: string
+                  description: Name of the asymmetric-key instance according to ietf-keystore configuration.
+                asymmetric-key-certificate-name:
+                  type: string
+                  description: Name of the asymmetric-key-certificate instance according to ietf-keystore configuration. The name must be prefixed with the parent asymmetric-key name and forward slash as separator, for example "netconfkey/certificate".
+                trusted-certificate-list-name:
+                  type: string
+                  description: Name of the trusted certificates list instance according to ietf-truststore configuration.
+{{- end }}
+    - name: v1
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: true
+{{- if .Capabilities.APIVersions.Has "apiextensions.k8s.io/v1" }}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+              - generated-secret-name
+              - generated-secret-type
+              properties:
+                generated-secret-name:
+                  type: string
+                  description: Name of secret to be created and used when provisioning certificates and keys
+                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+                generated-secret-type:
+                  type: string
+                  description: The type of secret to be created. The tls type is required for Ingress Controllers. Note that the tls type secret contains one private key and one certificate which means it's only applicable for asymmetric-key-certificate consumers.
+                  enum:
+                  - tls
+                  - opaque
+                trusted-certificates-file-name:
+                  type: string
+                  description: Name of file to contain all trusted certificates. When set, all trusted certificates are stored in one PEM file with specified name. This overrides the default behavior where each trusted certificate is stored in its own PEM file. Only applicable for trusted certificates, that is, when trusted-certificate-list-name is used.
+                asymmetric-key-name:
+                  type: string
+                  description: Name of the asymmetric-key instance according to ietf-keystore configuration.
+                asymmetric-key-certificate-name:
+                  type: string
+                  description: Name of the asymmetric-key-certificate instance according to ietf-keystore configuration. The name must be prefixed with the parent asymmetric-key name and forward slash as separator, for example "netconfkey/certificate".
+                trusted-certificate-list-name:
+                  type: string
+                  description: Name of the trusted certificates list instance according to ietf-truststore configuration.
+{{- end }}
+{{- if (semverCompare ">=1.13-0" (include "eric-sec-certm-crd.KubernetesVersion" .)) }}
+  # The conversion section is introduced in Kubernetes 1.13+ with a default value of
+  # None conversion (strategy sub-field set to None).
+  conversion:
+    # None conversion assumes the same schema for all versions and only sets the apiVersion
+    # field of custom resources to the proper value
+    strategy: None
+  # either Namespaced or Cluster
+{{- end }}
+  scope: Namespaced
+  names:
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: externalcertificates
+    # singular name to be used as an alias on the CLI and for display
+    singular: externalcertificate
+    # kind is normally the CamelCased singular type. Your resource manifests use this.
+    kind: ExternalCertificate
+    # shortNames allow shorter string to match your resource on the CLI
+    shortNames:
+    - extcert
+    - extcerts
+    - externalcert
+    - externalcerts
+{{- if (not (.Capabilities.APIVersions.Has "apiextensions.k8s.io/v1")) }}
+  validation:
+    # openAPIV3Schema is the schema for validating custom objects.
+    openAPIV3Schema:
+      type: object
+      properties:
+        spec:
+          required:
+          - generated-secret-name
+          - generated-secret-type
+          properties:
+            generated-secret-name:
+              type: string
+              description: Name of secret to be created and used when provisioning certificates and keys
+              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+            generated-secret-type:
+              type: string
+              description: The type of secret to be created. The tls type is required for Ingress Controllers. Note that the tls type secret contains one private key and one certificate which means it's only applicable for asymmetric-key-certificate consumers.
+              enum:
+              - tls
+              - opaque
+            trusted-certificates-file-name:
+              type: string
+              description: Name of file to contain all trusted certificates. When set, all trusted certificates are stored in one PEM file with specified name. This overrides the default behavior where each trusted certificate is stored in its own PEM file. Only applicable for trusted certificates, that is, when trusted-certificate-list-name is used.
+            asymmetric-key-name:
+              type: string
+              description: Name of the asymmetric-key instance according to ietf-keystore configuration.
+            asymmetric-key-certificate-name:
+              type: string
+              description: Name of the asymmetric-key-certificate instance according to ietf-keystore configuration. The name must be prefixed with the parent asymmetric-key name and forward slash as separator, for example "netconfkey/certificate".
+            trusted-certificate-list-name:
+              type: string
+              description: Name of the trusted certificates list instance according to ietf-truststore configuration.
+{{- end }}

@@ -1,0 +1,64 @@
+{{ if or (.Values.waitForCustomResourcesPublished) (eq (.Values.waitForCustomResourcesPublished | toString) "<nil>" ) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "eric-sec-certm-crd.name" . }}
+  labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 4 }}
+  annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 4 }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+spec:
+  template:
+    metadata:
+      labels:
+{{- include "eric-sec-certm-crd.labels" . | indent 8 }}
+      annotations:
+{{- include "eric-sec-certm-crd.annotations" . | indent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: crdjob
+        image: {{ template "eric-sec-certm-crd.crdjob.imagePath" . }}
+        imagePullPolicy: "{{ template "eric-sec-certm-crd.pullPolicy" . }}"
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - all
+        command: ["catatonit", "--", "./crd-scripts/check_crds.bash"]
+        env:
+          - name: SERVICE_NAME
+            value: "{{ template "eric-sec-certm-crd.name" . }}"
+          - name: TZ
+            value: "{{ template "eric-sec-certm-crd.timezone" . }}"
+        volumeMounts:
+          - name: scripts
+            mountPath: /crd-scripts
+{{ include "eric-sec-certm-crd.crdjob.resources" . | indent 8}}
+      serviceAccountName: "{{ template "eric-sec-certm-crd.name" . }}-service-account"
+      volumes:
+        - name: scripts
+          configMap:
+            name: "{{ template "eric-sec-certm-crd.name" . }}-config"
+            defaultMode: 0777
+{{- if include "eric-sec-certm-crd.pullSecret" . }}
+      imagePullSecrets:
+        - name: "{{ template "eric-sec-certm-crd.pullSecret" . }}"
+{{- end }}
+{{- if include "eric-sec-certm-crd.nodeSelector" . }}
+      nodeSelector:
+{{ template "eric-sec-certm-crd.nodeSelector" . }}
+{{- end }}
+      terminationGracePeriodSeconds: {{ template "eric-sec-certm-crd.terminationGracePeriodSeconds" . }}
+      tolerations:
+{{- if (index .Values "tolerations" "eric-sec-certm-crd") }}
+{{ toYaml (index .Values "tolerations" "eric-sec-certm-crd") | indent 6 }}
+{{- end }}
+{{- end }}
