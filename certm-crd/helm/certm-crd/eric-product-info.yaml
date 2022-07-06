@@ -4,7 +4,7 @@ images:
   crdjob:
     productName: "Certificate Management CRD JOB IMAGE"
     productNumber: "CXC 174 3026"
-    registry: "armdocker.rnd.ericsson.se"
+    registry: "451278531435.dkr.ecr.us-east-1.amazonaws.com"
     repoPath: proj-adp-certificate-management-released/eric-sec-certm
     name: eric-sec-certm-crd
     tag: 3.11.0-81
